@@ -1,0 +1,57 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@acueducto.com",
+      "password": "$2a$10$nGD0HToHpKsapb49xOzomuMFny.Gpc9rdasFwYIHaxglWpClOHI.C",
+      "name": "Administrador",
+      "role": "admin",
+      "createdAt": "2025-08-26T18:05:03.410Z",
+      "updatedAt": "2025-08-26T18:05:03.410Z"
+    }
+  ],
+  "pages": [
+    {
+      "id": 1,
+      "title": "Inicio",
+      "slug": "home",
+      "content": "<h1>Bienvenido al Acueducto Municipal</h1><p>Agua pura para tu comunidad</p>",
+      "published": true,
+      "createdAt": "2025-08-26T18:05:03.410Z",
+      "updatedAt": "2025-08-26T18:05:03.410Z"
+    },
+    {
+      "id": 2,
+      "title": "Quiénes Somos",
+      "slug": "quienes-somos",
+      "content": "<h1>Quiénes Somos</h1><p>Información sobre el acueducto municipal</p>",
+      "published": true,
+      "createdAt": "2025-08-26T18:05:03.410Z",
+      "updatedAt": "2025-08-26T18:05:03.410Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "accountNumber": "12345",
+      "customerName": "Juan Pérez",
+      "amount": 45000,
+      "description": "Factura de agua - Enero 2024",
+      "status": "paid",
+      "dueDate": "2024-01-31",
+      "createdAt": "2025-08-26T18:05:03.410Z",
+      "updatedAt": "2025-08-26T18:05:03.410Z"
+    },
+    {
+      "id": 2,
+      "accountNumber": "12346",
+      "customerName": "María González",
+      "amount": 52000,
+      "description": "Factura de agua - Enero 2024",
+      "status": "pending",
+      "dueDate": "2024-01-31",
+      "createdAt": "2025-08-26T18:05:03.410Z",
+      "updatedAt": "2025-08-26T18:05:03.410Z"
+    }
+  ]
+}
