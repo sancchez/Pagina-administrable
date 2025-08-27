@@ -21,12 +21,12 @@ const PageEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [viewMode, setViewMode] = useState<'code' | 'preview'>('code'); // Nuevo estado para alternar vista
+  const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview'); // Cambiado a 'preview' por defecto
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
     content: '',
-    metaDescription: '', // Asegurar que siempre tenga un string vacío
+    metaDescription: '',
     published: false
   });
 
@@ -58,7 +58,7 @@ const PageEditor: React.FC = () => {
         title: pageData.title || '',
         slug: pageData.slug || '',
         content: pageData.content || '',
-        metaDescription: pageData.metaDescription || '', // Asegurar que nunca sea null
+        metaDescription: pageData.metaDescription || '',
         published: pageData.published || false
       });
     } catch (err) {
@@ -96,7 +96,6 @@ const PageEditor: React.FC = () => {
       const savedPage = await response.json();
       setPage(savedPage);
       
-      // Si es una página nueva, redirigir al editor con el ID
       if (id === 'new') {
         navigate(`/admin/editor/${savedPage.id}`);
       }
@@ -114,24 +113,6 @@ const PageEditor: React.FC = () => {
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
-  };
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
-  };
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const title = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      title,
-      slug: generateSlug(title)
     }));
   };
 
@@ -161,7 +142,7 @@ const PageEditor: React.FC = () => {
                 Volver al Dashboard
               </button>
               <h1 className="text-xl font-semibold text-gray-900">
-                {id === 'new' ? 'Nueva Página' : `Editando: ${formData.title || 'Sin título'}`}
+                {id === 'new' ? 'Nueva Página' : `Editando: ${formData.title || page?.title || 'Página'}`}
               </h1>
             </div>
             <div className="flex items-center space-x-3">
@@ -174,7 +155,7 @@ const PageEditor: React.FC = () => {
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !formData.title.trim()}
+                disabled={saving}
                 className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4 mr-2" />
@@ -205,112 +186,51 @@ const PageEditor: React.FC = () => {
           {/* Editor Panel */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-6">Editor de Contenido</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-medium text-gray-900">Editor de Contenido</h2>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('preview')}
+                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
+                      viewMode === 'preview'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                    }`}
+                  >
+                    <Monitor className="h-4 w-4 mr-2" />
+                    Vista HTML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('code')}
+                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
+                      viewMode === 'code'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                    }`}
+                  >
+                    <Code className="h-4 w-4 mr-2" />
+                    Código
+                  </button>
+                </div>
+              </div>
               
               <div className="space-y-6">
-                {/* Title */}
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                    Título *
-                  </label>
-                  <input
-                    type="text"
-                    id="title"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleTitleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Título de la página"
-                    required
-                  />
-                </div>
-
-                {/* Slug */}
-                <div>
-                  <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-2">
-                    URL (Slug) *
-                  </label>
-                  <input
-                    type="text"
-                    id="slug"
-                    name="slug"
-                    value={formData.slug}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="url-de-la-pagina"
-                    required
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    URL: /{formData.slug || 'url-de-la-pagina'}
-                  </p>
-                </div>
-
-                {/* Meta Description */}
-                <div>
-                  <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700 mb-2">
-                    Meta Descripción
-                  </label>
-                  <textarea
-                    id="metaDescription"
-                    name="metaDescription"
-                    value={formData.metaDescription}
-                    onChange={handleInputChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Descripción para SEO (máximo 160 caracteres)"
-                    maxLength={160}
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    {(formData.metaDescription || '').length}/160 caracteres
-                  </p>
-                </div>
-
                 {/* Content with toggle */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label htmlFor="content" className="block text-sm font-medium text-gray-700">
-                      Contenido
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('code')}
-                        className={`flex items-center px-2 py-1 text-xs rounded ${
-                          viewMode === 'code'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Code className="h-3 w-3 mr-1" />
-                        Código
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('preview')}
-                        className={`flex items-center px-2 py-1 text-xs rounded ${
-                          viewMode === 'preview'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Monitor className="h-3 w-3 mr-1" />
-                        Vista Previa
-                      </button>
-                    </div>
-                  </div>
-                  
                   {viewMode === 'code' ? (
                     <textarea
                       id="content"
                       name="content"
                       value={formData.content}
                       onChange={handleInputChange}
-                      rows={20}
+                      rows={25}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                       placeholder="<div>Contenido HTML de la página...</div>"
                     />
                   ) : (
-                    <div className="border border-gray-300 rounded-md min-h-96 p-4 bg-white">
+                    <div className="border border-gray-300 rounded-md min-h-[600px] p-4 bg-white">
                       {formData.content ? (
                         <div 
                           className="prose prose-sm max-w-none"
@@ -322,14 +242,17 @@ const PageEditor: React.FC = () => {
                           dangerouslySetInnerHTML={{ __html: formData.content }}
                         />
                       ) : (
-                        <p className="text-gray-500 italic">Escribe contenido HTML para ver la vista previa...</p>
+                        <div className="text-center py-12">
+                          <Monitor className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-500 italic">Cambia a "Código" para escribir contenido HTML...</p>
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
 
                 {/* Published */}
-                <div className="flex items-center">
+                <div className="flex items-center pt-4 border-t">
                   <input
                     type="checkbox"
                     id="published"
@@ -346,7 +269,7 @@ const PageEditor: React.FC = () => {
             </div>
           </div>
 
-          {/* Preview Panel - Mejorado */}
+          {/* Preview Panel */}
           {showPreview && (
             <div className="bg-white rounded-lg shadow">
               <div className="p-6">
@@ -360,7 +283,7 @@ const PageEditor: React.FC = () => {
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                     </div>
                     <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600">
-                      localhost:5173/{formData.slug || 'pagina'}
+                      localhost:5173/{formData.slug || page?.slug || 'pagina'}
                     </div>
                   </div>
                   
