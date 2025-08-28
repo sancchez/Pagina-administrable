@@ -20,149 +20,6 @@ const pages = [
 
 <section class="py-16 px-4 bg-white/50">
   <div class="container mx-auto">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-      <div>
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">Nuestra Misión</h2>
-        <p class="text-gray-600 text-lg leading-relaxed mb-6">
-          Garantizar el suministro continuo y confiable de agua potable de excelente calidad 
-          a todos nuestros usuarios, contribuyendo al desarrollo sostenible de la región y 
-          mejorando la calidad de vida de las comunidades que servimos.
-        </p>
-        <div class="bg-gradient-to-r from-blue-500 to-green-500 p-6 rounded-xl text-white">
-          <h3 class="text-xl font-semibold mb-2">Compromiso Social</h3>
-          <p>Trabajamos día a día para ser el mejor aliado de nuestra comunidad en el acceso al agua potable.</p>
-        </div>
-      </div>
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-8 border border-gray-200 shadow-lg">
-        <h3 class="text-2xl font-bold text-gray-800 mb-4">Datos Destacados</h3>
-        <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600">Usuarios Atendidos</span>
-            <span class="text-2xl font-bold text-blue-600">25,000+</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600">Años de Experiencia</span>
-            <span class="text-2xl font-bold text-green-600">30+</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600">Cobertura</span>
-            <span class="text-2xl font-bold text-purple-600">98%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="py-16 px-4">
-  <div class="container mx-auto">
-    <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">Nuestra Visión</h2>
-    <div class="max-w-4xl mx-auto text-center">
-      <p class="text-xl text-gray-600 leading-relaxed mb-8">
-        Ser reconocidos como la empresa líder en servicios de acueducto en la región, 
-        destacándonos por nuestra innovación tecnológica, sostenibilidad ambiental y 
-        excelencia en el servicio al cliente.
-      </p>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Innovación</h3>
-          <p class="text-gray-600">Implementamos las últimas tecnologías para optimizar nuestros servicios.</p>
-        </div>
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Sostenibilidad</h3>
-          <p class="text-gray-600">Protegemos el medio ambiente en cada una de nuestras operaciones.</p>
-        </div>
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Excelencia</h3>
-          <p class="text-gray-600">Superamos las expectativas de nuestros usuarios constantemente.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="py-16 px-4 bg-white/50">
-  <div class="container mx-auto">
-    <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">Nuestros Valores</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 text-center hover:shadow-lg transition-all duration-300">
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-          <span class="text-white text-2xl font-bold">R</span>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Responsabilidad</h3>
-        <p class="text-gray-600 text-sm">Cumplimos con nuestros compromisos de manera ética y transparente.</p>
-      </div>
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 text-center hover:shadow-lg transition-all duration-300">
-        <div class="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-          <span class="text-white text-2xl font-bold">C</span>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Calidad</h3>
-        <p class="text-gray-600 text-sm">Ofrecemos servicios que superan los estándares de calidad.</p>
-      </div>
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 text-center hover:shadow-lg transition-all duration-300">
-        <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-          <span class="text-white text-2xl font-bold">I</span>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Integridad</h3>
-        <p class="text-gray-600 text-sm">Actuamos con honestidad y transparencia en todas nuestras acciones.</p>
-      </div>
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 text-center hover:shadow-lg transition-all duration-300">
-        <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-          <span class="text-white text-2xl font-bold">S</span>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Servicio</h3>
-        <p class="text-gray-600 text-sm">Nos enfocamos en brindar la mejor experiencia a nuestros usuarios.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="py-16 px-4">
-  <div class="container mx-auto">
-    <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">Nuestra Historia</h2>
-    <div class="max-w-4xl mx-auto">
-      <div class="bg-white/80 backdrop-blur-sm rounded-xl p-8 border border-gray-200 shadow-lg">
-        <div class="space-y-6">
-          <div class="border-l-4 border-blue-500 pl-6">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">1990 - Fundación</h3>
-            <p class="text-gray-600">Inicio de operaciones con el objetivo de brindar agua potable a la comunidad local.</p>
-          </div>
-          <div class="border-l-4 border-green-500 pl-6">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">2000 - Expansión</h3>
-            <p class="text-gray-600">Ampliación de la cobertura del servicio a nuevas zonas de la región.</p>
-          </div>
-          <div class="border-l-4 border-purple-500 pl-6">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">2010 - Modernización</h3>
-            <p class="text-gray-600">Implementación de tecnologías avanzadas para mejorar la calidad del servicio.</p>
-          </div>
-          <div class="border-l-4 border-orange-500 pl-6">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">2020 - Sostenibilidad</h3>
-            <p class="text-gray-600">Adopción de prácticas sostenibles y responsabilidad ambiental.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>`,
-    metaDescription: 'Conoce nuestra misión, visión, valores e historia. Somos una empresa comprometida con el bienestar de la comunidad y la prestación de servicios de acueducto de calidad.'
-  },
-  {
-    title: 'Operación y Gestión',
-    slug: 'operacion-gestion',
-    content: `<section class="py-20 px-4">
-  <div class="container mx-auto text-center">
-    <h1 class="text-5xl font-bold text-gray-800 mb-6">
-      Operación y <span class="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">Gestión</span>
-    </h1>
-    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-      Conoce cómo gestionamos nuestras operaciones para garantizar un servicio de excelencia, 
-      con procesos eficientes y tecnología de vanguardia.
-    </p>
-  </div>
-</section>
-
-<section class="py-16 px-4 bg-white/50">
-  <div class="container mx-auto">
     <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">
       Áreas Operativas
     </h2>
@@ -884,8 +741,9 @@ async function migratePages() {
         });
       } else {
         console.log(`Creando nueva página: ${page.slug}`);
+        // El script crea las páginas sin el campo published
         await prisma.page.create({
-          data: page
+          data: page  // ← No incluye published: true
         });
       }
     }

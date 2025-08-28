@@ -11,8 +11,16 @@ function App() {
       {/* Página de inicio dinámica */}
       <Route path="/" element={<DynamicPage />} />
       
-      {/* Páginas dinámicas por slug */}
+      {/* Rutas dinámicas con /page/ prefix */}
       <Route path="/page/:slug" element={<DynamicPage />} />
+      
+      {/* Rutas directas para compatibilidad */}
+      <Route path="/quienes-somos" element={<DynamicPage />} />
+      <Route path="/informacion-esal" element={<DynamicPage />} />
+      <Route path="/operacion-gestion" element={<DynamicPage />} />
+      <Route path="/portal-usuario" element={<DynamicPage />} />
+      <Route path="/normatividad" element={<DynamicPage />} />
+      <Route path="/contacto" element={<DynamicPage />} />
       
       {/* Consulta de facturas */}
       <Route path="/consulta-facturas" element={<InvoiceQuery />} />

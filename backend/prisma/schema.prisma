@@ -26,6 +26,13 @@ model Page {
   content         String
   metaDescription String?
   published       Boolean  @default(false)
+  // Nuevos campos para layouts
+  layoutType      String   @default("default") // "default", "full-width", "sidebar", "landing"
+  headerConfig    String?  // JSON string para configuración del header
+  sidebarEnabled  Boolean  @default(true)
+  sidebarPosition String   @default("left") // "left", "right", "none"
+  customCSS       String?  // CSS personalizado para la página
+  backgroundColor String?  // Color de fondo personalizado
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

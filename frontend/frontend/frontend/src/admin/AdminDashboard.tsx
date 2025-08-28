@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Edit3, 
@@ -31,6 +31,7 @@ interface Page {
 
 export default function AdminDashboard() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -323,15 +324,15 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-xl shadow-lg border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Gestión de Páginas</h2>
-          <Link
-            to="/admin/content"
-            className="bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
+          <button
+            onClick={createNewPage}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
             <span>Nueva Página</span>
-          </Link>
+          </button>
         </div>
-
+        
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -377,13 +378,13 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
-                      <Link
-                        to={`/admin/content`}
+                      <button
+                        onClick={() => editPage(page.id)}
                         className="text-blue-600 hover:text-blue-700 transition-colors"
                         title="Editar página"
                       >
                         <Edit3 className="h-4 w-4" />
-                      </Link>
+                      </button>
                       <button
                         onClick={() => deletePage(page.id, page.title)}
                         className="text-red-600 hover:text-red-700 transition-colors"
@@ -416,3 +417,12 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+// Add these missing functions
+const createNewPage = () => {
+  navigate('/admin/editor/new');
+};
+
+const editPage = (pageId: number) => {
+  navigate(`/admin/editor/${pageId}`);
+};

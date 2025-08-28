@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Droplets } from 'lucide-react';
 
@@ -7,12 +7,12 @@ export default function Navbar() {
 
   const menuItems = [
     { name: 'Inicio', path: '/' },
-    { name: 'Quiénes Somos', path: '/quienes-somos' },
-    { name: 'Información ESAL', path: '/informacion-esal' },
-    { name: 'Operación y Gestión', path: '/operacion-gestion' },
-    { name: 'Portal del Usuario', path: '/portal-usuario' },
-    { name: 'Normatividad', path: '/normatividad' },
-    { name: 'Contacto', path: '/contacto' }
+    { name: 'Quiénes Somos', path: '/page/quienes-somos' },
+    { name: 'Información ESAL', path: '/page/informacion-esal' },
+    { name: 'Operación y Gestión', path: '/page/operacion-gestion' },
+    { name: 'Portal del Usuario', path: '/page/portal-usuario' },
+    { name: 'Normatividad', path: '/page/normatividad' },
+    { name: 'Contacto', path: '/page/contacto' }
   ];
 
   const isActive = (path: string) => location.pathname === path;

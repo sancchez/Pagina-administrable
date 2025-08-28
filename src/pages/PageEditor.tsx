@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, Eye, ArrowLeft, AlertCircle, Code, Monitor } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
+import ProfessionalEditor from '../components/editor/ProfessionalEditor';
 
 interface Page {
   id: number;
@@ -20,8 +21,6 @@ const PageEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview'); // Cambiado a 'preview' por defecto
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
@@ -40,6 +39,7 @@ const PageEditor: React.FC = () => {
 
   const fetchPage = async () => {
     try {
+      console.log('🔍 PageEditor: Fetching page with ID:', id);
       const token = localStorage.getItem('adminToken');
       const response = await fetch(`http://localhost:3001/api/admin/pages/${id}`, {
         headers: {
@@ -53,15 +53,23 @@ const PageEditor: React.FC = () => {
       }
 
       const pageData = await response.json();
+      console.log('📄 PageEditor: Page data received:', pageData);
+      console.log('📝 PageEditor: Content from API:', pageData.content);
+      
       setPage(pageData);
-      setFormData({
+      const newFormData = {
         title: pageData.title || '',
         slug: pageData.slug || '',
         content: pageData.content || '',
         metaDescription: pageData.metaDescription || '',
         published: pageData.published || false
-      });
+      };
+      
+      console.log('📋 PageEditor: Setting formData:', newFormData);
+      console.log('🎯 PageEditor: Content being set:', newFormData.content);
+      setFormData(newFormData);
     } catch (err) {
+      console.error('❌ PageEditor: Error fetching page:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
@@ -99,21 +107,26 @@ const PageEditor: React.FC = () => {
       if (id === 'new') {
         navigate(`/admin/editor/${savedPage.id}`);
       }
-      
-      alert('Página guardada exitosamente');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar');
+      throw err;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+  // Remover esta función no utilizada:
+  // const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  //   const { name, value, type } = e.target;
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+  //   }));
+  // };
+
+  const handleContentChange = (content: string) => {
+    console.log('✏️ PageEditor: Content changed, new content:', content);
+    setFormData(prev => ({ ...prev, content }));
   };
 
   if (loading) {
@@ -142,25 +155,8 @@ const PageEditor: React.FC = () => {
                 Volver al Dashboard
               </button>
               <h1 className="text-xl font-semibold text-gray-900">
-                {id === 'new' ? 'Nueva Página' : `Editando: ${formData.title || page?.title || 'Página'}`}
+                {id === 'new' ? 'Nueva Página' : `Editando: ${page?.title || 'Página'}`}
               </h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                {showPreview ? 'Ocultar Vista Previa' : 'Vista Previa'}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Guardando...' : 'Guardar'}
-              </button>
             </div>
           </div>
         </div>
@@ -182,134 +178,19 @@ const PageEditor: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className={`grid gap-6 ${showPreview ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          {/* Editor Panel */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-medium text-gray-900">Editor de Contenido</h2>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('preview')}
-                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
-                      viewMode === 'preview'
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
-                    }`}
-                  >
-                    <Monitor className="h-4 w-4 mr-2" />
-                    Vista HTML
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('code')}
-                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
-                      viewMode === 'code'
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
-                    }`}
-                  >
-                    <Code className="h-4 w-4 mr-2" />
-                    Código
-                  </button>
-                </div>
-              </div>
-              
-              <div className="space-y-6">
-                {/* Content with toggle */}
-                <div>
-                  {viewMode === 'code' ? (
-                    <textarea
-                      id="content"
-                      name="content"
-                      value={formData.content}
-                      onChange={handleInputChange}
-                      rows={25}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                      placeholder="<div>Contenido HTML de la página...</div>"
-                    />
-                  ) : (
-                    <div className="border border-gray-300 rounded-md min-h-[600px] p-4 bg-white">
-                      {formData.content ? (
-                        <div 
-                          className="prose prose-sm max-w-none"
-                          style={{
-                            fontFamily: 'inherit',
-                            lineHeight: '1.6',
-                            color: '#374151'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: formData.content }}
-                        />
-                      ) : (
-                        <div className="text-center py-12">
-                          <Monitor className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-500 italic">Cambia a "Código" para escribir contenido HTML...</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Published */}
-                <div className="flex items-center pt-4 border-t">
-                  <input
-                    type="checkbox"
-                    id="published"
-                    name="published"
-                    checked={formData.published}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="published" className="ml-2 block text-sm text-gray-900">
-                    Página publicada (visible al público)
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Preview Panel */}
-          {showPreview && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-6">Vista Previa Completa</h2>
-                <div className="border rounded-lg overflow-hidden">
-                  {/* Simulación de navegador */}
-                  <div className="bg-gray-100 px-4 py-2 border-b flex items-center space-x-2">
-                    <div className="flex space-x-1">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    </div>
-                    <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600">
-                      localhost:5173/{formData.slug || page?.slug || 'pagina'}
-                    </div>
-                  </div>
-                  
-                  {/* Contenido de la página */}
-                  <div className="bg-white p-6 min-h-96 max-h-96 overflow-y-auto">
-                    {formData.content ? (
-                      <div 
-                        className="prose prose-sm max-w-none"
-                        style={{
-                          fontFamily: 'system-ui, -apple-system, sans-serif',
-                          lineHeight: '1.6',
-                          color: '#111827'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: formData.content }}
-                      />
-                    ) : (
-                      <div className="text-center py-12">
-                        <Monitor className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500">Escribe contenido HTML para ver la vista previa...</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          {(() => {
+            console.log('🎨 PageEditor: Rendering ProfessionalEditor with content:', formData.content);
+            console.log('📊 PageEditor: FormData state:', formData);
+            return null;
+          })()}
+          <ProfessionalEditor
+            content={formData.content}
+            onChange={handleContentChange}
+            onSave={handleSave}
+            saving={saving}
+            autoSaveInterval={30000} // Auto-guardar cada 30 segundos
+          />
         </div>
       </div>
     </div>

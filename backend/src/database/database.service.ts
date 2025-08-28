@@ -101,7 +101,7 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
   // Métodos para páginas
   async findPageBySlug(slug: string): Promise<Page | null> {
     return this.page.findUnique({
-      where: { slug, published: true }
+      where: { slug, published: true }  // ← Aquí está la validación
     });
   }
 

@@ -83,6 +83,7 @@ export default function InvoiceQuery() {
                 <input
                   type="text"
                   id="account"
+                  name="account"  // ← Agregar esta línea
                   value={account}
                   onChange={(e) => setAccount(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchInvoice()}
