@@ -41,22 +41,216 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
       }
     });
 
-    // Páginas de ejemplo
-    await this.page.createMany({
-      data: [
+    // Páginas iniciales con estructura JSON
+    console.log('Creating initial pages with JSON structure...');
+    
+    const defaultPageStructure = {
+      meta: { width: 1200 },
+      blocks: []
+    };
+
+    const homePageContent = {
+      meta: { width: 1200 },
+      blocks: [
         {
-          title: 'Inicio',
-          slug: 'home',
+          id: 'hero1',
+          type: 'text',
           content: '<h1>Bienvenido al Acueducto Municipal</h1><p>Agua pura para tu comunidad</p>',
-          published: true
-        },
-        {
-          title: 'Quiénes Somos',
-          slug: 'quienes-somos',
-          content: '<h1>Quiénes Somos</h1><p>Información sobre el acueducto municipal</p>',
-          published: true
+          x: 100,
+          y: 50,
+          width: 800,
+          height: 200
         }
       ]
+    };
+
+    await this.page.create({
+      data: {
+        id: 'home',
+        title: 'Inicio',
+        draft_json: JSON.stringify(homePageContent),
+        published_json: JSON.stringify(homePageContent),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    const aboutPageContent = {
+      meta: { width: 1200 },
+      blocks: [
+        {
+          id: 'about1',
+          type: 'text',
+          content: '<h1>Quiénes Somos</h1><p>Información sobre el acueducto municipal</p>',
+          x: 100,
+          y: 50,
+          width: 800,
+          height: 200
+        }
+      ]
+    };
+
+    await this.page.create({
+      data: {
+        id: 'about',
+        title: 'Acerca de',
+        draft_json: JSON.stringify(aboutPageContent),
+        published_json: JSON.stringify(aboutPageContent),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    const contactPageContent = {
+      meta: { width: 1200 },
+      blocks: [
+        {
+          id: 'contact1',
+          type: 'text',
+          content: '<h1>Contacto</h1><p>Información de contacto del acueducto municipal</p>',
+          x: 100,
+          y: 50,
+          width: 800,
+          height: 200
+        }
+      ]
+    };
+
+    await this.page.create({
+      data: {
+        id: 'contact',
+        title: 'Contacto',
+        draft_json: JSON.stringify(contactPageContent),
+        published_json: JSON.stringify(contactPageContent),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    // Páginas adicionales específicas del acueducto
+    await this.page.create({
+      data: {
+        id: 'quienes-somos',
+        title: 'Quiénes Somos',
+        draft_json: JSON.stringify(aboutPageContent),
+        published_json: JSON.stringify(aboutPageContent),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    await this.page.create({
+      data: {
+        id: 'informacion-esal',
+        title: 'Información ESAL',
+        draft_json: JSON.stringify({
+          meta: { width: 1200 },
+          blocks: [
+            {
+              id: 'esal1',
+              type: 'text',
+              content: '<h1>Información ESAL</h1><p>Información sobre la Entidad de Servicios de Acueducto y Alcantarillado</p>',
+              x: 100,
+              y: 50,
+              width: 800,
+              height: 200
+            }
+          ]
+        }),
+        published_json: JSON.stringify({
+          meta: { width: 1200 },
+          blocks: [
+            {
+              id: 'esal1',
+              type: 'text',
+              content: '<h1>Información ESAL</h1><p>Información sobre la Entidad de Servicios de Acueducto y Alcantarillado</p>',
+              x: 100,
+              y: 50,
+              width: 800,
+              height: 200
+            }
+          ]
+        }),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    await this.page.create({
+      data: {
+        id: 'operacion-gestion',
+        title: 'Operación y Gestión',
+        draft_json: JSON.stringify({
+          meta: { width: 1200 },
+          blocks: [
+            {
+              id: 'operacion1',
+              type: 'text',
+              content: '<h1>Operación y Gestión</h1><p>Información sobre la operación y gestión del acueducto</p>',
+              x: 100,
+              y: 50,
+              width: 800,
+              height: 200
+            }
+          ]
+        }),
+        published_json: JSON.stringify({
+          meta: { width: 1200 },
+          blocks: [
+            {
+              id: 'operacion1',
+              type: 'text',
+              content: '<h1>Operación y Gestión</h1><p>Información sobre la operación y gestión del acueducto</p>',
+              x: 100,
+              y: 50,
+              width: 800,
+              height: 200
+            }
+          ]
+        }),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    await this.page.create({
+      data: {
+        id: 'normatividad',
+        title: 'Normatividad',
+        draft_json: JSON.stringify({
+          blocks: [{
+            id: 'block1',
+            type: 'text',
+            content: '<h1>Normatividad</h1><p>Marco normativo y regulatorio del acueducto municipal</p>',
+            x: 50,
+            y: 50,
+            width: 400,
+            height: 200
+          }]
+        }),
+        status: 'published',
+        version: 1
+      }
+    });
+
+    await this.page.create({
+      data: {
+        id: 'portal-usuario',
+        title: 'Portal Usuario',
+        draft_json: JSON.stringify({
+          blocks: [{
+            id: 'block1',
+            type: 'text',
+            content: '<h1>Portal del Usuario</h1><p>Acceso al portal de usuarios para consultas y servicios</p>',
+            x: 50,
+            y: 50,
+            width: 400,
+            height: 200
+          }]
+        }),
+        status: 'published',
+        version: 1
+      }
     });
 
     // Facturas de ejemplo
@@ -98,49 +292,122 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
     });
   }
 
-  // Métodos para páginas
-  async findPageBySlug(slug: string): Promise<Page | null> {
-    return this.page.findUnique({
-      where: { slug, published: true }  // ← Aquí está la validación
-    });
-  }
-
-  async findAllPages(): Promise<Page[]> {
-    return this.page.findMany();
-  }
-
-  async findPageById(id: number): Promise<Page | null> {
-    return this.page.findUnique({
-      where: { id }
-    });
-  }
-
-  async createPage(pageData: Omit<Page, 'id' | 'createdAt' | 'updatedAt'>): Promise<Page> {
-    return this.page.create({
-      data: pageData
-    });
-  }
-
-  async updatePage(id: number, pageData: Partial<Page>): Promise<Page | null> {
+  // Métodos para páginas con nuevo esquema
+  async findPageById(id: string) {
+    console.log(`[DatabaseService] findPageById(${id}) - searching for page`);
     try {
-      return await this.page.update({
-        where: { id },
-        data: pageData
+      const page = await this.page.findUnique({
+        where: { id }
       });
-    } catch {
-      return null;
+      console.log(`[DatabaseService] findPageById(${id}) - ${page ? 'found' : 'not found'}`);
+      return page;
+    } catch (error) {
+      console.error(`[DatabaseService] findPageById(${id}) - error:`, error.message);
+      throw error;
     }
   }
 
-  async deletePage(id: number): Promise<boolean> {
+  async findAllPages() {
+    console.log('[DatabaseService] findAllPages - fetching all pages');
+    try {
+      const pages = await this.page.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+      console.log(`[DatabaseService] findAllPages - found ${pages.length} pages`);
+      return pages;
+    } catch (error) {
+      console.error('[DatabaseService] findAllPages - error:', error.message);
+      throw error;
+    }
+  }
+
+  async createPage(pageData: {
+    id: string;
+    title: string;
+    draft_json?: string;
+    published_json?: string;
+    status?: string;
+    version?: number;
+  }) {
+    console.log(`[DatabaseService] createPage(${pageData.id}) - creating new page`, {
+      title: pageData.title,
+      status: pageData.status,
+      hasDraft: !!pageData.draft_json,
+      hasPublished: !!pageData.published_json
+    });
+    
+    try {
+      const page = await this.page.create({
+        data: {
+          id: pageData.id,
+          title: pageData.title,
+          draft_json: pageData.draft_json || null,
+          published_json: pageData.published_json || null,
+          status: pageData.status || 'draft',
+          version: pageData.version || 1
+        }
+      });
+      console.log(`[DatabaseService] createPage(${pageData.id}) - page created successfully`);
+      return page;
+    } catch (error) {
+      console.error(`[DatabaseService] createPage(${pageData.id}) - error:`, error.message);
+      throw error;
+    }
+  }
+
+  async updatePage(id: string, pageData: {
+    title?: string;
+    draft_json?: string;
+    published_json?: string;
+    status?: string;
+    publishedAt?: Date;
+  }) {
+    console.log(`[DatabaseService] updatePage(${id}) - updating page`, {
+      hasTitle: !!pageData.title,
+      hasDraft: !!pageData.draft_json,
+      hasPublished: !!pageData.published_json,
+      status: pageData.status,
+      publishedAt: pageData.publishedAt
+    });
+    
+    try {
+      const updateData: any = { ...pageData };
+      
+      // Si se está publicando, actualizar publishedAt
+      if (pageData.status === 'published' && !pageData.publishedAt) {
+        updateData.publishedAt = new Date();
+      }
+      
+      const page = await this.page.update({
+        where: { id },
+        data: updateData
+      });
+      console.log(`[DatabaseService] updatePage(${id}) - page updated successfully`);
+      return page;
+    } catch (error) {
+      console.error(`[DatabaseService] updatePage(${id}) - error:`, error.message);
+      throw error;
+    }
+  }
+
+  async deletePage(id: string): Promise<boolean> {
+    console.log(`[DatabaseService] deletePage(${id}) - deleting page`);
     try {
       await this.page.delete({
         where: { id }
       });
+      console.log(`[DatabaseService] deletePage(${id}) - page deleted successfully`);
       return true;
-    } catch {
+    } catch (error) {
+      console.error(`[DatabaseService] deletePage(${id}) - error:`, error.message);
       return false;
     }
+  }
+
+  // Métodos legacy para compatibilidad
+  async findPageBySlug(slug: string) {
+    console.log(`[DatabaseService] findPageBySlug(${slug}) - legacy method, redirecting to findPageById`);
+    return this.findPageById(slug);
   }
 
   // Métodos para facturas

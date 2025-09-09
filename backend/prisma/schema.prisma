@@ -7,55 +7,63 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+// Tabla de usuarios según especificaciones exactas
 model User {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
   name      String
-  role      String   @default("user")
+  email     String   @unique
+  password  String   // bcrypt hash
+  role      String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  
+  auditLogs AuditLog[]
 
   @@map("users")
 }
 
+// Tabla de páginas según especificaciones exactas
 model Page {
-  id              Int      @id @default(autoincrement())
-  title           String
-  slug            String   @unique
-  content         String
-  metaDescription String?
-  published       Boolean  @default(false)
-  // Nuevos campos para layouts
-  layoutType      String   @default("default") // "default", "full-width", "sidebar", "landing"
-  headerConfig    String?  // JSON string para configuración del header
-  sidebarEnabled  Boolean  @default(true)
-  sidebarPosition String   @default("left") // "left", "right", "none"
-  customCSS       String?  // CSS personalizado para la página
-  backgroundColor String?  // Color de fondo personalizado
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  versions        PageVersion[]
+  id           String    @id // usa slug como ID (ej. home, quienes-somos)
+  title        String
+  draft_json   String?   // JSON string
+  published_json String? // JSON string
+  status       String    @default("draft") // 'draft'|'published'
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  publishedAt  DateTime?
+  version      Int       @default(1)
 
   @@map("pages")
 }
 
-model PageVersion {
-  id          Int      @id @default(autoincrement())
-  pageId      Int
-  title       String
-  content     String
-  description String   @default("Versión guardada")
-  isOriginal  Boolean  @default(false)
-  isActive    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
-  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  
-  @@map("page_versions")
+// Tabla de assets según especificaciones exactas
+model Asset {
+  id        Int      @id @default(autoincrement())
+  url       String
+  filename  String
+  mime      String
+  size      Int
+  createdAt DateTime @default(now())
+
+  @@map("assets")
 }
 
+// Tabla de audit logs según especificaciones exactas
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   // create, update, publish, upload
+  entity    String   // page, asset
+  entity_id String
+  user_id   Int?
+  meta      String?  // JSON
+  createdAt DateTime @default(now())
+  
+  user      User?    @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
+
+// Mantener tabla de invoices existente para no romper funcionalidad
 model Invoice {
   id            Int      @id @default(autoincrement())
   accountNumber String   @unique

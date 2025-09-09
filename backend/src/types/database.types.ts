@@ -5,7 +5,6 @@ export interface User {
   name: string;
   role: string;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface Page {
@@ -15,6 +14,12 @@ export interface Page {
   content: string;
   metaDescription?: string;
   published: boolean;
+  layoutType: string;
+  headerConfig?: string;
+  sidebarEnabled: boolean;
+  sidebarPosition: string;
+  customCSS?: string;
+  backgroundColor?: string;
   createdAt: Date;
   updatedAt: Date;
 }

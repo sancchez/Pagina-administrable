@@ -39,7 +39,7 @@ npm run seed  # Crea usuario admin inicial
 npm run start:dev
 ```
 
-El backend estará disponible en `http://localhost:3000`
+El backend estará disponible en `http://localhost:3001`
 
 ### 2. Frontend
 
