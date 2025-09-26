@@ -78,7 +78,7 @@ export const duplicateBlock = (block: CanvasBlock): CanvasBlock => {
 };
 
 // Validar que un bloque tenga la estructura correcta
-export const validateBlock = (block: any): block is CanvasBlock => {
+export const validateBlock = (block: unknown): block is CanvasBlock => {
   return (
     typeof block === 'object' &&
     typeof block.id === 'string' &&

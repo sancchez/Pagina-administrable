@@ -87,8 +87,8 @@ export interface CanvasHistory {
   pageId: string;
   action: 'create' | 'update' | 'delete' | 'move' | 'resize' | 'style';
   blockId?: string;
-  previousState?: any;
-  newState?: any;
+  previousState?: unknown;
+  newState?: unknown;
   timestamp: string;
   userId?: string;
 }
@@ -137,7 +137,7 @@ export type CanvasTool =
 export interface CanvasEvent {
   type: string;
   blockId?: string;
-  data?: any;
+  data?: unknown;
   timestamp: string;
 }
 
@@ -155,7 +155,7 @@ export interface CanvasEditorConfig {
 
 // Tipos para la exportación
 export interface CanvasExportOptions {
-  format: 'json' | 'html' | 'react' | 'vue';
+  format: 'json' | 'react' | 'vue';
   includeStyles: boolean;
   minify: boolean;
   responsive: boolean;
@@ -184,8 +184,8 @@ export interface CustomComponent {
   props: {
     [key: string]: {
       type: 'string' | 'number' | 'boolean' | 'color' | 'image' | 'select';
-      default: any;
-      options?: any[];
+      default: unknown;
+      options?: unknown[];
       required?: boolean;
     };
   };

@@ -37,7 +37,7 @@ export default function InvoiceQuery() {
       } else {
         setError('Factura no encontrada');
       }
-    } catch (error) {
+    } catch {
       setError('Error al consultar la factura');
     } finally {
       setIsLoading(false);

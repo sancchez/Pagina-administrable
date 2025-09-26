@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { CreditCard, FileText, Phone, MessageCircle, Clock, User, Search, Download, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CreditCard, FileText, Phone, MessageCircle, Clock, User, Search, Download, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Invoice {
@@ -32,7 +32,7 @@ export default function PortalUsuario() {
     accountNumber: ''
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [consumptionData, setConsumptionData] = useState<any[]>([]);
+  const [consumptionData, setConsumptionData] = useState<unknown[]>([]);
   const [requestForm, setRequestForm] = useState({
     type: '',
     description: '',
@@ -50,7 +50,7 @@ export default function PortalUsuario() {
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Pago procesado exitosamente');
       setInvoiceData({ ...invoiceData, status: 'paid' });
-    } catch (error) {
+    } catch {
       toast.error('Error al procesar el pago');
     } finally {
       setLoading(false);
@@ -76,7 +76,7 @@ export default function PortalUsuario() {
       };
       setInvoiceData(mockInvoice);
       toast.success('Factura encontrada');
-    } catch (error) {
+    } catch {
       toast.error('No se encontró información para este número');
     } finally {
       setLoading(false);
@@ -95,7 +95,7 @@ export default function PortalUsuario() {
       setConsumptionData(mockConsumption);
       setActiveService('consumption');
       toast.success('Datos de consumo cargados');
-    } catch (error) {
+    } catch {
       toast.error('Error al cargar datos de consumo');
     } finally {
       setLoading(false);
@@ -112,7 +112,7 @@ export default function PortalUsuario() {
       await new Promise(resolve => setTimeout(resolve, 1500));
       toast.success('Datos actualizados correctamente');
       setActiveService(null);
-    } catch (error) {
+    } catch {
       toast.error('Error al actualizar datos');
     } finally {
       setLoading(false);
@@ -130,7 +130,7 @@ export default function PortalUsuario() {
       toast.success('Solicitud creada exitosamente');
       setRequestForm({ type: '', description: '', priority: 'medium' });
       setActiveService(null);
-    } catch (error) {
+    } catch {
       toast.error('Error al crear solicitud');
     } finally {
       setLoading(false);
@@ -142,7 +142,7 @@ export default function PortalUsuario() {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Certificado descargado exitosamente');
-    } catch (error) {
+    } catch {
       toast.error('Error al descargar certificado');
     } finally {
       setLoading(false);

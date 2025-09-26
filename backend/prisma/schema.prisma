@@ -27,6 +27,7 @@ model Page {
   title        String
   draft_json   String?   // JSON string
   published_json String? // JSON string
+  craftData    String?   // Craft.js JSON structure
   status       String    @default("draft") // 'draft'|'published'
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

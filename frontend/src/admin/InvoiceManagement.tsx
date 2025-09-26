@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react';
+import HttpClient from '../utils/http';
 
 interface Invoice {
   id: number;
@@ -40,15 +41,14 @@ export default function InvoiceManagement() {
 
   const fetchInvoices = async () => {
     try {
-      const response = await fetch('/api/admin/invoices', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
+      setIsLoading(true);
+      const response = await HttpClient.get('/api/admin/invoices');
+      
       if (response.ok) {
         const data = await response.json();
-        setInvoices(data);
+        setInvoices(data.data || []);
+      } else {
+        console.error('Error fetching invoices:', response.status);
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);

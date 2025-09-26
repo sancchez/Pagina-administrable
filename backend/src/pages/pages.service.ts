@@ -1,348 +1,293 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { CreatePageDto, UpdatePageDto } from './dto/page.dto';
+import { Page } from '@prisma/client';
+import * as createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
+import Ajv from 'ajv';
+import { craftJsSchema } from './schemas/craftjs.schema';
+
+enum PageStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+}
+
+export { PageStatus };
+
+interface PageBackup {
+  timestamp: string;
+  data: any;
+  size: number;
+}
+
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
+const ajv = new Ajv();
+const validate = ajv.compile(craftJsSchema);
 
 @Injectable()
 export class PagesService {
-  constructor(private databaseService: DatabaseService) {
-    console.log('[PagesService] Service initialized');
+  constructor(private readonly databaseService: DatabaseService) {}
+
+  async findAll(): Promise<Page[]> {
+    return this.databaseService.page.findMany();
   }
 
-  // GET /api/pages/:id → devuelve published_json
-  async getPublishedPage(id: string) {
-    console.log(`[PagesService] getPublishedPage(${id}) - fetching published content`);
-    
-    try {
-      const page = await this.databaseService.findPageById(id);
-      
-      if (!page) {
-        console.log(`[PagesService] getPublishedPage(${id}) - page not found, returning fallback`);
-        // Retornar contenido vacío como fallback
-        return {
-          id,
-          published_json: {
-            meta: { width: 1200 },
-            blocks: []
-          },
-          status: 'draft'
-        };
-      }
+  async findOne(id: string): Promise<Page | null> {
+    return this.databaseService.page.findUnique({ where: { id } });
+  }
 
-      let publishedContent;
-      try {
-        publishedContent = page.published_json ? JSON.parse(page.published_json) : null;
-      } catch (parseError) {
-        console.warn(`[PagesService] getPublishedPage(${id}) - invalid JSON in published_json:`, parseError.message);
-        publishedContent = null;
-      }
+  async findBySlug(slug: string): Promise<Page | null> {
+    return this.databaseService.page.findUnique({ where: { id: slug } });
+  }
 
-      // Si no hay contenido publicado, usar fallback
-      if (!publishedContent) {
-        console.log(`[PagesService] getPublishedPage(${id}) - no published content, using fallback`);
-        publishedContent = {
-          meta: { width: 1200 },
-          blocks: []
-        };
-      }
+  async create(createPageDto: CreatePageDto, userId: string): Promise<Page> {
+    const { page } = await this.updateOrCreate(null, createPageDto, userId);
+    return page;
+  }
 
-      console.log(`[PagesService] getPublishedPage(${id}) - success`, {
-        hasBlocks: publishedContent.blocks?.length > 0,
-        blockCount: publishedContent.blocks?.length || 0
-      });
+  async update(id: string, updatePageDto: UpdatePageDto, userId: string): Promise<Page> {
+    const { page } = await this.updateOrCreate(id, updatePageDto, userId);
+    return page;
+  }
 
-      return {
-        id: page.id,
-        title: page.title,
-        published_json: publishedContent,
-        status: page.status
-      };
-    } catch (error) {
-      console.error(`[PagesService] getPublishedPage(${id}) - error:`, error.message);
-      throw error;
+  async remove(id: string, userId: string): Promise<Page> {
+    const existingPage = await this.databaseService.page.findUnique({ where: { id } });
+    if (!existingPage) {
+      throw new NotFoundException(`Page with ID ${id} not found`);
     }
+    return this.databaseService.page.delete({ where: { id } });
   }
 
-  // GET /api/admin/pages/:id → devuelve draft_json y metadatos
-  async getAdminPage(id: string) {
-    console.log(`[PagesService] getAdminPage(${id}) - fetching draft content`);
-    
-    try {
-      let page = await this.databaseService.findPageById(id);
-      
-      // Si la página no existe, crearla automáticamente
-      if (!page) {
-        console.log(`[PagesService] getAdminPage(${id}) - page not found, creating automatically`);
-        page = await this.databaseService.createPage({
-          id,
-          title: this.getDefaultTitle(id),
-          draft_json: JSON.stringify({
-            meta: { width: 1200 },
-            blocks: []
-          }),
-          published_json: null,
-          status: 'draft',
-          version: 1
-        });
-        console.log(`[PagesService] getAdminPage(${id}) - page created automatically`);
-      }
-
-      let draftContent;
-      try {
-        draftContent = page.draft_json ? JSON.parse(page.draft_json) : null;
-      } catch (parseError) {
-        console.warn(`[PagesService] getAdminPage(${id}) - invalid JSON in draft_json:`, parseError.message);
-        draftContent = null;
-      }
-
-      // Si no hay draft, crear uno vacío
-      if (!draftContent) {
-        console.log(`[PagesService] getAdminPage(${id}) - no draft content, creating empty`);
-        draftContent = {
-          meta: { width: 1200 },
-          blocks: []
-        };
-      }
-
-      console.log(`[PagesService] getAdminPage(${id}) - success`, {
-        status: page.status,
-        hasBlocks: draftContent.blocks?.length > 0,
-        blockCount: draftContent.blocks?.length || 0,
-        version: page.version
-      });
-
-      return {
-        id: page.id,
-        title: page.title,
-        draft_json: draftContent,
-        published_json: page.published_json ? JSON.parse(page.published_json) : null,
-        status: page.status,
-        version: page.version,
-        createdAt: page.createdAt,
-        updatedAt: page.updatedAt,
-        publishedAt: page.publishedAt
-      };
-    } catch (error) {
-      console.error(`[PagesService] getAdminPage(${id}) - error:`, error.message);
-      throw error;
+  async publishPage(id: string): Promise<Page> {
+    const page = await this.databaseService.page.findUnique({ where: { id } });
+    if (!page) {
+      throw new NotFoundException(`Page with ID ${id} not found`);
     }
-  }
+    if (!page.draft_json) {
+      throw new BadRequestException('Cannot publish a page without draft_json content.');
+    }
 
-  // PUT /api/admin/pages/:id → actualiza o crea página (draft_json)
-  async updateOrCreate(id: string, data: { title?: string; draft_json?: any; status?: string }, userId: number) {
-    console.log(`[PagesService] updateOrCreate(${id}) - updating/creating page`, {
-      hasTitle: !!data.title,
-      hasDraftJson: !!data.draft_json,
-      status: data.status
+    return this.databaseService.page.update({
+      where: { id },
+      data: { published_json: page.draft_json, status: PageStatus.PUBLISHED, publishedAt: new Date() },
     });
-    
-    try {
-      let page = await this.databaseService.findPageById(id);
-      let created = false;
-      
-      const updateData: any = {};
-      
-      if (data.title) {
-        updateData.title = data.title;
-      }
-      
-      if (data.draft_json) {
-        updateData.draft_json = JSON.stringify(data.draft_json);
-        console.log(`[PagesService] updateOrCreate(${id}) - draft_json updated with ${data.draft_json.blocks?.length || 0} blocks`);
-      }
-      
-      if (data.status) {
-        updateData.status = data.status;
-      }
-      
-      if (!page) {
-        // Crear página nueva
-        console.log(`[PagesService] updateOrCreate(${id}) - creating new page`);
-        page = await this.databaseService.createPage({
-          id,
-          title: data.title || this.getDefaultTitle(id),
-          draft_json: data.draft_json ? JSON.stringify(data.draft_json) : JSON.stringify({
-            meta: { width: 1200 },
-            blocks: []
-          }),
-          published_json: null,
-          status: data.status || 'draft',
-          version: 1
-        });
-        created = true;
-        console.log(`[PagesService] updateOrCreate(${id}) - page created successfully`);
-      } else {
-        // Actualizar página existente
-        console.log(`[PagesService] updateOrCreate(${id}) - updating existing page`);
-        page = await this.databaseService.updatePage(id, updateData);
-        console.log(`[PagesService] updateOrCreate(${id}) - page updated successfully`);
-      }
-
-      return {
-        ...page,
-        created,
-        draft_json: page.draft_json ? JSON.parse(page.draft_json) : null
-      };
-    } catch (error) {
-      console.error(`[PagesService] updateOrCreate(${id}) - error:`, error.message);
-      throw error;
-    }
   }
 
-  // POST /api/admin/pages/:id/publish → copia draft_json a published_json
-  async publishPage(id: string, userId: number) {
-    console.log(`[PagesService] publishPage(${id}) - publishing page`);
-    
-    try {
-      const page = await this.databaseService.findPageById(id);
-      
-      if (!page) {
-        console.error(`[PagesService] publishPage(${id}) - page not found`);
-        throw new NotFoundException('Página no encontrada');
-      }
-
-      if (!page.draft_json) {
-        console.error(`[PagesService] publishPage(${id}) - no draft content to publish`);
-        throw new Error('No hay contenido draft para publicar');
-      }
-
-      // Copiar draft_json a published_json
-      const updatedPage = await this.databaseService.updatePage(id, {
-        published_json: page.draft_json,
-        status: 'published',
-        publishedAt: new Date()
-      });
-
-      console.log(`[PagesService] publishPage(${id}) - page published successfully`, {
-        publishedAt: updatedPage.publishedAt
-      });
-
-      return {
-        ...updatedPage,
-        published_json: JSON.parse(updatedPage.published_json),
-        draft_json: JSON.parse(updatedPage.draft_json)
-      };
-    } catch (error) {
-      console.error(`[PagesService] publishPage(${id}) - error:`, error.message);
-      throw error;
+  async unpublishPage(id: string): Promise<Page> {
+    const existingPage = await this.databaseService.page.findUnique({ where: { id } });
+    if (!existingPage) {
+      throw new NotFoundException(`Page with ID ${id} not found`);
     }
-  }
 
-  // GET /api/admin/pages → lista todas las páginas
-  async findAll() {
-    console.log('[PagesService] findAll - fetching all pages');
-    
-    try {
-      const pages = await this.databaseService.findAllPages();
-      console.log(`[PagesService] findAll - found ${pages.length} pages`);
-      
-      return pages.map(page => ({
-        id: page.id,
-        title: page.title,
-        status: page.status,
-        version: page.version,
-        createdAt: page.createdAt,
-        updatedAt: page.updatedAt,
-        publishedAt: page.publishedAt,
-        hasContent: !!(page.draft_json || page.published_json)
-      }));
-    } catch (error) {
-      console.error('[PagesService] findAll - error:', error.message);
-      throw error;
+    if (!existingPage.published_json) {
+      throw new BadRequestException(`Page with ID ${id} is not published`);
     }
-  }
 
-  // POST /api/admin/pages → crear nueva página
-  async create(createPageDto: any, userId: number) {
-    console.log('[PagesService] create - creating new page', {
-      title: createPageDto.title,
-      slug: createPageDto.slug
+    return this.databaseService.page.update({
+      where: { id },
+      data: { published_json: null, status: PageStatus.DRAFT },
     });
-    
-    try {
-      // Generar slug si no se proporciona
-      const slug = createPageDto.slug || createPageDto.title?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'nueva-pagina';
-      
-      // Generar ID único para la nueva página
-      const pageId = `page-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Preparar datos para la base de datos
-      const pageData = {
-        id: pageId,
-        title: createPageDto.title || 'Nueva Página',
-        slug: slug,
-        metaDescription: createPageDto.metaDescription || '',
-        published: createPageDto.published || false,
-        draft_json: createPageDto.content ? JSON.stringify(createPageDto.content) : JSON.stringify({
-          blocks: [],
-          settings: {
-            width: 1200,
-            height: 800,
-            backgroundColor: '#ffffff',
-            padding: { top: 20, right: 20, bottom: 20, left: 20 },
-            responsive: true,
-            seo: {
-              title: createPageDto.title || 'Nueva Página',
-              description: createPageDto.metaDescription || '',
-              keywords: []
-            }
+  }
+
+  async revertToPublished(id: string): Promise<Page> {
+    const existingPage = await this.databaseService.page.findUnique({ where: { id } });
+    if (!existingPage) {
+      throw new NotFoundException(`Page with ID ${id} not found`);
+    }
+
+    if (!existingPage.published_json) {
+      throw new BadRequestException(`Page with ID ${id} has no published version to revert to`);
+    }
+
+    return this.databaseService.page.update({
+      where: { id },
+      data: {
+        draft_json: existingPage.published_json,
+        status: PageStatus.PUBLISHED,
+      },
+    });
+  }
+
+  private sanitizeHtmlContent(htmlContent: string): string {
+    return DOMPurify.sanitize(htmlContent);
+  }
+
+  async updateOrCreate(
+    id: string | null,
+    pageDto: CreatePageDto | UpdatePageDto,
+    userId: string,
+  ): Promise<{ page: Page; created: boolean }> {
+    let existingPage: Page | null = null;
+    if (id) {
+      existingPage = await this.databaseService.page.findUnique({ where: { id } });
+    }
+    let created = false;
+
+    if (pageDto.published_json) {
+      pageDto.status = PageStatus.PUBLISHED;
+    }
+
+    if (pageDto.draft_json) {
+      if (!this.validateCraftJsJson(pageDto.draft_json)) {
+        throw new BadRequestException('Invalid Craft.js JSON structure.');
+      }
+    }
+
+    if (existingPage) {
+      const updatedPage = await this.databaseService.page.update({
+        where: { id: existingPage.id },
+        data: { ...pageDto },
+      });
+      return { page: updatedPage, created: false };
+    } else {
+      // Si no existe, creamos una nueva página
+      if (!pageDto.title) {
+        throw new BadRequestException('Title is required for new pages.');
+      }
+      const createPageData: CreatePageDto = pageDto as CreatePageDto;
+      const newPage = await this.databaseService.page.create({
+            data: { ...createPageData, id: createPageData.id },
+          });
+      created = true;
+      return { page: newPage, created: true };
+    }
+  }
+
+  async getPublishedPage(id: string): Promise<Page | null> {
+    const page = await this.databaseService.page.findUnique({
+      where: { id, status: PageStatus.PUBLISHED },
+    });
+    if (!page) {
+      throw new NotFoundException(`Published page with ID ${id} not found`);
+    }
+    return page;
+  }
+
+  async getAdminPage(id: string): Promise<Page | null> {
+    const page = await this.databaseService.page.findUnique({ where: { id } });
+    if (!page) {
+      throw new NotFoundException(`Page with ID ${id} not found`);
+    }
+    return page;
+  }
+
+  async createBackup(pageId: string, userId: string): Promise<{ timestamp: string; data: any; size: number }> {
+    const pages = await this.databaseService.page.findMany();
+    const backupData = { timestamp: new Date().toISOString(), pages, createdBy: userId };
+    const backupJson = JSON.stringify(backupData);
+    const sizeInBytes = Buffer.byteLength(backupJson, 'utf8');
+    // Aquí deberías guardar el backup en algún lugar, por ejemplo, en un archivo o en una base de datos de backups.
+    // Por ahora, solo lo logearemos.
+    console.log(`Backup created for page ${pageId} by user ${userId}:`, backupData);
+    return { timestamp: backupData.timestamp, data: backupData, size: sizeInBytes };
+  }
+
+  private validateCraftJsJson(jsonContent: any): boolean {
+    const isValid = validate(jsonContent);
+    if (!isValid) {
+      console.error('Craft.js JSON validation errors:', validate.errors);
+    }
+    return isValid;
+  }
+
+  async restoreBackup(backupData: any, userId: string): Promise<{ pagesRestored: number; timestamp: string }> {
+    if (!backupData || !backupData.pages || !Array.isArray(backupData.pages)) {
+      throw new BadRequestException('Invalid backup data format.');
+    }
+
+    let pagesRestored = 0;
+    for (const pageData of backupData.pages) {
+      const { id, createdAt, updatedAt, publishedAt, createdBy, updatedBy, ...dataToRestore } = pageData;
+      await this.databaseService.page.upsert({
+        where: { id: pageData.id },
+        update: { ...dataToRestore, updatedBy: userId },
+        create: { ...dataToRestore, id: pageData.id, createdBy: userId, updatedBy: userId },
+      });
+      pagesRestored++;
+    }
+    return { pagesRestored, timestamp: new Date().toISOString() };
+  }
+
+  async migrateHtmlToCraftJs(htmlContent: string, userId: string): Promise<any> {
+    const dom = new JSDOM('').window.document;
+    const document = dom;
+
+    const convertNodeToCraftJs = (node: Node): any => {
+      if (node.nodeType === dom.TEXT_NODE) {
+        return { type: { resolvedName: 'Text' }, props: { text: node.textContent } };
+      }
+
+      if (node.nodeType !== dom.ELEMENT_NODE) {
+        return null;
+      }
+
+      const element = node as HTMLElement;
+      let craftJsNode: any = { type: { resolvedName: 'Container' }, props: {}, nodes: [] };
+
+      switch (element.tagName.toLowerCase()) {
+        case 'p':
+          craftJsNode.type.resolvedName = 'Text';
+          craftJsNode.props.text = element.textContent;
+          break;
+        case 'h1':
+          craftJsNode.type.resolvedName = 'Text';
+          craftJsNode.props.text = element.textContent;
+          craftJsNode.props.fontSize = '30px'; // Example: set font size for H1
+          break;
+        case 'div':
+          craftJsNode.type.resolvedName = 'Container';
+          break;
+        // Add more cases for other HTML tags as needed
+        default:
+          // For unsupported tags, treat them as a container or just process their children
+          craftJsNode.type.resolvedName = 'Container';
+          break;
+      }
+
+      // Process children
+      if (element.hasChildNodes()) {
+        element.childNodes.forEach(child => {
+          const childCraftJsNode = convertNodeToCraftJs(child);
+          if (childCraftJsNode) {
+            craftJsNode.nodes.push(childCraftJsNode);
           }
-        }),
-        published_json: null,
-        status: 'draft',
-        version: 1
-      };
-      
-      const result = await this.databaseService.createPage(pageData);
-      
-      console.log('[PagesService] create - page created successfully', { id: result.id });
-      return result;
-    } catch (error) {
-      console.error('[PagesService] create - error:', error.message);
-      throw error;
-    }
-  }
-
-  // DELETE /api/admin/pages/:id
-  async delete(id: string, userId: number) {
-    console.log(`[PagesService] delete(${id}) - deleting page`);
-    
-    try {
-      const deleted = await this.databaseService.deletePage(id);
-      
-      if (!deleted) {
-        console.error(`[PagesService] delete(${id}) - page not found`);
-        throw new NotFoundException('Página no encontrada');
+        });
       }
 
-      console.log(`[PagesService] delete(${id}) - page deleted successfully`);
-      return { message: 'Página eliminada exitosamente' };
-    } catch (error) {
-      console.error(`[PagesService] delete(${id}) - error:`, error.message);
-      throw error;
-    }
-  }
-
-  // Método auxiliar para generar títulos por defecto
-  private getDefaultTitle(id: string): string {
-    const titleMap: { [key: string]: string } = {
-      'home': 'Inicio',
-      'about': 'Acerca de',
-      'contact': 'Contacto',
-      'quienes-somos': 'Quiénes Somos',
-      'informacion-esal': 'Información ESAL',
-      'operacion-gestion': 'Operación y Gestión'
+      return craftJsNode;
     };
-    
-    return titleMap[id] || id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
-  }
 
-  // Métodos legacy para compatibilidad (si se necesitan)
-  async findBySlug(slug: string) {
-    console.log(`[PagesService] findBySlug(${slug}) - legacy method, redirecting to getPublishedPage`);
-    return this.getPublishedPage(slug);
-  }
+    const rootNodes: any[] = [];
+    document.body.childNodes.forEach(node => {
+      const craftNode = convertNodeToCraftJs(node);
+      if (craftNode) {
+        rootNodes.push(craftNode);
+      }
+    });
 
-  async findById(id: string) {
-    console.log(`[PagesService] findById(${id}) - legacy method, redirecting to getAdminPage`);
-    return this.getAdminPage(id);
+    const craftJsJson = {
+      ROOT: {
+        type: { resolvedName: 'Container' },
+        is: 'root',
+        nodes: rootNodes.map((_, index) => `node-${index}`),
+        props: {},
+        custom: {},
+        linkedNodes: {},
+      },
+      // Add individual nodes to the craftJsJson object
+      ...rootNodes.reduce((acc, node, index) => ({
+        ...acc,
+        [`node-${index}`]: node,
+      }), {}),
+    };
+
+    // Validate the generated Craft.js JSON
+    if (!this.validateCraftJsJson(craftJsJson)) {
+      console.error('Generated Craft.js JSON is invalid.');
+      throw new BadRequestException('Generated Craft.js JSON is invalid.');
+    }
+
+    return craftJsJson;
   }
 }

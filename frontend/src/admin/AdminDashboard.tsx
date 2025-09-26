@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import HttpClient from '../utils/http';
 import { 
   Edit3, 
   Eye, 
@@ -17,12 +18,14 @@ import {
   MessageSquare,
   Globe,
   Database,
-  Activity
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 
 interface Page {
   id: string;
   title: string;
+  slug?: string;
   draft_json?: any;
   published_json?: any;
   status: string;
@@ -38,27 +41,97 @@ export default function AdminDashboard() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
+  const [stats, setStats] = useState({
+    totalPages: 0,
+    publishedPages: 0,
+    pendingInvoices: 0,
+    activePQR: 0
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     fetchPages();
+    fetchStats();
+    fetchRecentActivity();
   }, []);
 
   const fetchPages = async () => {
     try {
-      const response = await fetch('/api/admin/pages', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const data = await HttpClient.get('/api/admin/pages');
+      const pagesData = data?.pages || data || [];
+      setPages(pagesData);
 
-      if (response.ok) {
-        const data = await response.json();
-        setPages(data);
-      }
+      setStats(prev => ({
+        ...prev,
+        totalPages: pagesData.length,
+        publishedPages: pagesData.filter((p: any) => p.published || p.status === 'published').length
+      }));
     } catch (error) {
       console.error('Error fetching pages:', error);
+      // Si hay error de autenticación, redirigir al login
+      navigate('/admin');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const invoicesData: any = await HttpClient.get('/api/invoices');
+      const pendingInvoices = (invoicesData.data || []).filter((inv: any) => inv.status === 'pending').length || 0;
+      setStats(prev => ({
+        ...prev,
+        pendingInvoices,
+        activePQR: 0
+      }));
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchRecentActivity = async () => {
+    try {
+      const data: any = await HttpClient.get('/api/audit-logs?limit=4');
+      const activities = (data.logs || []).map((log: any) => {
+        let action = 'Acción realizada';
+        let icon = Edit3;
+        let color = 'text-blue-600';
+        switch (log.action) {
+          case 'create':
+            action = log.entity === 'page' ? 'Página creada' : 'Elemento creado';
+            icon = FileText;
+            color = 'text-green-600';
+            break;
+          case 'update':
+            action = log.entity === 'page' ? 'Página editada' : 'Elemento actualizado';
+            icon = Edit3;
+            color = 'text-blue-600';
+            break;
+          case 'publish':
+            action = 'Página publicada';
+            icon = Eye;
+            color = 'text-purple-600';
+            break;
+          default:
+            action = `${log.action} realizada`;
+        }
+        return {
+          action,
+          item: log.entity_id || 'Elemento',
+          time: new Date(log.createdAt).toLocaleString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+          }),
+          icon,
+          color
+        };
+      });
+      setRecentActivity(activities);
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      setRecentActivity([]);
     }
   };
 
@@ -66,21 +139,10 @@ export default function AdminDashboard() {
     if (!confirm(`¿Estás seguro de eliminar la página "${title}"?`)) {
       return;
     }
-
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/pages/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        alert('Página eliminada exitosamente');
-        fetchPages();
-      } else {
-        alert('Error al eliminar la página');
-      }
+      await HttpClient.delete(`/api/admin/pages/${id}`);
+      alert('Página eliminada exitosamente');
+      fetchPages();
     } catch (error) {
       console.error('Error deleting page:', error);
       alert('Error al eliminar la página');
@@ -94,46 +156,47 @@ export default function AdminDashboard() {
   };
 
   const createNewPage = () => {
-    navigate('/admin/dashboard/editor/new');
+    navigate('/admin/dashboard/editor/home');
   };
 
-  const editPage = (pageId: string) => {
-    navigate(`/admin/dashboard/editor/${pageId}`);
+  const editPage = (slugOrId: string) => {
+    navigate(`/admin/dashboard/editor/${slugOrId}`);
   };
 
   // Stats data
-  const stats = [
+  const statsCards = [
     {
       title: 'Total Páginas',
-      value: pages.length,
+      value: stats.totalPages,
       icon: FileText,
       color: 'from-blue-500 to-blue-600',
       change: '+2 esta semana'
     },
     {
       title: 'Páginas Publicadas',
-      value: pages.filter(p => p.published).length,
+      value: stats.publishedPages,
       icon: Eye,
       color: 'from-green-500 to-green-600',
       change: '100% activas'
     },
     {
       title: 'Facturas Pendientes',
-      value: 15,
+      value: stats.pendingInvoices,
       icon: DollarSign,
       color: 'from-orange-500 to-orange-600',
       change: '-3 desde ayer'
     },
     {
       title: 'PQR Activos',
-      value: 8,
+      value: stats.activePQR,
       icon: MessageSquare,
       color: 'from-purple-500 to-purple-600',
       change: '+1 hoy'
     }
   ];
 
-  const recentActivity = [
+  // Fallback activity data si no hay datos de la API
+  const fallbackActivity = [
     {
       action: 'Página editada',
       item: 'Quiénes Somos',
@@ -163,6 +226,8 @@ export default function AdminDashboard() {
       color: 'text-indigo-600'
     }
   ];
+
+  const displayActivity = recentActivity.length > 0 ? recentActivity : fallbackActivity;
 
   if (isLoading) {
     return (
@@ -204,7 +269,7 @@ export default function AdminDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {statsCards.map((stat, index) => {
           const IconComponent = stat.icon;
           return (
             <div
@@ -244,7 +309,7 @@ export default function AdminDashboard() {
             </div>
             
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => {
+              {displayActivity.map((activity, index) => {
                 const IconComponent = activity.icon;
                 return (
                   <div key={index} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
@@ -275,6 +340,16 @@ export default function AdminDashboard() {
                 <Edit3 className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-blue-800 group-hover:text-blue-900">
                   Editar Contenido
+                </span>
+              </Link>
+              
+              <Link
+                to="/admin/migrator"
+                className="flex items-center space-x-3 p-3 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors group"
+              >
+                <RefreshCw className="h-5 w-5 text-purple-600" />
+                <span className="font-medium text-purple-800 group-hover:text-purple-900">
+                  Migrar Páginas a JSON
                 </span>
               </Link>
               
@@ -355,6 +430,32 @@ export default function AdminDashboard() {
             <span>Nueva Página</span>
           </button>
         </div>
+
+        {/* Accesos rápidos a páginas públicas */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Páginas Públicas</h3>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { title: 'Inicio', slug: 'home' },
+              { title: 'Quiénes Somos', slug: 'quienes-somos' },
+              { title: 'Información ESAL', slug: 'informacion-esal' },
+              { title: 'Operación y Gestión', slug: 'operacion-gestion' },
+              { title: 'Portal de Usuario', slug: 'portal-usuario' },
+              { title: 'Normatividad', slug: 'normatividad' },
+              { title: 'Contacto', slug: 'contacto' }
+            ].map((pg) => (
+              <button
+                key={pg.slug}
+                onClick={() => editPage(pg.slug)}
+                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+                title={`Editar ${pg.title}`}
+              >
+                <Edit3 className="inline h-4 w-4 mr-1 align-middle" />
+                <span className="align-middle">{pg.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -385,7 +486,7 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <code className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      /{page.id}
+                      /{page.slug || page.id}
                     </code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -402,7 +503,7 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
                       <button
-                        onClick={() => editPage(page.id)}
+                        onClick={() => editPage(page.slug || page.id)}
                         className="text-blue-600 hover:text-blue-700 transition-colors"
                         title="Editar página"
                       >

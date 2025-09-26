@@ -154,6 +154,8 @@ export const seedPages = async (): Promise<void> => {
 };
 
 // Función para ejecutar desde la consola del navegador
-(window as any).seedPages = seedPages;
+(window as Window & typeof globalThis & {
+  seedPages: typeof seedPages;
+}).seedPages = seedPages;
 
 export default seedPages;

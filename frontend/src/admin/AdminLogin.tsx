@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Droplets, User, Lock, LogIn, ArrowLeft } from 'lucide-react';
 
+
 export default function AdminLogin() {
   const navigate = useNavigate();
   const { user, login } = useAuth();
@@ -15,6 +16,7 @@ export default function AdminLogin() {
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (user) {
     return <Navigate to="/admin/dashboard" replace />;
@@ -60,70 +62,29 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('🚀 FORM SUBMITTED');
-    console.log('Form data:', formData);
-    
-    if (!validateForm()) return;
-
     setIsLoading(true);
-    
+    setError('');
+
+    if (!validateForm()) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      console.log('📡 Making API request to /api/auth/login');
-      console.log('Request body:', {
-        email: formData.email,
-        password: formData.password,
-      });
-      
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      console.log('📥 Response received:', response);
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Login successful, data:', data);
-        
-        // Guardar token y usuario
-        localStorage.setItem('adminToken', data.token || data.access_token);
-        localStorage.setItem('adminUser', JSON.stringify(data.user));
-        
-        // Actualizar contexto
-        const success = await login(formData.email, formData.password);
-        
-        if (success) {
-          console.log('🎯 Navigating to dashboard');
-          navigate('/admin/dashboard');
-        }
+      const ok = await login(formData.email, formData.password);
+      if (ok) {
+        navigate('/admin/dashboard');
       } else {
-        const errorData = await response.json();
-        console.log('❌ Login failed, error:', errorData);
-        setErrors({
-          email: '',
-          password: errorData.message || 'Credenciales inválidas'
-        });
+        setError('Credenciales inválidas');
       }
-    } catch (error) {
-      console.error('Error en login:', error);
-      console.log('🔥 FETCH ERROR:', error);
-      setErrors({
-        email: '',
-        password: 'Error de conexión con el servidor'
-      });
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-green-800 flex items-center justify-center p-4">

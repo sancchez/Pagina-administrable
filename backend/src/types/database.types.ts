@@ -8,20 +8,16 @@ export interface User {
 }
 
 export interface Page {
-  id: number;
+  id: string;
   title: string;
-  slug: string;
-  content: string;
-  metaDescription?: string;
-  published: boolean;
-  layoutType: string;
-  headerConfig?: string;
-  sidebarEnabled: boolean;
-  sidebarPosition: string;
-  customCSS?: string;
-  backgroundColor?: string;
+  draft_json: string;
+  published_json: string;
+  craftData: string;
+  status: string;
+  version: number;
   createdAt: Date;
   updatedAt: Date;
+  publishedAt: Date;
 }
 
 export interface PageVersion {

@@ -1,7 +1,6 @@
 // Database utility functions for frontend API calls
-
-// Backend server URL
-const API_BASE_URL = 'http://localhost:3001';
+import HttpClient from './http';
+import { migratePageData } from '../services/dataMigration';
 
 interface Page {
   id: number;
@@ -10,8 +9,8 @@ interface Page {
   content: string;
   metaDescription?: string;
   published: boolean;
-  draftJson?: any;
-  publishedJson?: any;
+  draftJson?: unknown;
+  publishedJson?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,15 +38,12 @@ export const getPageById = async (id: number): Promise<Page | null> => {
     console.log('🔑 [Database] Tipo de token:', typeof token);
     console.log('🔑 [Database] Longitud del token:', token ? token.length : 0);
     
-    const url = `${API_BASE_URL}/api/admin/pages/${id}`;
-     console.log('📡 [Database] Enviando GET request a:', url);
-     console.log('🌐 [Database] Full URL being called:', url);
-     console.log('🌐 [Database] Backend URL:', API_BASE_URL);
+    const endpoint = `/api/admin/pages/${id}`;
+     console.log('📡 [Database] Enviando GET request a:', endpoint);
      
-     const response = await fetch(url, {
+     const response = await HttpClient.get(endpoint, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -63,18 +59,34 @@ export const getPageById = async (id: number): Promise<Page | null> => {
       const errorData = await response.text();
       console.error('❌ [Database] Error en response:', response.status, response.statusText);
       console.error('❌ [Database] Error data:', errorData);
-      console.error('❌ [Database] URL that failed:', url);
+      console.error('❌ [Database] URL that failed:', endpoint);
       throw new Error(`Error fetching page: ${response.statusText}`);
     }
 
     const result = await response.json();
+    
+    // Verificar que el resultado tenga la estructura esperada
+    if (!result || typeof result !== 'object') {
+      throw new Error('Invalid response format from server');
+    }
+    
     console.log('✅ [Database] Página obtenida exitosamente:', {
-      id: result.id,
-      title: result.title,
-      slug: result.slug,
+      id: result.id || 'N/A',
+      title: result.title || 'Sin título',
+      slug: result.slug || 'sin-slug',
       hasDraftJson: !!result.draftJson,
       hasPublishedJson: !!result.publishedJson
     });
+    
+    // Migrar automáticamente los datos al formato Craft.js
+    const migrationResult = await migratePageData(result);
+    if (migrationResult?.success && migrationResult?.migrated) {
+      console.log('🔄 [Database] Datos migrados automáticamente a Craft.js');
+      // Actualizar los datos con la versión migrada
+      result.craftData = migrationResult.data;
+    } else if (migrationResult?.success) {
+      result.craftData = migrationResult.data;
+    }
     
     return result;
   } catch (error) {
@@ -114,18 +126,14 @@ export const updatePage = async (id: number, pageData: Partial<Page>): Promise<P
       updatedAt: new Date().toISOString()
     };
     
-    console.log('📡 [Database] Enviando PUT request a:', `/api/admin/pages/${id}`);
-    console.log('🌐 [Database] URL completa del request:', window.location.origin + `/api/admin/pages/${id}`);
-    console.log('🔗 [Database] Base URL actual:', window.location.origin);
+    const endpoint = `/api/admin/pages/${id}`;
+    console.log('📡 [Database] Enviando PUT request a:', endpoint);
     console.log('📦 [Database] Body del request:', JSON.stringify(requestBody, null, 2));
     
-    const response = await fetch(`${API_BASE_URL}/api/admin/pages/${id}`, {
-    method: 'PUT',
+    const response = await HttpClient.put(endpoint, requestBody, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     console.log('📡 [Database] Response status:', response.status);
@@ -157,17 +165,14 @@ export const updatePage = async (id: number, pageData: Partial<Page>): Promise<P
 export const createPage = async (pageData: Omit<Page, 'id' | 'createdAt' | 'updatedAt'>): Promise<Page> => {
   try {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch(`${API_BASE_URL}/api/admin/pages`, {
-    method: 'POST',
+    const response = await HttpClient.post('/api/admin/pages', {
+      ...pageData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        ...pageData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     if (!response.ok) {
@@ -186,10 +191,9 @@ export const createPage = async (pageData: Omit<Page, 'id' | 'createdAt' | 'upda
 export const getAllPages = async (): Promise<Page[]> => {
   try {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch(`${API_BASE_URL}/api/admin/pages`, {
+    const response = await HttpClient.get('/api/admin/pages', {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -209,11 +213,9 @@ export const deletePage = async (id: number): Promise<boolean> => {
   try {
     const token = localStorage.getItem('adminToken');
     
-    const response = await fetch(`${API_BASE_URL}/api/admin/pages/${id}`, {
-      method: 'DELETE',
+    const response = await HttpClient.delete(`/api/admin/pages/${id}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`
       }
     });
     
@@ -233,16 +235,11 @@ export const getPageBySlug = async (slug: string): Promise<Page | null> => {
   console.log('🚀 [Database] getPageBySlug INICIADO:', { slug });
   
   try {
-    const url = `${API_BASE_URL}/api/pages/${slug}`;
-    console.log('📡 [Database] Construyendo URL:', { slug, url, API_BASE_URL });
+    const endpoint = `/api/pages/${slug}`;
+    console.log('📡 [Database] Construyendo endpoint:', { slug, endpoint });
     
-    console.log('📡 [Database] Iniciando fetch request...');
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('📡 [Database] Iniciando request...');
+    const response = await HttpClient.get(endpoint);
 
     console.log('📡 [Database] Fetch completado. Response info:', {
       status: response.status,
@@ -270,7 +267,7 @@ export const getPageBySlug = async (slug: string): Promise<Page | null> => {
       console.error('❌ [Database] Error completo:', {
         status: response.status,
         statusText: response.statusText,
-        url,
+        endpoint,
         errorData
       });
       
@@ -303,6 +300,16 @@ export const getPageBySlug = async (slug: string): Promise<Page | null> => {
         publishedJsonKeys: result.publishedJson && typeof result.publishedJson === 'object' ? Object.keys(result.publishedJson) : null
       }
     });
+    
+    // Migrar automáticamente los datos al formato Craft.js
+    const migrationResult = await migratePageData(result);
+    if (migrationResult.success && migrationResult.migrated) {
+      console.log('🔄 [Database] Datos migrados automáticamente a Craft.js');
+      // Actualizar los datos con la versión migrada
+      result.craftData = migrationResult.data;
+    } else if (migrationResult.success) {
+      result.craftData = migrationResult.data;
+    }
     
     return result;
   } catch (error) {

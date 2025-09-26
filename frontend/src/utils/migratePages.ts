@@ -222,7 +222,13 @@ export const cleanExistingPages = async (): Promise<void> => {
 };
 
 // Exportar para uso en consola del navegador
-(window as any).migrateAllPages = migrateAllPages;
-(window as any).cleanExistingPages = cleanExistingPages;
+(window as Window & typeof globalThis & {
+  migrateAllPages: typeof migrateAllPages;
+  cleanExistingPages: typeof cleanExistingPages;
+}).migrateAllPages = migrateAllPages;
+(window as Window & typeof globalThis & {
+  migrateAllPages: typeof migrateAllPages;
+  cleanExistingPages: typeof cleanExistingPages;
+}).cleanExistingPages = cleanExistingPages;
 
 export default migrateAllPages;

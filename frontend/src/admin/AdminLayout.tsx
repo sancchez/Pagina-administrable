@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
 import { 
   Droplets, 
   LayoutDashboard, 
@@ -15,12 +16,14 @@ import {
   Globe,
   Database,
   Shield,
-  Bell
+  Bell,
+  X
 } from 'lucide-react';
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [showHelpBox, setShowHelpBox] = useState(true);
 
   if (!user) {
     return <Navigate to="/admin" replace />;
@@ -43,11 +46,11 @@ export default function AdminLayout() {
       description: 'Vista general del sistema'
     },
     {
-      title: 'Gestión de Contenidos',
-      path: '/admin/dashboard/content',
+      title: 'Editor',
+      path: '/admin/dashboard/editor/home',
       icon: Edit3,
       color: 'from-green-500 to-green-600',
-      description: 'Editor de páginas web'
+      description: 'Editor de páginas'
     },
     {
       title: 'Gestión de Facturas',
@@ -197,20 +200,28 @@ export default function AdminLayout() {
           </div>
 
           {/* Help Section */}
-          <div className="absolute bottom-6 left-6 right-6">
-            <div className="bg-gradient-to-r from-blue-500 to-green-500 rounded-xl p-4 text-white">
-              <div className="flex items-center space-x-3 mb-2">
-                <HelpCircle className="h-5 w-5" />
-                <span className="font-semibold">¿Necesitas ayuda?</span>
+          {showHelpBox && (
+            <div className="absolute bottom-6 left-6 right-6">
+              <div className="bg-gradient-to-r from-blue-500 to-green-500 rounded-xl p-4 text-white relative">
+                <button 
+                  onClick={() => setShowHelpBox(false)}
+                  className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="flex items-center space-x-3 mb-2">
+                  <HelpCircle className="h-5 w-5" />
+                  <span className="font-semibold">¿Necesitas ayuda?</span>
+                </div>
+                <p className="text-sm text-blue-100 mb-3">
+                  Consulta nuestra documentación o contacta soporte técnico.
+                </p>
+                <button className="bg-white/20 hover:bg-white/30 text-white text-sm px-3 py-1 rounded-lg transition-colors">
+                  Ver Guía
+                </button>
               </div>
-              <p className="text-sm text-blue-100 mb-3">
-                Consulta nuestra documentación o contacta soporte técnico.
-              </p>
-              <button className="bg-white/20 hover:bg-white/30 text-white text-sm px-3 py-1 rounded-lg transition-colors">
-                Ver Guía
-              </button>
             </div>
-          </div>
+          )}
         </aside>
 
         {/* Main Content */}

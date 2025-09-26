@@ -1,195 +1,420 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Code, Monitor } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNode, UserComponent } from '@craftjs/core';
+import {
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  List,
+  ListOrdered,
+  Link,
+  Type,
+  Palette
+} from 'lucide-react';
 
-// Declarar Quill para TypeScript
-declare global {
-  interface Window {
-    Quill: any;
-  }
+// Rich Text Editor Props
+export interface RichTextProps {
+  text: string;
+  fontSize: number;
+  fontWeight: 'normal' | 'bold';
+  textAlign: 'left' | 'center' | 'right';
+  color: string;
+  backgroundColor: string;
+  padding: number;
+  margin: number;
 }
 
-interface RichTextEditorProps {
-  value: string;
-  onChange: (content: string) => void;
-  placeholder?: string;
-  height?: number;
-}
-
-const RichTextEditor: React.FC<RichTextEditorProps> = ({
-  value,
-  onChange,
-  placeholder = "Escribe tu contenido aquí...",
-  height = 400
+// Rich Text Editor Component
+export const RichTextEditor: UserComponent<RichTextProps> = ({
+  text = 'Escribe tu texto aquí...',
+  fontSize = 16,
+  fontWeight = 'normal',
+  textAlign = 'left',
+  color = '#000000',
+  backgroundColor = 'transparent',
+  padding = 10,
+  margin = 5
 }) => {
-  const [viewMode, setViewMode] = useState<'visual' | 'code'>('visual');
-  const [quillLoaded, setQuillLoaded] = useState(false);
-  const [codeContent, setCodeContent] = useState(value);
-  const quillRef = useRef<any>(null);
+  const {
+    connectors: { connect, drag },
+    selected,
+    actions: { setProp }
+  } = useNode((state) => ({
+    selected: state.events.selected
+  }));
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentText, setCurrentText] = useState(text);
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Cargar Quill desde CDN
   useEffect(() => {
-    if (window.Quill) {
-      setQuillLoaded(true);
-      return;
-    }
+    setCurrentText(text);
+  }, [text]);
 
-    // Cargar CSS de Quill
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://cdn.quilljs.com/1.3.6/quill.snow.css';
-    document.head.appendChild(link);
-
-    // Cargar JS de Quill
-    const script = document.createElement('script');
-    script.src = 'https://cdn.quilljs.com/1.3.6/quill.min.js';
-    script.onload = () => {
-      setQuillLoaded(true);
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-      if (document.head.contains(link)) {
-        document.head.removeChild(link);
-      }
-    };
-  }, []);
-
-  // Inicializar Quill cuando esté cargado y en modo visual
-  useEffect(() => {
-    if (quillLoaded && viewMode === 'visual' && editorRef.current && window.Quill) {
-      // Destruir instancia existente si existe
-      if (quillRef.current) {
-        quillRef.current = null;
-      }
-
-      // Crear nueva instancia de Quill
-      const quill = new window.Quill(editorRef.current, {
-        theme: 'snow',
-        placeholder,
-        modules: {
-          toolbar: [
-            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'indent': '-1'}, { 'indent': '+1' }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-          ]
-        }
+  const handleTextChange = () => {
+    if (editorRef.current) {
+      const newText = editorRef.current.textContent || '';
+      setCurrentText(newText);
+      setProp((props: RichTextProps) => {
+        props.text = newText;
       });
-
-      // Establecer contenido inicial
-      if (value) {
-        quill.root.innerHTML = value;
-      }
-
-      // Escuchar cambios
-      quill.on('text-change', () => {
-        const content = quill.root.innerHTML;
-        setCodeContent(content);
-        onChange(content);
-      });
-
-      quillRef.current = quill;
     }
-  }, [quillLoaded, viewMode, placeholder]);
-
-  // Actualizar contenido cuando cambie el valor externo
-  useEffect(() => {
-    if (quillRef.current && value !== codeContent) {
-      quillRef.current.root.innerHTML = value;
-      setCodeContent(value);
-    }
-  }, [value]);
-
-  const handleViewModeChange = (mode: 'visual' | 'code') => {
-    if (mode === 'code' && quillRef.current) {
-      // Obtener contenido de Quill antes de cambiar a código
-      const content = quillRef.current.root.innerHTML;
-      setCodeContent(content);
-      onChange(content);
-    } else if (mode === 'visual' && viewMode === 'code') {
-      // Al volver a visual, el useEffect se encargará de reinicializar Quill
-      onChange(codeContent);
-    }
-    setViewMode(mode);
   };
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const content = e.target.value;
-    setCodeContent(content);
-    onChange(content);
+  const handleDoubleClick = () => {
+    setIsEditing(true);
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.focus();
+      }
+    }, 0);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    handleTextChange();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      document.execCommand('insertText', false, '\n');
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      handleTextChange();
+    }
+  };
+
+  // Formatting functions
+  const formatText = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    handleTextChange();
+  };
+
+  const styles = {
+    fontSize: `${fontSize}px`,
+    fontWeight,
+    textAlign,
+    color,
+    backgroundColor,
+    padding: `${padding}px`,
+    margin: `${margin}px`,
+    minHeight: '40px',
+    border: selected ? '2px solid #3b82f6' : '2px solid transparent',
+    borderRadius: '4px',
+    cursor: isEditing ? 'text' : 'pointer',
+    outline: 'none',
+    position: 'relative' as const
   };
 
   return (
-    <div className="border border-gray-300 rounded-md overflow-hidden">
-      {/* Toolbar de modo */}
-      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">Editor de Contenido</span>
-        <div className="flex items-center space-x-2">
+    <div
+      ref={(ref) => connect(drag(ref!))}
+      style={styles}
+      onDoubleClick={handleDoubleClick}
+      className="rich-text-editor transition-all duration-200 hover:shadow-sm"
+    >
+      {/* Formatting Toolbar */}
+      {selected && isEditing && (
+        <div className="absolute -top-12 left-0 bg-white border border-gray-200 rounded shadow-lg p-2 flex items-center space-x-1 z-10">
           <button
-            type="button"
-            onClick={() => handleViewModeChange('visual')}
-            className={`flex items-center px-3 py-1 text-xs rounded ${
-              viewMode === 'visual'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('bold');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Negrita"
           >
-            <Monitor className="h-3 w-3 mr-1" />
-            Visual
+            <Bold size={14} />
           </button>
           <button
-            type="button"
-            onClick={() => handleViewModeChange('code')}
-            className={`flex items-center px-3 py-1 text-xs rounded ${
-              viewMode === 'code'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('italic');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Cursiva"
           >
-            <Code className="h-3 w-3 mr-1" />
-            HTML
+            <Italic size={14} />
           </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('underline');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Subrayado"
+          >
+            <Underline size={14} />
+          </button>
+          <div className="w-px h-4 bg-gray-300 mx-1"></div>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('justifyLeft');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Alinear izquierda"
+          >
+            <AlignLeft size={14} />
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('justifyCenter');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Centrar"
+          >
+            <AlignCenter size={14} />
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('justifyRight');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Alinear derecha"
+          >
+            <AlignRight size={14} />
+          </button>
+          <div className="w-px h-4 bg-gray-300 mx-1"></div>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('insertUnorderedList');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Lista con viñetas"
+          >
+            <List size={14} />
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              formatText('insertOrderedList');
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Lista numerada"
+          >
+            <ListOrdered size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Editable Content */}
+      <div
+        ref={editorRef}
+        contentEditable={isEditing}
+        suppressContentEditableWarning={true}
+      >
+        {currentText}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        onInput={handleTextChange}
+        className="w-full h-full"
+        style={{ outline: 'none' }}
+      />
+
+      {/* Edit Indicator */}
+      {selected && !isEditing && (
+        <div className="absolute -top-6 left-0 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+          Doble clic para editar
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Settings Panel for Rich Text Editor
+export const RichTextSettings = () => {
+  const {
+    actions: { setProp },
+    fontSize,
+    fontWeight,
+    textAlign,
+    color,
+    backgroundColor,
+    padding,
+    margin
+  } = useNode((node) => ({
+    fontSize: node.data.props.fontSize,
+    fontWeight: node.data.props.fontWeight,
+    textAlign: node.data.props.textAlign,
+    color: node.data.props.color,
+    backgroundColor: node.data.props.backgroundColor,
+    padding: node.data.props.padding,
+    margin: node.data.props.margin
+  }));
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+        <Type className="mr-2" size={16} />
+        Configuración de Texto
+      </h3>
+
+      {/* Font Size */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Tamaño de fuente
+        </label>
+        <input
+          type="range"
+          min="10"
+          max="48"
+          value={fontSize}
+          onChange={(e) =>
+            setProp((props: RichTextProps) => {
+              props.fontSize = parseInt(e.target.value);
+            })
+          }
+          className="w-full"
+        />
+        <span className="text-xs text-gray-500">{fontSize}px</span>
+      </div>
+
+      {/* Font Weight */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Peso de fuente
+        </label>
+        <select
+          value={fontWeight}
+          onChange={(e) =>
+            setProp((props: RichTextProps) => {
+              props.fontWeight = e.target.value as 'normal' | 'bold';
+            })
+          }
+          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+        >
+          <option value="normal">Normal</option>
+          <option value="bold">Negrita</option>
+        </select>
+      </div>
+
+      {/* Text Align */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Alineación
+        </label>
+        <div className="flex space-x-1">
+          {['left', 'center', 'right'].map((align) => (
+            <button
+              key={align}
+              onClick={() =>
+                setProp((props: RichTextProps) => {
+                  props.textAlign = align as 'left' | 'center' | 'right';
+                })
+              }
+              className={`p-2 border rounded ${
+                textAlign === align
+                  ? 'bg-blue-100 border-blue-300'
+                  : 'bg-white border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {align === 'left' && <AlignLeft size={14} />}
+              {align === 'center' && <AlignCenter size={14} />}
+              {align === 'right' && <AlignRight size={14} />}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Editor */}
-      <div style={{ height: `${height}px` }}>
-        {viewMode === 'visual' ? (
-          <div className="h-full">
-            {quillLoaded ? (
-              <div
-                ref={editorRef}
-                className="h-full"
-                style={{ height: `${height}px` }}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600 text-sm">Cargando editor visual...</p>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <textarea
-            value={codeContent}
-            onChange={handleCodeChange}
-            className="w-full h-full p-4 border-none resize-none focus:outline-none font-mono text-sm"
-            placeholder="<div>Contenido HTML...</div>"
+      {/* Colors */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Color de texto
+          </label>
+          <input
+            type="color"
+            value={color}
+            onChange={(e) =>
+              setProp((props: RichTextProps) => {
+                props.color = e.target.value;
+              })
+            }
+            className="w-full h-8 border border-gray-300 rounded"
           />
-        )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Fondo
+          </label>
+          <input
+            type="color"
+            value={backgroundColor === 'transparent' ? '#ffffff' : backgroundColor}
+            onChange={(e) =>
+              setProp((props: RichTextProps) => {
+                props.backgroundColor = e.target.value;
+              })
+            }
+            className="w-full h-8 border border-gray-300 rounded"
+          />
+        </div>
+      </div>
+
+      {/* Spacing */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Padding
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="50"
+            value={padding}
+            onChange={(e) =>
+              setProp((props: RichTextProps) => {
+                props.padding = parseInt(e.target.value);
+              })
+            }
+            className="w-full"
+          />
+          <span className="text-xs text-gray-500">{padding}px</span>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Margen
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="50"
+            value={margin}
+            onChange={(e) =>
+              setProp((props: RichTextProps) => {
+                props.margin = parseInt(e.target.value);
+              })
+            }
+            className="w-full"
+          />
+          <span className="text-xs text-gray-500">{margin}px</span>
+        </div>
       </div>
     </div>
   );
+};
+
+// Craft.js Configuration
+RichTextEditor.craft = {
+  props: {
+    text: 'Escribe tu texto aquí...',
+    fontSize: 16,
+    fontWeight: 'normal',
+    textAlign: 'left',
+    color: '#000000',
+    backgroundColor: 'transparent',
+    padding: 10,
+    margin: 5
+  },
+  related: {
+    settings: RichTextSettings
+  }
 };
 
 export default RichTextEditor;

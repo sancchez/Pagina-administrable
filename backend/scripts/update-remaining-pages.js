@@ -102,7 +102,7 @@ const remainingPagesContent = {
         </div>
       </section>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Empresa de Servicios Públicos líder en suministro de agua potable y saneamiento básico. 25+ años de experiencia sirviendo a más de 50,000 usuarios.',
     meta_keywords: 'inicio, agua potable, saneamiento basico, servicios publicos, acueducto, empresa'
   },
@@ -370,7 +370,7 @@ const remainingPagesContent = {
         </div>
       </div>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Información corporativa oficial de la empresa. Documentos legales, estados financieros, marco regulatorio y transparencia empresarial.',
     meta_keywords: 'informacion esal, documentos oficiales, estados financieros, marco legal, transparencia'
   },
@@ -559,7 +559,7 @@ const remainingPagesContent = {
         </div>
       </section>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Marco normativo completo que rige los servicios públicos de acueducto. Leyes, decretos, resoluciones y políticas internas.',
     meta_keywords: 'normatividad, leyes, decretos, resoluciones, marco legal, servicios publicos, reglamentos'
   },
@@ -713,7 +713,7 @@ const remainingPagesContent = {
         </div>
       </section>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Portal del usuario para servicios en línea. Consulta facturas, realiza pagos, reporta daños y solicita servicios de forma rápida y segura.',
     meta_keywords: 'portal usuario, servicios en linea, consulta factura, pago online, reporte danos, atencion cliente'
   }
@@ -737,7 +737,7 @@ function updateRemainingPages() {
         ...db.pages[existingPageIndex],
         title: pageData.title,
         content: pageData.content,
-        published: pageData.published,
+        status: pageData.status,
         meta_description: pageData.meta_description,
         meta_keywords: pageData.meta_keywords,
         published_json: {

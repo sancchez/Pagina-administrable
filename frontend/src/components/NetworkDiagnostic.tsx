@@ -16,7 +16,7 @@ export const NetworkDiagnostic: React.FC = () => {
 
     // Test 1: Direct API call
     try {
-      const response = await fetch('http://localhost:3001/api/pages/home');
+      const response = await fetch('http://localhost:3000/api/pages/home');
       if (response.ok) {
         diagnostics.push({
           test: 'Conexión API (Proxy)',
@@ -40,7 +40,7 @@ export const NetworkDiagnostic: React.FC = () => {
 
     // Test 2: Direct backend call
     try {
-      const response = await fetch('http://localhost:3001/api/pages/home');
+      const response = await fetch('http://localhost:3000/api/pages/home');
       if (response.ok) {
         diagnostics.push({
           test: 'Conexión Directa Backend',

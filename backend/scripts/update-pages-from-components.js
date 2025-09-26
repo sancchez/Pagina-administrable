@@ -200,7 +200,7 @@ const improvedPagesContent = {
         </div>
       </div>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Conoce la historia, misión, visión y valores de nuestra empresa de servicios públicos. 25+ años brindando agua potable y saneamiento básico de calidad.',
     meta_keywords: 'quienes somos, historia, mision, vision, valores, empresa servicios publicos, acueducto'
   },
@@ -377,7 +377,7 @@ const improvedPagesContent = {
         </div>
       </section>
     `,
-    published: true,
+    status: 'published',
     meta_description: 'Contáctanos para recibir atención personalizada. Teléfonos, correos, direcciones y horarios de nuestras oficinas de atención al cliente.',
     meta_keywords: 'contacto, telefono, correo, direccion, horarios, atencion cliente, oficinas'
   }

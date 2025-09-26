@@ -1,428 +1,210 @@
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
+import { Frame, Element } from '@craftjs/core';
+import { TextComponent, ButtonComponent, ContainerComponent, ImageComponent, contentResolver } from './content';
 import { CanvasPage, CanvasBlock } from '../types/canvas';
+
+// Usar el resolver centralizado
+const resolver = contentResolver;
 
 interface CanvasRendererProps {
   page: CanvasPage;
   className?: string;
 }
 
-export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ page, className = '' }) => {
-  const renderBlock = (block: CanvasBlock) => {
+export const CanvasRenderer: React.FC<CanvasRendererProps> = memo(({ page, className = '' }) => {
+  // Memoizar la función de conversión de bloques
+  const convertBlockToCraftElement = useCallback((block: CanvasBlock) => {
     // No renderizar bloques ocultos
     if (block.visible === false) {
       return null;
     }
 
-    const blockStyle: React.CSSProperties = {
-      position: 'absolute',
-      left: `${block.position.x}px`,
-      top: `${block.position.y}px`,
-      width: `${block.size.width}px`,
-      height: `${block.size.height}px`,
-      fontSize: block.style?.fontSize ? `${block.style.fontSize}px` : undefined,
-      fontFamily: block.style?.fontFamily,
-      fontWeight: block.style?.fontWeight,
-      color: block.style?.color,
-      backgroundColor: block.style?.backgroundColor,
-      textAlign: block.style?.textAlign as any,
-      borderRadius: block.style?.borderRadius ? `${block.style.borderRadius}px` : undefined,
-      opacity: block.style?.opacity,
-      transform: block.style?.rotation ? `rotate(${block.style.rotation}deg)` : undefined,
-      padding: block.style?.padding ? `${block.style.padding}px` : undefined,
-      border: block.style?.border,
-      boxShadow: block.style?.boxShadow,
-      overflow: 'hidden',
-      wordWrap: 'break-word',
-      display: 'flex',
-      alignItems: block.type === 'button' ? 'center' : 'flex-start',
-      justifyContent: block.style?.textAlign === 'center' ? 'center' : 
-                     block.style?.textAlign === 'right' ? 'flex-end' : 'flex-start'
+    const commonProps = {
+      position: {
+        x: block.position.x,
+        y: block.position.y
+      },
+      size: {
+        width: block.size.width,
+        height: block.size.height
+      },
+      style: block.style || {}
     };
 
     switch (block.type) {
       case 'text':
-        return (
-          <div
-            key={block.id}
-            style={blockStyle}
-            className="canvas-text-block"
-          >
-            {block.content}
-          </div>
-        );
-
       case 'heading':
-        const HeadingTag = block.style.fontSize && block.style.fontSize >= 32 ? 'h1' :
-                          block.style.fontSize && block.style.fontSize >= 24 ? 'h2' :
-                          block.style.fontSize && block.style.fontSize >= 20 ? 'h3' : 'h4';
-        
-        return React.createElement(
-          HeadingTag,
-          {
-            key: block.id,
-            style: blockStyle,
-            className: 'canvas-heading-block'
-          },
-          block.content
+        return (
+          <Element
+            key={block.id}
+            is={TextComponent}
+            text={block.content || ''}
+            fontSize={block.style?.fontSize || 16}
+            fontFamily={block.style?.fontFamily || 'Arial'}
+            fontWeight={block.style?.fontWeight || 'normal'}
+            color={block.style?.color || '#000000'}
+            textAlign={block.style?.textAlign || 'left'}
+            {...commonProps}
+          />
         );
-
       case 'image':
         return (
-          <img
+          <Element
             key={block.id}
-            src={block.src}
+            is={ImageComponent}
+            src={block.src || ''}
             alt={block.alt || block.content || 'Imagen'}
-            style={blockStyle}
-            className="canvas-image-block"
-            loading="lazy"
+            {...commonProps}
           />
         );
 
       case 'card':
-        return (
-          <div
-            key={block.id}
-            style={{
-              ...blockStyle,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              whiteSpace: 'pre-line'
-            }}
-            className="canvas-card-block"
-          >
-            {block.content?.split('\n').map((line, index) => (
-              <div key={index} style={{ 
-                fontWeight: index === 0 ? 'bold' : 'normal',
-                fontSize: index === 1 ? '1.5em' : 'inherit',
-                marginBottom: index < 2 ? '4px' : '0'
-              }}>
-                {line}
-              </div>
-            ))}
-          </div>
-        );
-
       case 'background':
         return (
-          <div
+          <Element
             key={block.id}
-            style={blockStyle}
-            className="canvas-background-block"
-          />
+            is={ContainerComponent}
+            backgroundColor={block.style?.backgroundColor || 'transparent'}
+            padding={block.style?.padding || 0}
+            borderRadius={block.style?.borderRadius || 0}
+            {...commonProps}
+          >
+            {block.content && (
+              <Element
+                is={TextComponent}
+                text={block.content}
+                fontSize={block.style?.fontSize || 16}
+                color={block.style?.color || '#000000'}
+                textAlign={block.style?.textAlign || 'center'}
+              />
+            )}
+          </Element>
         );
 
       case 'button':
-        const handleButtonClick = () => {
-          if (block.href) {
-            if (block.href.startsWith('http') || block.href.startsWith('mailto:') || block.href.startsWith('tel:')) {
-              window.open(block.href, block.target || '_self');
-            } else {
-              window.location.href = block.href;
-            }
-          }
-        };
-
         return (
-          <button
+          <Element
             key={block.id}
-            style={{
-              ...blockStyle,
-              cursor: block.href ? 'pointer' : 'default',
-              border: block.style.border || 'none',
-              outline: 'none'
-            }}
-            className="canvas-button-block"
-            onClick={handleButtonClick}
-            disabled={!block.href}
-          >
-            {block.content}
-          </button>
+            is={ButtonComponent}
+            text={block.content || 'Button'}
+            href={block.href || ''}
+            target={block.target || '_self'}
+            backgroundColor={block.style?.backgroundColor || '#007bff'}
+            color={block.style?.color || '#ffffff'}
+            fontSize={block.style?.fontSize || 16}
+            padding={block.style?.padding || 12}
+            borderRadius={block.style?.borderRadius || 4}
+            {...commonProps}
+          />
         );
-
-      case 'video':
-        const isYouTube = block.src?.includes('youtube.com') || block.src?.includes('youtu.be');
-        const isVimeo = block.src?.includes('vimeo.com');
-        
-        if (isYouTube || isVimeo) {
-          let embedSrc = block.src;
-          
-          if (isYouTube && block.src) {
-            const videoId = block.src.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-            if (videoId) {
-              embedSrc = `https://www.youtube.com/embed/${videoId[1]}`;
-            }
-          } else if (isVimeo && block.src) {
-            const videoId = block.src.match(/vimeo\.com\/(\d+)/);
-            if (videoId) {
-              embedSrc = `https://player.vimeo.com/video/${videoId[1]}`;
-            }
-          }
-          
-          return (
-            <iframe
-              key={block.id}
-              src={embedSrc}
-              style={blockStyle}
-              className="canvas-video-block"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              loading="lazy"
-            />
-          );
-        } else {
-          return (
-            <video
-              key={block.id}
-              src={block.src}
-              style={blockStyle}
-              className="canvas-video-block"
-              controls
-              preload="metadata"
-            >
-              Tu navegador no soporta el elemento de video.
-            </video>
-          );
-        }
 
       default:
         return (
-          <div
+          <Element
             key={block.id}
-            style={blockStyle}
-            className="canvas-unknown-block"
+            is={ContainerComponent}
+            {...commonProps}
           >
-            {block.content || 'Elemento desconocido'}
-          </div>
+            <Element
+              is={TextComponent}
+              text={block.content || 'Elemento desconocido'}
+              fontSize={16}
+              color="#666666"
+            />
+          </Element>
         );
     }
-  };
+  }, []); // Sin dependencias ya que no usa variables externas
 
-  // Calcular el tamaño del contenedor basado en los bloques
-  const calculateContainerSize = () => {
-    if (page.blocks.length === 0) {
-      return { width: 1200, height: 800 };
-    }
+  // Memoizar los elementos renderizados
+  const renderedBlocks = useMemo(() => {
+    return page.blocks.map(convertBlockToCraftElement);
+  }, [page.blocks, convertBlockToCraftElement]);
 
-    let maxX = 0;
-    let maxY = 0;
-
-    page.blocks.forEach(block => {
-      if (block.visible !== false) {
-        const blockRight = block.position.x + block.size.width;
-        const blockBottom = block.position.y + block.size.height;
-        
-        if (blockRight > maxX) maxX = blockRight;
-        if (blockBottom > maxY) maxY = blockBottom;
-      }
-    });
-
-    return {
-      width: Math.max(maxX + 50, 1200), // Mínimo 1200px con padding
-      height: Math.max(maxY + 50, 400)  // Mínimo 400px con padding
-    };
-  };
-
-  const containerSize = calculateContainerSize();
+  // Memoizar las configuraciones de la página
+  const pageSettings = useMemo(() => ({
+    backgroundColor: page.settings?.backgroundColor || '#ffffff',
+    padding: 20
+  }), [page.settings]);
 
   return (
-    <div 
-      className={`canvas-renderer ${className}`}
-      style={{
-        position: 'relative',
-        width: '100%',
-        minHeight: `${containerSize.height}px`,
-        overflow: 'hidden'
-      }}
-    >
-      {/* Contenedor de bloques */}
-      <div
-        style={{
-          position: 'relative',
-          width: `${containerSize.width}px`,
-          height: `${containerSize.height}px`,
-          margin: '0 auto'
-        }}
+    <Frame>
+      <Element
+        is={ContainerComponent}
+        backgroundColor={pageSettings.backgroundColor}
+        padding={pageSettings.padding}
+        className={className}
       >
-        {page.blocks.map(renderBlock)}
-      </div>
-      
-      {/* Estilos CSS adicionales para SEO y accesibilidad */}
-      <style>{`
-        .canvas-renderer {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-          line-height: 1.6;
-        }
-        
-        .canvas-text-block,
-        .canvas-heading-block {
-          line-height: 1.4;
-          word-break: break-word;
-          hyphens: auto;
-        }
-        
-        .canvas-image-block {
-          object-fit: cover;
-          max-width: 100%;
-          height: auto;
-        }
-        
-        .canvas-button-block {
-          transition: all 0.2s ease;
-          text-decoration: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .canvas-button-block:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .canvas-button-block:active:not(:disabled) {
-          transform: translateY(0);
-        }
-        
-        .canvas-video-block {
-          border: none;
-        }
-        
-        @media (max-width: 768px) {
-          .canvas-renderer {
-            transform: scale(0.8);
-            transform-origin: top left;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .canvas-renderer {
-            transform: scale(0.6);
-            transform-origin: top left;
-          }
-        }
-      `}</style>
-    </div>
+        {renderedBlocks}
+      </Element>
+    </Frame>
   );
-};
+});
 
 // Hook para usar el renderizador con datos de página
 export const useCanvasRenderer = (pageData: any) => {
-  console.log('🎨 [CanvasRenderer] Hook INICIADO con pageData:', {
-    pageData,
-    pageDataType: typeof pageData,
-    pageDataKeys: pageData ? Object.keys(pageData) : null,
-    hasPageData: !!pageData
-  });
-  
   const [canvasPage, setCanvasPage] = React.useState<CanvasPage | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    console.log('🔄 [CanvasRenderer] useEffect EJECUTADO con pageData:', {
-      pageData,
-      pageDataExists: !!pageData,
-      pageDataType: typeof pageData
-    });
-    
     const processPageData = async () => {
-      console.log('⚙️ [CanvasRenderer] processPageData INICIADO');
-      
       try {
         setIsLoading(true);
         setError(null);
-        console.log('🔄 [CanvasRenderer] Estados inicializados (loading=true, error=null)');
 
         if (!pageData) {
-          console.log('❌ [CanvasRenderer] No hay pageData, estableciendo error');
           setError('No hay datos de página');
           return;
         }
 
-        console.log('📊 [CanvasRenderer] Analizando estructura de pageData:', {
-          pageData,
-          keys: Object.keys(pageData),
-          hasDraftJson: !!pageData.draftJson,
-          hasPublishedJson: !!pageData.publishedJson,
-          draftJsonType: typeof pageData.draftJson,
-          publishedJsonType: typeof pageData.publishedJson,
-          draftJsonContent: pageData.draftJson,
-          publishedJsonContent: pageData.publishedJson
-        });
-
-        // Verificar si ya está en formato Canvas
-        if (pageData.draftJson && pageData.draftJson.blocks && Array.isArray(pageData.draftJson.blocks)) {
-          console.log('✅ [CanvasRenderer] Usando draftJson como CanvasPage:', {
-            draftJson: pageData.draftJson,
-            blocksCount: pageData.draftJson.blocks.length,
-            blocks: pageData.draftJson.blocks
-          });
-          setCanvasPage(pageData.draftJson as CanvasPage);
-        } else if (pageData.publishedJson && pageData.publishedJson.blocks && Array.isArray(pageData.publishedJson.blocks)) {
-          console.log('✅ [CanvasRenderer] Usando publishedJson como CanvasPage:', {
-            publishedJson: pageData.publishedJson,
-            blocksCount: pageData.publishedJson.blocks.length,
-            blocks: pageData.publishedJson.blocks
-          });
+        // Verificar si ya está en formato Canvas JSON
+        if (pageData.publishedJson && pageData.publishedJson.blocks && Array.isArray(pageData.publishedJson.blocks)) {
           setCanvasPage(pageData.publishedJson as CanvasPage);
+        } else if (pageData.draftJson && pageData.draftJson.blocks && Array.isArray(pageData.draftJson.blocks)) {
+          setCanvasPage(pageData.draftJson as CanvasPage);
         } else {
-          console.log('🔄 [CanvasRenderer] No hay datos Canvas válidos, iniciando migración desde HTML:', {
-            hasContent: !!pageData.content,
-            contentLength: pageData.content ? pageData.content.length : 0,
-            contentPreview: pageData.content ? pageData.content.substring(0, 200) + '...' : null
-          });
+          // Crear estructura Canvas con contenido básico si no existe
+          const defaultCanvasPage: CanvasPage = {
+            id: pageData.id || 'default',
+            title: pageData.title || 'Página sin título',
+            slug: pageData.slug || 'untitled',
+            settings: {
+              width: 1200,
+              height: 800,
+              backgroundColor: '#ffffff'
+            },
+            blocks: [
+              {
+                id: 'default-text',
+                type: 'text',
+                content: pageData.title || 'Esta página necesita ser editada con el editor visual',
+                position: { x: 50, y: 50 },
+                size: { width: 600, height: 100 },
+                style: {
+                  fontSize: 24,
+                  color: '#333333',
+                  fontFamily: 'Arial',
+                  textAlign: 'left'
+                },
+                visible: true
+              }
+            ],
+            version: 1
+          };
           
-          // Convertir desde HTML usando el migrador
-          console.log('📦 [CanvasRenderer] Importando canvasMigrator...');
-          const { migrateToCanvasFormat } = await import('../utils/canvasMigrator');
-          
-          console.log('🔄 [CanvasRenderer] Ejecutando migración...');
-          const migrationResult = await migrateToCanvasFormat(pageData);
-          
-          console.log('📋 [CanvasRenderer] Resultado de migración:', {
-            migrationResult,
-            success: migrationResult.success,
-            hasPage: !!migrationResult.page,
-            errors: migrationResult.errors,
-            page: migrationResult.page
-          });
-          
-          if (migrationResult.success && migrationResult.page) {
-            console.log('✅ [CanvasRenderer] Migración exitosa, estableciendo CanvasPage:', migrationResult.page);
-            setCanvasPage(migrationResult.page);
-          } else {
-            console.error('❌ [CanvasRenderer] Error en migración:', migrationResult.errors);
-            setError('Error al migrar los datos de la página');
-          }
+          setCanvasPage(defaultCanvasPage);
         }
       } catch (err) {
-        console.error('❌ [CanvasRenderer] Error COMPLETO procesando datos de página:', {
-          error: err,
-          errorMessage: err instanceof Error ? err.message : 'Error desconocido',
-          errorStack: err instanceof Error ? err.stack : null,
-          pageData
-        });
+        console.error('Error procesando datos de página:', err);
         setError('Error al procesar los datos de la página');
       } finally {
-        console.log('🏁 [CanvasRenderer] processPageData FINALIZADO, estableciendo loading=false');
         setIsLoading(false);
       }
     };
 
     processPageData();
   }, [pageData]);
-
-  console.log('📤 [CanvasRenderer] Hook retornando:', {
-    canvasPage,
-    isLoading,
-    error,
-    hasCanvasPage: !!canvasPage,
-    canvasPageBlocksCount: canvasPage?.blocks?.length || 0
-  });
 
   return { canvasPage, isLoading, error };
 };

@@ -150,14 +150,14 @@ async function migrateHomePage() {
         title: 'Inicio',
         content: homePageContent,
         metaDescription: 'Bienvenido al Acueducto Municipal. Agua potable de calidad, servicio confiable y atención al cliente excepcional para nuestra comunidad.',
-        published: true
+        status: 'published'
       },
       create: {
         slug: 'home',
         title: 'Inicio',
         content: homePageContent,
         metaDescription: 'Bienvenido al Acueducto Municipal. Agua potable de calidad, servicio confiable y atención al cliente excepcional para nuestra comunidad.',
-        published: true
+        status: 'published'
       }
     });
     

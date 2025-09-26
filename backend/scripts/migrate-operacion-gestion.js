@@ -252,7 +252,7 @@ async function migrateOperacionGestion() {
         slug: 'operacion-gestion',
         content: fullContent,
         metaDescription: 'Procesos operativos y sistemas de gestión del servicio de acueducto. Conoce nuestras áreas de captación, tratamiento, distribución y control de calidad.',
-        published: true
+        status: 'published'
       }
     });
     

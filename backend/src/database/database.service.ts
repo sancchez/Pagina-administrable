@@ -321,6 +321,20 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
     }
   }
 
+  async findAllPagesWithContent() {
+    console.log('[DatabaseService] findAllPagesWithContent - fetching all pages with full content');
+    try {
+      const pages = await this.page.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+      console.log(`[DatabaseService] findAllPagesWithContent - found ${pages.length} pages`);
+      return pages;
+    } catch (error) {
+      console.error('[DatabaseService] findAllPagesWithContent - error:', error.message);
+      throw error;
+    }
+  }
+
   async createPage(pageData: {
     id: string;
     title: string;
@@ -401,6 +415,58 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
     } catch (error) {
       console.error(`[DatabaseService] deletePage(${id}) - error:`, error.message);
       return false;
+    }
+  }
+
+  async upsertPage(pageData: {
+    id: string;
+    title: string;
+    slug?: string;
+    draft_json?: any;
+    published_json?: any;
+    status?: string;
+    version?: number;
+    publishedAt?: Date;
+    updatedBy: number;
+  }) {
+    console.log(`[DatabaseService] upsertPage(${pageData.id}) - creating or updating page`);
+    
+    try {
+      const existingPage = await this.findPageById(pageData.id);
+      
+      const data = {
+        title: pageData.title,
+        draft_json: pageData.draft_json ? JSON.stringify(pageData.draft_json) : null,
+        published_json: pageData.published_json ? JSON.stringify(pageData.published_json) : null,
+        craftData: pageData.draft_json ? JSON.stringify(pageData.draft_json) : '{}',
+        status: pageData.status || 'draft',
+        version: pageData.version || 1,
+        publishedAt: pageData.publishedAt
+      };
+      
+      let page;
+      if (existingPage) {
+        // Actualizar página existente
+        page = await this.page.update({
+          where: { id: pageData.id },
+          data
+        });
+        console.log(`[DatabaseService] upsertPage(${pageData.id}) - page updated`);
+      } else {
+        // Crear nueva página
+        page = await this.page.create({
+          data: {
+            id: pageData.id,
+            ...data
+          }
+        });
+        console.log(`[DatabaseService] upsertPage(${pageData.id}) - page created`);
+      }
+      
+      return page;
+    } catch (error) {
+      console.error(`[DatabaseService] upsertPage(${pageData.id}) - error:`, error.message);
+      throw error;
     }
   }
 

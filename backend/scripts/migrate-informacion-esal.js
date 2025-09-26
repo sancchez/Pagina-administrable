@@ -210,14 +210,14 @@ async function migrateInformacionEsal() {
         title: 'Información ESAL',
         content: htmlContent,
         metaDescription: 'Información corporativa, documentos oficiales y marco normativo de la Empresa de Servicios Públicos Acueducto Municipal E.S.P.',
-        published: true
+        status: 'published'
       },
       create: {
         title: 'Información ESAL',
         slug: 'informacion-esal',
         content: htmlContent,
         metaDescription: 'Información corporativa, documentos oficiales y marco normativo de la Empresa de Servicios Públicos Acueducto Municipal E.S.P.',
-        published: true
+        status: 'published'
       }
     });
     

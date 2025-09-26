@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { updatePage, getPageById } from '../utils/database';
+import { handleError } from '../utils/errorHandler';
 
 export const TestAPI: React.FC = () => {
   const [result, setResult] = useState<string>('');
@@ -18,6 +19,7 @@ export const TestAPI: React.FC = () => {
       setResult(`GET exitoso: ${JSON.stringify(page, null, 2)}`);
     } catch (error) {
       console.error('🧪 [TestAPI] Error en getPageById:', error);
+      handleError(error, 'TestAPI.testGetPage');
       setResult(`GET falló: ${error}`);
     } finally {
       setLoading(false);
@@ -40,6 +42,7 @@ export const TestAPI: React.FC = () => {
       setResult(`PUT exitoso: ${JSON.stringify(updatedPage, null, 2)}`);
     } catch (error) {
       console.error('🧪 [TestAPI] Error en updatePage:', error);
+      handleError(error, 'TestAPI.testUpdatePage');
       setResult(`PUT falló: ${error}`);
     } finally {
       setLoading(false);
@@ -50,7 +53,7 @@ export const TestAPI: React.FC = () => {
     setLoading(true);
     try {
       console.log('🧪 [TestAPI] Probando fetch directo PUT');
-      const response = await fetch('http://localhost:3001/api/admin/pages/2', {
+      const response = await fetch('http://localhost:3000/api/admin/pages/2', {
         method: 'PUT',
         headers: {
           'Authorization': 'Bearer mock-jwt-token-123',
@@ -71,6 +74,7 @@ export const TestAPI: React.FC = () => {
       setResult(`Direct PUT: Status ${response.status}, Data: ${JSON.stringify(data, null, 2)}`);
     } catch (error) {
       console.error('🧪 [TestAPI] Error en fetch directo:', error);
+      handleError(error, 'TestAPI.testDirectFetch');
       setResult(`Direct PUT falló: ${error}`);
     } finally {
       setLoading(false);

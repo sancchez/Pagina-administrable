@@ -9,6 +9,8 @@ export interface PageData {
   // Nuevos campos JSON
   draftJson?: BlockData[];
   publishedJson?: BlockData[];
+  // Campo Craft.js
+  craftData?: string;
   // Campo legacy para migración
   content?: string;
   published: boolean;
@@ -24,22 +26,81 @@ export interface PageData {
   updatedAt?: string;
 }
 
+// Union type for all possible block props
+type BlockPropsUnion = 
+  | RichTextProps
+  | ImageProps
+  | VideoProps
+  | HeroProps
+  | ButtonProps
+  | ContainerProps
+  | GridProps
+  | SpacerProps
+  | DividerProps
+  | CardProps
+  | ListProps
+  | TableProps
+  | EmbedProps
+  | HTMLFallbackProps
+  | StatsBlockProps
+  | ServicesBlockProps
+  | TeamBlockProps
+  | ContactBlockProps
+  | GalleryBlockProps
+  | SliderBlockProps
+  | MapBlockProps
+  | DocumentsBlockProps
+  | FormBlockProps;
+
+// Specific styles interface
+export interface BlockStyles {
+  margin?: string;
+  padding?: string;
+  backgroundColor?: string;
+  borderRadius?: string;
+  border?: string;
+  boxShadow?: string;
+  width?: string;
+  height?: string;
+  display?: string;
+  flexDirection?: 'row' | 'column';
+  alignItems?: 'start' | 'center' | 'end' | 'stretch';
+  justifyContent?: 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
+  gap?: string;
+  position?: 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky';
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  zIndex?: number;
+  opacity?: number;
+  transform?: string;
+  transition?: string;
+}
+
+// Custom data interface for blocks
+export interface BlockCustomData {
+  craftNodeId?: string;
+  isSelected?: boolean;
+  isDragging?: boolean;
+  parentId?: string;
+  index?: number;
+  metadata?: {
+    createdAt?: string;
+    updatedAt?: string;
+    version?: string;
+    author?: string;
+  };
+}
+
 // Estructura base de bloque
 export interface BlockData {
   id: string;
   type: BlockType;
-  props: Record<string, any>;
+  props: BlockPropsUnion;
   children?: BlockData[];
-  styles?: {
-    margin?: string;
-    padding?: string;
-    backgroundColor?: string;
-    borderRadius?: string;
-    border?: string;
-    boxShadow?: string;
-    [key: string]: any;
-  };
-  custom?: Record<string, any>;
+  styles?: BlockStyles;
+  custom?: BlockCustomData;
 }
 
 // Tipos de bloques disponibles
@@ -57,7 +118,16 @@ export type BlockType =
   | 'List'
   | 'Table'
   | 'Embed'
-  | 'HTMLFallback';
+  | 'HTMLFallback'
+  | 'Stats'
+  | 'Services'
+  | 'Team'
+  | 'Contact'
+  | 'Gallery'
+  | 'Slider'
+  | 'Map'
+  | 'Documents'
+  | 'Form';
 
 // Props específicos para cada tipo de bloque
 export interface RichTextProps {
@@ -228,6 +298,136 @@ export interface HTMLFallbackProps {
   style?: React.CSSProperties;
 }
 
+// Interfaces para bloques adicionales
+export interface Stat {
+  number: string;
+  label: string;
+  icon: string;
+}
+
+export interface StatsBlockProps {
+  title?: string;
+  subtitle?: string;
+  stats?: Stat[];
+  backgroundColor?: string;
+}
+
+export interface Service {
+  title: string;
+  description: string;
+  icon: string;
+  color?: string | 'blue' | 'green' | 'purple' | 'red' | 'yellow' | 'indigo';
+}
+
+export interface ServicesBlockProps {
+  title?: string;
+  subtitle?: string;
+  services?: Service[];
+  layout?: 'grid' | 'list';
+}
+
+export interface TeamMember {
+  name: string;
+  position: string;
+  bio?: string;
+  image?: string;
+}
+
+export interface TeamBlockProps {
+  title?: string;
+  subtitle?: string;
+  members?: TeamMember[];
+  layout?: 'grid' | 'list';
+  backgroundColor?: string;
+  showBio?: boolean;
+}
+
+export interface ContactBlockProps {
+  title?: string;
+  subtitle?: string;
+  backgroundColor?: string;
+  submitText?: string;
+  showMap?: boolean;
+  mapEmbedUrl?: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+export interface GalleryBlockProps {
+  title?: string;
+  subtitle?: string;
+  items?: GalleryItem[];
+  layout?: 'grid' | 'masonry' | 'carousel';
+}
+
+export interface SlideItem {
+  id: string;
+  type: 'image' | 'video';
+  src: string;
+  title?: string;
+  description?: string;
+}
+
+export interface SliderBlockProps {
+  slides?: SlideItem[];
+  autoplay?: boolean;
+  showDots?: boolean;
+  showArrows?: boolean;
+}
+
+export interface MapMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  title: string;
+  description?: string;
+}
+
+export interface MapBlockProps {
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  markers?: MapMarker[];
+  mapType?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain';
+}
+
+export interface DocumentItem {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  type: string;
+  size?: string;
+}
+
+export interface DocumentsBlockProps {
+  title?: string;
+  subtitle?: string;
+  documents?: DocumentItem[];
+  layout?: 'grid' | 'list';
+}
+
+export interface FormField {
+  id: string;
+  type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  options?: string[];
+}
+
+export interface FormBlockProps {
+  title?: string;
+  subtitle?: string;
+  fields?: FormField[];
+  submitText?: string;
+  successMessage?: string;
+}
+
 // Interfaces para el editor
 export interface EditorState {
   blocks: BlockData[];
@@ -243,7 +443,7 @@ export interface EditorState {
 export interface PageRendererProps {
   blocks: BlockData[];
   isEditing?: boolean;
-  onBlockUpdate?: (blockId: string, props: any) => void;
+  onBlockUpdate?: (blockId: string, props: unknown) => void;
   onBlockDelete?: (blockId: string) => void;
   onBlockMove?: (blockId: string, newIndex: number) => void;
   onBlockSelect?: (blockId: string) => void;

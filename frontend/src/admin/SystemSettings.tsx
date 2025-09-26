@@ -13,12 +13,18 @@ import {
   Palette,
   FileText,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Download,
+  Upload
 } from 'lucide-react';
+import HttpClient from '../utils/http';
 
 export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [backupFile, setBackupFile] = useState<File | null>(null);
 
   const tabs = [
     { id: 'general', name: 'General', icon: Settings },
@@ -36,6 +42,86 @@ export default function SystemSettings() {
       setIsSaving(false);
       alert('Configuración guardada exitosamente');
     }, 1500);
+  };
+
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await HttpClient.post('/api/admin/backup', {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const backupData = await response.json();
+        // Crear y descargar archivo
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], {
+          type: 'application/json'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        alert('Backup creado y descargado exitosamente');
+      } else {
+        throw new Error('Error al crear backup');
+      }
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      alert('Error al crear el backup');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!backupFile) {
+      alert('Por favor selecciona un archivo de backup');
+      return;
+    }
+
+    setIsRestoringBackup(true);
+    try {
+      const fileContent = await backupFile.text();
+      const backupData = JSON.parse(fileContent);
+      
+      const token = localStorage.getItem('adminToken');
+      const response = await HttpClient.post('/api/admin/restore', backupData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Backup restaurado exitosamente. ${result.pagesRestored} páginas restauradas.`);
+        setBackupFile(null);
+      } else {
+        throw new Error('Error al restaurar backup');
+      }
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      alert('Error al restaurar el backup. Verifica que el archivo sea válido.');
+    } finally {
+      setIsRestoringBackup(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/json') {
+      setBackupFile(file);
+    } else {
+      alert('Por favor selecciona un archivo JSON válido');
+    }
   };
 
   return (
@@ -257,13 +343,42 @@ export default function SystemSettings() {
                     </div>
                   </div>
                   
-                  <div className="flex space-x-4">
-                    <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
-                      Crear Backup Ahora
-                    </button>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
-                      Restaurar Backup
-                    </button>
+                  <div className="space-y-4">
+                    <div className="flex space-x-4">
+                      <button 
+                        onClick={handleCreateBackup}
+                        disabled={isCreatingBackup}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>{isCreatingBackup ? 'Creando...' : 'Crear Backup Ahora'}</span>
+                      </button>
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Restaurar Backup</h4>
+                      <div className="flex flex-col space-y-3">
+                        <div>
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleFileSelect}
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          {backupFile && (
+                            <p className="text-sm text-green-600 mt-1">Archivo seleccionado: {backupFile.name}</p>
+                          )}
+                        </div>
+                        <button 
+                          onClick={handleRestoreBackup}
+                          disabled={!backupFile || isRestoringBackup}
+                          className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 w-fit"
+                        >
+                          <Upload className="h-4 w-4" />
+                          <span>{isRestoringBackup ? 'Restaurando...' : 'Restaurar Backup'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

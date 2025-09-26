@@ -1,4 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import HttpClient from '../utils/http';
+
+interface LoginResponse {
+  access_token: string;
+  user: User;
+}
 
 interface User {
   id: number;
@@ -36,20 +42,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     console.log('🔐 AuthContext login called with:', { email, password });
     try {
-      // Verificar si ya tenemos los datos en localStorage
-      const savedToken = localStorage.getItem('adminToken');
-      const savedUser = localStorage.getItem('adminUser');
+      const response = await HttpClient.post('/api/auth/login', {
+        email,
+        password
+      }) as LoginResponse;
       
-      console.log('💾 Checking localStorage:', { hasToken: !!savedToken, hasUser: !!savedUser });
+      console.log('✅ Login response:', response);
       
-      if (savedToken && savedUser) {
-        console.log('✅ Found saved credentials, using them');
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+      if (response.access_token && response.user) {
+        const authToken = response.access_token;
+        const userData = response.user;
+        
+        // Guardar en localStorage
+        localStorage.setItem('adminToken', authToken);
+        localStorage.setItem('adminUser', JSON.stringify(userData));
+        
+        // Actualizar estado
+        setToken(authToken);
+        setUser(userData);
+        
+        console.log('✅ Login successful, user authenticated');
         return true;
       }
       
-      console.log('❌ No saved credentials found');
+      console.log('❌ Invalid response format');
       return false;
     } catch (error) {
       console.error('Error en login:', error);
