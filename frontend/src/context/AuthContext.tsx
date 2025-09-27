@@ -1,95 +1,172 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import HttpClient from '../utils/http';
-
-interface LoginResponse {
-  access_token: string;
-  user: User;
-}
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface User {
-  id: number;
-  name: string;
+  id: string;
   email: string;
-  role: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: 'ADMIN' | 'EDITOR' | 'USER';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  isAuthenticated: boolean;
   isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  refreshToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const isAuthenticated = !!user;
+
   useEffect(() => {
-    const savedToken = localStorage.getItem('adminToken');
-    const savedUser = localStorage.getItem('adminUser');
-    
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+    // Verificar si hay un token guardado al cargar la aplicación
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      // Verificar el token con el backend
+      verifyToken();
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    console.log('🔐 AuthContext login called with:', { email, password });
+  const verifyToken = async () => {
     try {
-      const response = await HttpClient.post('/api/auth/login', {
-        email,
-        password
-      }) as LoginResponse;
-      
-      console.log('✅ Login response:', response);
-      
-      if (response.access_token && response.user) {
-        const authToken = response.access_token;
-        const userData = response.user;
-        
-        // Guardar en localStorage
-        localStorage.setItem('adminToken', authToken);
-        localStorage.setItem('adminUser', JSON.stringify(userData));
-        
-        // Actualizar estado
-        setToken(authToken);
-        setUser(userData);
-        
-        console.log('✅ Login successful, user authenticated');
-        return true;
+      const response = await fetch('/api/auth/verify', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setUser(data.data.user);
+        } else {
+          // Token inválido, limpiar localStorage
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        }
+      } else {
+        // Token inválido, limpiar localStorage
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       }
-      
-      console.log('❌ Invalid response format');
-      return false;
     } catch (error) {
-      console.error('Error en login:', error);
-      return false;
+      console.error('Error verificando token:', error);
+      // En caso de error, limpiar localStorage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setToken(null);
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error en el login');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setUser(data.data.user);
+        localStorage.setItem('accessToken', data.data.tokens.accessToken);
+        localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
+      } else {
+        throw new Error(data.message || 'Error en el login');
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = (): void => {
     setUser(null);
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-    // Redirigir al login después del logout
-    window.location.href = '/admin';
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  };
+
+  const refreshToken = async (): Promise<void> => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error refreshing token');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        localStorage.setItem('accessToken', data.data.tokens.accessToken);
+        localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
+      } else {
+        throw new Error(data.message || 'Error refreshing token');
+      }
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      logout(); // Si no se puede refrescar, cerrar sesión
+      throw error;
+    }
+  };
+
+  const value: AuthContextType = {
+    user,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+    refreshToken,
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

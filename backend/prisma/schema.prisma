@@ -1,80 +1,302 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// Tabla de usuarios según especificaciones exactas
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
+  id        String   @id @default(cuid())
   email     String   @unique
-  password  String   // bcrypt hash
-  role      String
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      UserRole @default(USER)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  
-  auditLogs AuditLog[]
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  reports   Report[]
+  pqrs      PQR[]
+  invoices  Invoice[]
+  sessions  UserSession[]
+  reportComments ReportComment[]
 
   @@map("users")
 }
 
-// Tabla de páginas según especificaciones exactas
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  type        ReportType
+  status      ReportStatus @default(PENDING)
+  priority    Priority   @default(MEDIUM)
+  createdBy   String
+  assignedTo  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relaciones
+  creator   User @relation(fields: [createdBy], references: [id])
+  files     ReportFile[]
+  comments  ReportComment[]
+
+  @@map("reports")
+}
+
+model ReportFile {
+  id       String @id @default(cuid())
+  reportId String
+  fileName String
+  filePath String
+  fileSize Int
+  mimeType String
+  uploadedAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_files")
+}
+
+model ReportComment {
+  id       String @id @default(cuid())
+  reportId String
+  userId   String
+  content  String
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("report_comments")
+}
+
+model PQR {
+  id          String    @id @default(cuid())
+  type        PQRType
+  subject     String
+  description String
+  status      PQRStatus @default(RECEIVED)
+  priority    Priority  @default(MEDIUM)
+  createdBy   String
+  assignedTo  String?
+  responseText String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  resolvedAt  DateTime?
+
+  // Relaciones
+  creator User @relation(fields: [createdBy], references: [id])
+  files   PQRFile[]
+
+  @@map("pqrs")
+}
+
+model PQRFile {
+  id       String @id @default(cuid())
+  pqrId    String
+  fileName String
+  filePath String
+  fileSize Int
+  mimeType String
+  uploadedAt DateTime @default(now())
+
+  pqr PQR @relation(fields: [pqrId], references: [id], onDelete: Cascade)
+
+  @@map("pqr_files")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  userId        String
+  period        String        // Formato: YYYY-MM
+  issueDate     DateTime
+  dueDate       DateTime
+  amount        Decimal       @db.Decimal(10, 2)
+  status        InvoiceStatus @default(PENDING)
+  paymentDate   DateTime?
+  paymentMethod String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relaciones
+  user         User           @relation(fields: [userId], references: [id])
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  invoiceId     String
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  reference     String?
+  status        PaymentStatus @default(PENDING)
+  processedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
 model Page {
-  id           String    @id // usa slug como ID (ej. home, quienes-somos)
-  title        String
-  draft_json   String?   // JSON string
-  published_json String? // JSON string
-  craftData    String?   // Craft.js JSON structure
-  status       String    @default("draft") // 'draft'|'published'
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  publishedAt  DateTime?
-  version      Int       @default(1)
+  id              String   @id @default(cuid())
+  name            String   @unique
+  slug            String   @unique
+  title           String
+  content         String?  // HTML content for display
+  grapesData      Json?    // GrapesJS JSON content (renamed from content)
+  html            String?  // Generated HTML
+  css             String?  // Generated CSS
+  metaTitle       String?  // SEO meta title
+  metaDescription String?  // SEO meta description
+  isPublished     Boolean  @default(true)  // Páginas públicas por defecto
+  isActive        Boolean  @default(true)   // Keep for backward compatibility
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  backups         PageBackup[]
 
   @@map("pages")
 }
 
-// Tabla de assets según especificaciones exactas
-model Asset {
-  id        Int      @id @default(autoincrement())
-  url       String
-  filename  String
-  mime      String
-  size      Int
-  createdAt DateTime @default(now())
+model PageBackup {
+  id         String   @id @default(cuid())
+  pageId     String
+  title      String
+  content    String?  // HTML content backup
+  grapesData Json?    // GrapesJS JSON content backup
+  html       String?  // Generated HTML backup
+  css        String?  // Generated CSS backup
+  createdAt  DateTime @default(now())
 
-  @@map("assets")
+  // Relaciones
+  page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("page_backups")
 }
 
-// Tabla de audit logs según especificaciones exactas
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  action    String   // create, update, publish, upload
-  entity    String   // page, asset
-  entity_id String
-  user_id   Int?
-  meta      String?  // JSON
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  SettingType @default(STRING)
+  description String?
   createdAt DateTime @default(now())
-  
-  user      User?    @relation(fields: [user_id], references: [id])
+  updatedAt DateTime @updatedAt
 
-  @@map("audit_logs")
+  @@map("settings")
 }
 
-// Mantener tabla de invoices existente para no romper funcionalidad
-model Invoice {
-  id            Int      @id @default(autoincrement())
-  accountNumber String   @unique
-  customerName  String
-  amount        Float
-  description   String?
-  status        String   @default("pending")
-  dueDate       String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
 
-  @@map("invoices")
+enum ReportType {
+  MAINTENANCE
+  BILLING
+  SERVICE
+  COMPLAINT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PQRType {
+  PETITION
+  COMPLAINT
+  CLAIM
+  SUGGESTION
+}
+
+enum PQRStatus {
+  RECEIVED
+  IN_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum InvoiceStatus {
+  PENDING
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  CHECK
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
 }

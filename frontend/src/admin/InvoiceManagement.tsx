@@ -42,7 +42,7 @@ export default function InvoiceManagement() {
   const fetchInvoices = async () => {
     try {
       setIsLoading(true);
-      const response = await HttpClient.get('/api/admin/invoices');
+      const response = await HttpClient.get('/admin/invoices');
       
       if (response.ok) {
         const data = await response.json();

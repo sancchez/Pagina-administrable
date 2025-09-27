@@ -1,0 +1,113 @@
+import express, { Application } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+import { setupSwagger } from './config/swagger';
+import { errorHandler, notFound } from './middleware/errorHandler';
+import { generalLimiter } from './middleware/rateLimiter';
+
+// Importar rutas
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import pageRoutes from './routes/pageRoutes';
+import invoiceRoutes from './routes/invoiceRoutes';
+import reportRoutes from './routes/reportRoutes';
+import pqrRoutes from './routes/pqrRoutes';
+import auditRoutes from './routes/auditRoutes';
+import docsRoutes from './routes/docs';
+
+const app: Application = express();
+
+// Configuración de seguridad
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+// Configuración de CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL || 'https://adminpanel.com']
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Middleware de compresión
+app.use(compression());
+
+// Middleware de logging
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Middleware de parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting global
+app.use(generalLimiter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// API Info endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Admin Panel API',
+    version: '1.0.0',
+    documentation: '/api-docs',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      reports: '/api/reports',
+      pqr: '/api/pqr',
+      invoices: '/api/invoices',
+      pages: '/api/pages',
+      auditLogs: '/api/audit-logs'
+    }
+  });
+});
+
+// Configurar documentación Swagger
+setupSwagger(app);
+
+// Configurar rutas
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/pages', pageRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/pqr', pqrRoutes);
+app.use('/api/audit-logs', auditRoutes);
+app.use('/api/docs', docsRoutes);
+
+// Middleware para rutas no encontradas
+app.use(notFound);
+
+// Middleware de manejo de errores (debe ir al final)
+app.use(errorHandler);
+
+export default app;

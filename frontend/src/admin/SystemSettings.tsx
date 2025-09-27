@@ -47,8 +47,8 @@ export default function SystemSettings() {
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await HttpClient.post('/api/admin/backup', {}, {
+      const token = localStorage.getItem('accessToken');
+      const response = await HttpClient.post('/admin/backup', {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -92,8 +92,8 @@ export default function SystemSettings() {
       const fileContent = await backupFile.text();
       const backupData = JSON.parse(fileContent);
       
-      const token = localStorage.getItem('adminToken');
-      const response = await HttpClient.post('/api/admin/restore', backupData, {
+      const token = localStorage.getItem('accessToken');
+      const response = await HttpClient.post('/admin/restore', backupData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

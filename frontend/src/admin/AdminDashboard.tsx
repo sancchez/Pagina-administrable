@@ -57,14 +57,24 @@ export default function AdminDashboard() {
 
   const fetchPages = async () => {
     try {
-      const data = await HttpClient.get('/api/admin/pages');
-      const pagesData = data?.pages || data || [];
+      const response = await HttpClient.get('/pages');
+      
+      // Verificar que la respuesta tenga la estructura esperada
+      let pagesData = [];
+      if (response?.success && response?.data && response?.data?.pages) {
+        pagesData = response.data.pages;
+      } else if (response?.pages) {
+        pagesData = response.pages;
+      } else if (Array.isArray(response)) {
+        pagesData = response;
+      }
+      
       setPages(pagesData);
 
       setStats(prev => ({
         ...prev,
         totalPages: pagesData.length,
-        publishedPages: pagesData.filter((p: any) => p.published || p.status === 'published').length
+        publishedPages: pagesData.filter((p: any) => p.published || p.status === 'published' || p.isPublished || p.isActive).length
       }));
     } catch (error) {
       console.error('Error fetching pages:', error);
@@ -77,8 +87,10 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const invoicesData: any = await HttpClient.get('/api/invoices');
-      const pendingInvoices = (invoicesData.data || []).filter((inv: any) => inv.status === 'pending').length || 0;
+      const invoicesData: any = await HttpClient.get('/invoices');
+      // Verificar que invoicesData tenga la estructura correcta
+      const invoices = invoicesData?.data?.invoices || invoicesData?.invoices || [];
+      const pendingInvoices = Array.isArray(invoices) ? invoices.filter((inv: any) => inv.status === 'pending').length : 0;
       setStats(prev => ({
         ...prev,
         pendingInvoices,
@@ -91,7 +103,7 @@ export default function AdminDashboard() {
 
   const fetchRecentActivity = async () => {
     try {
-      const data: any = await HttpClient.get('/api/audit-logs?limit=4');
+      const data: any = await HttpClient.get('/audit-logs?limit=4');
       const activities = (data.logs || []).map((log: any) => {
         let action = 'Acción realizada';
         let icon = Edit3;

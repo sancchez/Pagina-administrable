@@ -17,7 +17,8 @@ import {
   Database,
   Shield,
   Bell,
-  X
+  X,
+  Archive
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -81,6 +82,13 @@ export default function AdminLayout() {
       description: 'Estadísticas y reportes'
     },
     {
+      title: 'Backups',
+      path: '/admin/dashboard/backups',
+      icon: Archive,
+      color: 'from-cyan-500 to-cyan-600',
+      description: 'Gestión de respaldos'
+    },
+    {
       title: 'Configuración',
       path: '/admin/dashboard/settings',
       icon: Settings,
@@ -118,11 +126,11 @@ export default function AdminLayout() {
             {/* User Info */}
             <div className="flex items-center space-x-3 bg-gray-50 rounded-xl px-4 py-2">
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+                <p className="text-sm font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
                 <p className="text-xs text-gray-600">{user.email}</p>
               </div>
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">{user.name.charAt(0)}</span>
+                <span className="text-white text-sm font-bold">{user.firstName?.charAt(0) || 'U'}</span>
               </div>
             </div>
 

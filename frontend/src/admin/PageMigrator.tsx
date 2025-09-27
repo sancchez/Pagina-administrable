@@ -1,315 +1,278 @@
-import { useState, useCallback } from 'react';
-import HttpClient from '../utils/http';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { 
+  Upload, 
+  FileText, 
+  AlertCircle, 
+  CheckCircle, 
+  Loader2,
+  Download,
+  RefreshCw,
+  Code,
+  Eye
+} from 'lucide-react';
 
-// Tipos para los bloques JSON
-interface BlockData {
-  type: string;
-  props: Record<string, any>;
-  children?: BlockData[];
+interface MigrationResult {
+  success: boolean;
+  message: string;
+  grapesData?: any;
+  error?: string;
 }
 
-interface PageMigration {
-  slug: string;
-  title: string;
-  blocks: BlockData[];
-}
+const PageMigrator = () => {
+  const { user } = useAuth();
+  const [htmlContent, setHtmlContent] = useState('');
+  const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-// Mapeo de componentes a bloques JSON
-const componentToBlockMap: Record<string, (props?: any) => BlockData> = {
-  Hero: () => ({
-    type: 'HeroBlock',
-    props: {
-      title: 'Agua Pura para Tu Comunidad',
-      subtitle: 'Comprometidos con brindar el mejor servicio de acueducto, garantizando agua potable de calidad las 24 horas del día para toda la comunidad.',
-      backgroundGradient: 'from-blue-600 via-blue-500 to-green-500',
-      primaryButton: {
-        text: 'Pagar Factura',
-        icon: 'CreditCard',
-        style: 'primary'
-      },
-      secondaryButton: {
-        text: 'Conoce Nuestros Servicios',
-        icon: 'ArrowRight',
-        style: 'secondary'
-      },
-      showVideo: true,
-      videoText: 'Ver video institucional'
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'text/html') {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setHtmlContent(content);
+      };
+      reader.readAsText(file);
+    } else {
+      alert('Por favor selecciona un archivo HTML válido');
     }
-  }),
-  
-  StatsCards: () => ({
-    type: 'StatsBlock',
-    props: {
-      title: 'Nuestros Números',
-      stats: [
-        { number: '15,000+', label: 'Usuarios Activos', icon: 'Users' },
-        { number: '99.9%', label: 'Disponibilidad', icon: 'Clock' },
-        { number: '24/7', label: 'Atención', icon: 'Phone' },
-        { number: '100%', label: 'Agua Potable', icon: 'Droplets' }
-      ]
-    }
-  }),
-  
-  ServicesSection: () => ({
-    type: 'ServicesBlock',
-    props: {
-      title: 'Nuestros Servicios',
-      subtitle: 'Ofrecemos una amplia gama de servicios para satisfacer todas tus necesidades',
-      services: [
-        {
-          title: 'Suministro de Agua',
-          description: 'Agua potable de calidad las 24 horas',
-          icon: 'Droplets',
-          color: 'blue'
-        },
-        {
-          title: 'Mantenimiento',
-          description: 'Mantenimiento preventivo y correctivo',
-          icon: 'Wrench',
-          color: 'green'
-        },
-        {
-          title: 'Atención al Cliente',
-          description: 'Soporte técnico y comercial',
-          icon: 'Phone',
-          color: 'purple'
-        }
-      ]
-    }
-  }),
-  
-  ContactForm: () => ({
-    type: 'ContactBlock',
-    props: {
-      title: 'Contáctanos',
-      subtitle: 'Estamos aquí para ayudarte con cualquier consulta',
-      contactInfo: [
-        { type: 'email', label: 'Email', value: 'contacto@acueducto.com' },
-        { type: 'phone', label: 'Teléfono', value: '+57 123 456 7890' },
-        { type: 'address', label: 'Dirección', value: 'Calle Principal 123, Ciudad' },
-        { type: 'hours', label: 'Horarios', value: 'Lun-Vie 8:00-17:00' }
-      ],
-      formFields: [
-        { name: 'name', label: 'Nombre', type: 'text', required: true },
-        { name: 'email', label: 'Email', type: 'email', required: true },
-        { name: 'phone', label: 'Teléfono', type: 'tel' },
-        { name: 'message', label: 'Mensaje', type: 'textarea', required: true }
-      ],
-      showMap: false
-    }
-  }),
-  
-  TeamSection: () => ({
-    type: 'TeamBlock',
-    props: {
-      title: 'Nuestro Equipo',
-      subtitle: 'Profesionales comprometidos con el servicio de calidad',
-      members: [
-        {
-          name: 'Director General',
-          position: 'Gerente General',
-          bio: 'Líder con más de 15 años de experiencia en servicios públicos',
-          socialLinks: [
-            { platform: 'linkedin', url: '#' },
-            { platform: 'email', url: 'mailto:gerencia@acueducto.com' }
-          ]
-        },
-        {
-          name: 'Jefe Técnico',
-          position: 'Coordinador Técnico',
-          bio: 'Especialista en sistemas de acueducto y mantenimiento',
-          socialLinks: [
-            { platform: 'email', url: 'mailto:tecnico@acueducto.com' }
-          ]
-        }
-      ],
-      layout: 'grid',
-      showBio: true
-    }
-  })
-};
+  };
 
-// Páginas a migrar
-const pagesToMigrate: PageMigration[] = [
-  {
-    slug: 'home',
-    title: 'Página Principal',
-    blocks: [
-      componentToBlockMap.Hero(),
-      componentToBlockMap.StatsCards(),
-      componentToBlockMap.ServicesSection()
-    ]
-  },
-  {
-    slug: 'quienes-somos',
-    title: 'Quiénes Somos',
-    blocks: [
-      {
-        type: 'HeroBlock',
-        props: {
-          title: 'Quiénes Somos',
-          subtitle: 'Conoce nuestra historia, misión y compromiso con la comunidad',
-          backgroundGradient: 'from-green-600 to-blue-600'
-        }
-      },
-      {
-        type: 'TextBlock',
-        props: {
-          title: 'Nuestra Historia',
-          content: 'Desde hace más de 20 años, hemos estado comprometidos con brindar el mejor servicio de acueducto a nuestra comunidad. Nuestra empresa nació con la visión de garantizar el acceso al agua potable como un derecho fundamental.'
-        }
-      },
-      {
-        type: 'TextBlock',
-        props: {
-          title: 'Misión',
-          content: 'Proporcionar servicios de acueducto de alta calidad, garantizando el suministro continuo de agua potable a todos nuestros usuarios, con un enfoque en la sostenibilidad y el cuidado del medio ambiente.'
-        }
-      }
-    ]
-  },
-  {
-    slug: 'informacion-esal',
-    title: 'Información ESAL',
-    blocks: [
-      {
-        type: 'HeroBlock',
-        props: {
-          title: 'Información ESAL',
-          subtitle: 'Transparencia y rendición de cuentas como Entidad Sin Ánimo de Lucro',
-          backgroundGradient: 'from-purple-600 to-blue-600'
-        }
-      },
-      {
-        type: 'DocumentsBlock',
-        props: {
-          title: 'Documentos Institucionales',
-          documents: [
-            { name: 'Estatutos', url: '/docs/estatutos.pdf', type: 'PDF' },
-            { name: 'Estados Financieros', url: '/docs/estados-financieros.pdf', type: 'PDF' },
-            { name: 'Informe de Gestión', url: '/docs/informe-gestion.pdf', type: 'PDF' }
-          ]
-        }
-      }
-    ]
-  }
-];
+  const migrateHtml = async () => {
+    if (!htmlContent.trim()) {
+      alert('Por favor ingresa o selecciona contenido HTML para migrar');
+      return;
+    }
 
-export default function PageMigrator() {
-  const [migrating, setMigrating] = useState(false);
-  const [progress, setProgress] = useState<string[]>([]);
-  const [completed, setCompleted] = useState<string[]>([]);
+    setIsLoading(true);
+    setMigrationResult(null);
 
-  const addProgress = useCallback((message: string) => {
-    setProgress(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
-  }, []);
-
-  const migratePage = useCallback(async (page: PageMigration) => {
     try {
-      addProgress(`🔄 Migrando página: ${page.title}`);
-      
-      const response = await HttpClient.post(`/api/admin/pages/${page.slug}/migrate`, {
-        title: page.title,
-        slug: page.slug,
-        draft_json: JSON.stringify(page.blocks),
-        published_json: JSON.stringify(page.blocks),
-        is_published: true
+      const response = await fetch('/api/admin/migrate-html', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/html',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: htmlContent,
       });
-      
-      addProgress(`✅ Página ${page.title} migrada exitosamente`);
-      setCompleted(prev => [...prev, page.slug]);
-      
-      return response;
-    } catch (error) {
-      addProgress(`❌ Error migrando ${page.title}: ${error}`);
-      throw error;
-    }
-  }, [addProgress]);
 
-  const migrateAllPages = useCallback(async () => {
-    setMigrating(true);
-    setProgress([]);
-    setCompleted([]);
-    
-    try {
-      addProgress('🚀 Iniciando migración de páginas públicas...');
-      
-      for (const page of pagesToMigrate) {
-        await migratePage(page);
-        // Pequeña pausa entre migraciones
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (response.ok) {
+        const data = await response.json();
+        setMigrationResult({
+          success: true,
+          message: 'HTML migrado exitosamente a formato GrapesJS',
+          grapesData: data
+        });
+      } else {
+        const errorText = await response.text();
+        setMigrationResult({
+          success: false,
+          message: 'Error en la migración',
+          error: errorText
+        });
       }
-      
-      addProgress('🎉 ¡Migración completada exitosamente!');
-      addProgress(`📊 Total de páginas migradas: ${completed.length}`);
-      
     } catch (error) {
-      addProgress(`💥 Error durante la migración: ${error}`);
+      setMigrationResult({
+        success: false,
+        message: 'Error de conexión',
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      });
     } finally {
-      setMigrating(false);
+      setIsLoading(false);
     }
-  }, [migratePage, addProgress, completed.length]);
+  };
+
+  const downloadGrapesData = () => {
+    if (migrationResult?.grapesData) {
+      const dataStr = JSON.stringify(migrationResult.grapesData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'grapes-data.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const clearAll = () => {
+    setHtmlContent('');
+    setSelectedFile(null);
+    setMigrationResult(null);
+  };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          🔄 Migrador de Páginas Públicas
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Migrador de Páginas</h1>
+          <p className="text-gray-600">Convierte HTML estático a formato GrapesJS editable</p>
+        </div>
+        <button
+          onClick={clearAll}
+          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Limpiar Todo
+        </button>
+      </div>
+
+      {/* Upload Section */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Upload className="w-5 h-5" />
+          Cargar HTML
         </h2>
         
-        <p className="text-gray-600 mb-6">
-          Este sistema convierte las páginas públicas existentes en bloques JSON editables 
-          para el editor visual. Las páginas migradas podrán ser editadas visualmente 
-          mientras mantienen su estructura como JSON.
-        </p>
+        <div className="space-y-4">
+          {/* File Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Seleccionar archivo HTML
+            </label>
+            <input
+              type="file"
+              accept=".html,.htm"
+              onChange={handleFileSelect}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {selectedFile && (
+              <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" />
+                Archivo cargado: {selectedFile.name}
+              </p>
+            )}
+          </div>
 
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">Páginas a migrar:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {pagesToMigrate.map((page) => (
-              <div 
-                key={page.slug} 
-                className={`p-3 rounded border ${
-                  completed.includes(page.slug) 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{page.title}</span>
-                  {completed.includes(page.slug) && (
-                    <span className="text-green-600 text-sm">✅ Migrada</span>
-                  )}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {page.blocks.length} bloques • /{page.slug}
-                </div>
-              </div>
-            ))}
+          {/* Manual HTML Input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              O pegar HTML manualmente
+            </label>
+            <textarea
+              value={htmlContent}
+              onChange={(e) => setHtmlContent(e.target.value)}
+              placeholder="Pega tu código HTML aquí..."
+              className="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            />
           </div>
         </div>
+      </div>
 
+      {/* Migration Button */}
+      <div className="flex justify-center">
         <button
-          onClick={migrateAllPages}
-          disabled={migrating}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          onClick={migrateHtml}
+          disabled={isLoading || !htmlContent.trim()}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg flex items-center gap-2 font-semibold"
         >
-          {migrating ? '🔄 Migrando...' : '🚀 Iniciar Migración'}
+          {isLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Code className="w-5 h-5" />
+          )}
+          {isLoading ? 'Migrando...' : 'Migrar a GrapesJS'}
         </button>
+      </div>
 
-        {progress.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-3">Progreso de Migración:</h3>
-            <div className="bg-gray-900 text-green-400 p-4 rounded-lg max-h-64 overflow-y-auto font-mono text-sm">
-              {progress.map((log, index) => (
-                <div key={index} className="mb-1">
-                  {log}
+      {/* Results Section */}
+      {migrationResult && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            {migrationResult.success ? (
+              <CheckCircle className="w-5 h-5 text-green-500" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            )}
+            Resultado de la Migración
+          </h2>
+
+          {migrationResult.success ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-800 font-medium">{migrationResult.message}</p>
+              </div>
+
+              {migrationResult.grapesData && (
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <button
+                      onClick={downloadGrapesData}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Descargar JSON
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const dataStr = JSON.stringify(migrationResult.grapesData, null, 2);
+                        navigator.clipboard.writeText(dataStr);
+                        alert('Datos copiados al portapapeles');
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Copiar JSON
+                    </button>
+                  </div>
+
+                  <details className="border border-gray-200 rounded-lg">
+                    <summary className="p-3 bg-gray-50 cursor-pointer font-medium flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Ver datos GrapesJS generados
+                    </summary>
+                    <div className="p-4 bg-gray-50">
+                      <pre className="text-xs overflow-auto max-h-60 bg-white p-3 rounded border">
+                        {JSON.stringify(migrationResult.grapesData, null, 2)}
+                      </pre>
+                    </div>
+                  </details>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 font-medium">{migrationResult.message}</p>
+              {migrationResult.error && (
+                <p className="text-red-600 text-sm mt-2">{migrationResult.error}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Instructions */}
+      <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+        <h3 className="text-lg font-semibold text-blue-900 mb-3">Instrucciones de Uso</h3>
+        <ul className="space-y-2 text-blue-800">
+          <li className="flex items-start gap-2">
+            <span className="font-bold">1.</span>
+            <span>Carga un archivo HTML o pega el código HTML que deseas migrar</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">2.</span>
+            <span>Haz clic en "Migrar a GrapesJS" para convertir el HTML</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">3.</span>
+            <span>Descarga o copia los datos JSON generados</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">4.</span>
+            <span>Usa estos datos en el editor GrapesJS para crear páginas editables</span>
+          </li>
+        </ul>
       </div>
     </div>
   );
-}
+};
+
+export default PageMigrator;
