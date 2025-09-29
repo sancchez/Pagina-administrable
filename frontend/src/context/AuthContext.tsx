@@ -46,29 +46,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyToken = async () => {
     try {
-      const response = await fetch('/api/auth/verify', {
+      console.log('[Auth] Verificando token...');
+      const token = localStorage.getItem('accessToken');
+      console.log('[Auth] Token encontrado:', token ? 'Sí' : 'No');
+      
+      const response = await fetch('http://localhost:3000/api/auth/verify', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
+      console.log('[Auth] Respuesta del servidor:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('[Auth] Datos recibidos:', data);
         if (data.success) {
           setUser(data.data.user);
+          console.log('[Auth] Usuario autenticado correctamente');
         } else {
+          console.warn('[Auth] Token inválido según el servidor');
           // Token inválido, limpiar localStorage
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
         }
       } else {
+        console.error('[Auth] Error de respuesta:', response.status, response.statusText);
         // Token inválido, limpiar localStorage
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       }
     } catch (error) {
-      console.error('Error verificando token:', error);
+      console.error('[Auth] Error de conexión al backend:', error);
+      console.error('[Auth] Tipo de error:', error instanceof TypeError ? 'TypeError (posible problema de red)' : 'Otro error');
       // En caso de error, limpiar localStorage
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -81,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('No refresh token available');
       }
 
-      const response = await fetch('/api/auth/refresh', {
+      const response = await fetch('http://localhost:3000/api/auth/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

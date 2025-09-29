@@ -18,7 +18,8 @@ import {
   Shield,
   Bell,
   X,
-  Archive
+  Archive,
+  Upload
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -87,6 +88,13 @@ export default function AdminLayout() {
       icon: Archive,
       color: 'from-cyan-500 to-cyan-600',
       description: 'Gestión de respaldos'
+    },
+    {
+      title: 'Migración de Páginas',
+      path: '/admin/dashboard/migration',
+      icon: Upload,
+      color: 'from-yellow-500 to-yellow-600',
+      description: 'Migrar páginas estáticas a dinámicas'
     },
     {
       title: 'Configuración',

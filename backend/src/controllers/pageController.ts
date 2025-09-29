@@ -573,6 +573,32 @@ export class PageController {
       }
       return value;
     }),
+    html: Joi.string().allow('').optional().custom((value, helpers) => {
+      if (value && value.trim() !== '') {
+        try {
+          // Validación básica de HTML
+          if (value.length > 1000000) { // 1MB límite
+            return helpers.error('any.invalid', { message: 'El HTML es demasiado largo' });
+          }
+        } catch (error) {
+          return helpers.error('any.invalid', { message: 'HTML inválido' });
+        }
+      }
+      return value;
+    }),
+    css: Joi.string().allow('').optional().custom((value, helpers) => {
+      if (value && value.trim() !== '') {
+        try {
+          // Validación básica de CSS
+          if (value.length > 500000) { // 500KB límite
+            return helpers.error('any.invalid', { message: 'El CSS es demasiado largo' });
+          }
+        } catch (error) {
+          return helpers.error('any.invalid', { message: 'CSS inválido' });
+        }
+      }
+      return value;
+    }),
     metaTitle: Joi.string().max(60).optional().messages({
       'string.max': 'El meta título no puede exceder 60 caracteres'
     }),

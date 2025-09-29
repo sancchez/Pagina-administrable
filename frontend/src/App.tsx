@@ -12,6 +12,7 @@ import ReportsAnalytics from './admin/ReportsAnalytics';
 import SystemSettings from './admin/SystemSettings';
 import GrapesEditor from './admin/GrapesEditor';
 import PageMigrator from './admin/PageMigrator';
+import PageMigration from './admin/PageMigration';
 import BackupManager from './admin/BackupManager';
 import PreviewFrame from './components/PreviewFrame';
 
@@ -31,6 +32,7 @@ function App() {
             <Route path="reports" element={<ReportsAnalytics />} />
             <Route path="settings" element={<SystemSettings />} />
             <Route path="migrator" element={<PageMigrator />} />
+            <Route path="migration" element={<PageMigration />} />
             <Route path="backups" element={<BackupManager />} />
             {/* Rutas del editor unificadas por slug */}
             <Route path="editor/:slug" element={<GrapesEditor />} />

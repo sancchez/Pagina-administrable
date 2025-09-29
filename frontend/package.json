@@ -33,6 +33,7 @@
     "dompurify": "^3.2.6",
     "express": "^5.1.0",
     "grapesjs": "^0.22.13",
+    "grapesjs-preset-webpage": "^1.0.3",
     "konva": "^9.3.22",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",

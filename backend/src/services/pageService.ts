@@ -16,8 +16,12 @@ export interface UpdatePageData {
   title?: string;
   slug?: string;
   content?: string;
+  grapesData?: string;
   html?: string;
   css?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  isPublished?: boolean;
   isActive?: boolean;
 }
 
