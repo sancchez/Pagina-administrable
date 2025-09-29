@@ -1,6 +1,7 @@
 // Middleware para logging de requests HTTP
 import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
+import enhancedLogger from '../utils/enhancedLogger';
 import { networkUtils, performanceUtils } from '../utils/helpers';
 
 // Extender Request para incluir startTime
@@ -8,6 +9,8 @@ declare global {
   namespace Express {
     interface Request {
       startTime?: [number, number];
+      requestId?: string;
+      logger?: typeof enhancedLogger;
     }
   }
 }

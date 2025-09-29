@@ -34,7 +34,7 @@ interface Page {
 }
 
 export default function BackupManager() {
-  const { token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [pages, setPages] = useState<Page[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
   const [backups, setBackups] = useState<PageBackup[]>([]);
@@ -56,12 +56,12 @@ export default function BackupManager() {
   const fetchPages = async () => {
     try {
       setIsLoading(true);
-      const response = await HttpClient.get('/api/pages', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await HttpClient.get('/api/pages');
       
-      if (response.data.success) {
-        setPages(response.data.data.pages || []);
+      if (response?.success) {
+        setPages(response.data?.pages || response.pages || []);
+      } else if (Array.isArray(response)) {
+        setPages(response);
       }
     } catch (error) {
       console.error('Error fetching pages:', error);
@@ -73,12 +73,12 @@ export default function BackupManager() {
 
   const fetchBackups = async (pageId: string) => {
     try {
-      const response = await HttpClient.get(`/api/pages/${pageId}/backups`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await HttpClient.get(`/api/pages/${pageId}/backups`);
       
-      if (response.data.success) {
-        setBackups(response.data.data || []);
+      if (response?.success) {
+        setBackups(response.data || []);
+      } else if (Array.isArray(response)) {
+        setBackups(response);
       }
     } catch (error) {
       console.error('Error fetching backups:', error);
@@ -89,11 +89,9 @@ export default function BackupManager() {
   const createBackup = async (pageId: string) => {
     try {
       setIsCreatingBackup(true);
-      const response = await HttpClient.post(`/api/pages/${pageId}/backups`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await HttpClient.post(`/api/pages/${pageId}/backups`, {});
       
-      if (response.data.success) {
+      if (response?.success) {
         showMessage('success', 'Backup creado exitosamente');
         fetchBackups(pageId);
       }
@@ -112,11 +110,9 @@ export default function BackupManager() {
 
     try {
       setIsRestoring(true);
-      const response = await HttpClient.post(`/api/pages/${pageId}/restore/${backupId}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await HttpClient.post(`/api/pages/${pageId}/restore/${backupId}`, {});
       
-      if (response.data.success) {
+      if (response?.success) {
         showMessage('success', 'Página restaurada exitosamente');
         fetchBackups(pageId);
         fetchPages(); // Actualizar la lista de páginas

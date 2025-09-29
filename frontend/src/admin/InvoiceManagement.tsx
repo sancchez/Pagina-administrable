@@ -29,7 +29,6 @@ interface Invoice {
 }
 
 export default function InvoiceManagement() {
-  const { token } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -44,11 +43,10 @@ export default function InvoiceManagement() {
       setIsLoading(true);
       const response = await HttpClient.get('/admin/invoices');
       
-      if (response.ok) {
-        const data = await response.json();
-        setInvoices(data.data || []);
+      if (response?.data) {
+        setInvoices(response.data || []);
       } else {
-        console.error('Error fetching invoices:', response.status);
+        console.error('Error fetching invoices:', response);
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);

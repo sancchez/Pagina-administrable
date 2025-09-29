@@ -1,6 +1,7 @@
-import { Page, PageBackup } from '@prisma/client';
+import { Page, PageBackup, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { PageDataManager, GrapesJSData } from '../types/pageTypes';
 
 export interface CreatePageData {
   title: string;
@@ -139,21 +140,44 @@ export class PageService {
   }
 
   /**
-   * Obtener una página por slug
+   * Obtener página por slug (público) con manejo estandarizado de datos
    */
-  static async getPageBySlug(slug: string): Promise<Page> {
+  static async getPageBySlug(slug: string): Promise<Page | null> {
     try {
       const page = await prisma.page.findUnique({
-        where: { slug }
+        where: { 
+          slug,
+          isPublished: true,
+          isActive: true
+        }
       });
 
       if (!page) {
-        throw createError(404, 'Página no encontrada');
+        return null;
+      }
+
+      // Si la página tiene datos legacy en content pero no grapesData, migrar
+      if (!page.grapesData && page.content) {
+        const migratedData = PageDataManager.migrateLegacyContent(page.content);
+        if (migratedData) {
+          const generatedContent = PageDataManager.generatePublicContent(migratedData);
+          
+          // Actualizar la página con los datos migrados
+          const updatedPage = await prisma.page.update({
+            where: { id: page.id },
+            data: {
+              grapesData: JSON.stringify(migratedData),
+              html: generatedContent.html,
+              css: generatedContent.css
+            }
+          });
+          
+          return updatedPage;
+        }
       }
 
       return page;
     } catch (error: any) {
-      if (error.status) throw error;
       console.error('Error getting page by slug:', error);
       throw createError(500, 'Error interno del servidor al obtener la página');
     }
@@ -237,9 +261,9 @@ export class PageService {
   }
 
   /**
-   * Guardar datos de GrapesJS (JSON)
+   * Guardar datos de GrapesJS (JSON) junto con HTML y CSS generados automáticamente
    */
-  static async saveGrapesData(id: string, grapesData: string): Promise<Page> {
+  static async saveGrapesData(id: string, grapesDataString: string, html?: string, css?: string): Promise<Page> {
     try {
       const page = await prisma.page.findUnique({
         where: { id }
@@ -248,13 +272,36 @@ export class PageService {
       if (!page) {
         throw createError(404, 'Página no encontrada');
       }
+
+      // Crear backup antes de guardar (solo si hay contenido previo)
+      if (page.grapesData || page.html || page.css || page.content) {
+        await this.createBackup(page);
+      }
+
+      // Parsear y validar los datos de GrapesJS
+      let grapesData: GrapesJSData;
+      try {
+        grapesData = JSON.parse(grapesDataString);
+        if (!PageDataManager.validateGrapesData(grapesData)) {
+          throw new Error('Estructura de datos GrapesJS inválida');
+        }
+      } catch (parseError) {
+        throw createError(400, 'Datos de GrapesJS inválidos');
+      }
+
+      // Generar HTML y CSS automáticamente si no se proporcionan
+      const generatedContent = PageDataManager.generatePublicContent(grapesData);
+      
+      const updateData = {
+        grapesData: grapesDataString, // Guardar como string JSON
+        html: html || generatedContent.html,
+        css: css || generatedContent.css,
+        updatedAt: new Date()
+      };
   
       const updatedPage = await prisma.page.update({
         where: { id },
-        data: {
-          html: grapesData,
-          updatedAt: new Date()
-        }
+        data: updateData
       });
   
       return updatedPage;

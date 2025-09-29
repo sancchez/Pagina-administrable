@@ -124,7 +124,7 @@ async function seedPQRs(users: any[]) {
         subject: pqrData[i].subject,
         description: pqrData[i].description,
         status: i % 3 === 0 ? PQRStatus.RESOLVED : i % 3 === 1 ? PQRStatus.IN_PROGRESS : PQRStatus.PENDING,
-        priority: i % 2 === 0 ? 'HIGH' : 'MEDIUM',
+        priority: i % 2 === 0 ? Priority.HIGH : Priority.MEDIUM,
         userId: user.id
       }
     });

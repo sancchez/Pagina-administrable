@@ -47,15 +47,10 @@ export default function SystemSettings() {
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await HttpClient.post('/admin/backup', {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await HttpClient.post('/admin/backup', {});
 
-      if (response.ok) {
-        const backupData = await response.json();
+      if (response?.data) {
+        const backupData = response.data;
         // Crear y descargar archivo
         const blob = new Blob([JSON.stringify(backupData, null, 2)], {
           type: 'application/json'
@@ -92,16 +87,10 @@ export default function SystemSettings() {
       const fileContent = await backupFile.text();
       const backupData = JSON.parse(fileContent);
       
-      const token = localStorage.getItem('accessToken');
-      const response = await HttpClient.post('/admin/restore', backupData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await HttpClient.post('/admin/restore', backupData);
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response?.data) {
+        const result = response.data;
         alert(`Backup restaurado exitosamente. ${result.pagesRestored} páginas restauradas.`);
         setBackupFile(null);
       } else {

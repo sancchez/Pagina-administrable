@@ -183,7 +183,7 @@ model Page {
   slug            String   @unique
   title           String
   content         String?  // HTML content for display
-  grapesData      Json?    // GrapesJS JSON content (renamed from content)
+  grapesData      String?  // GrapesJS JSON content as string
   html            String?  // Generated HTML
   css             String?  // Generated CSS
   metaTitle       String?  // SEO meta title
@@ -204,7 +204,7 @@ model PageBackup {
   pageId     String
   title      String
   content    String?  // HTML content backup
-  grapesData Json?    // GrapesJS JSON content backup
+  grapesData String?  // GrapesJS JSON content backup as string
   html       String?  // Generated HTML backup
   css        String?  // Generated CSS backup
   createdAt  DateTime @default(now())

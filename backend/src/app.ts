@@ -6,6 +6,8 @@ import morgan from 'morgan';
 import { setupSwagger } from './config/swagger';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import { generalLimiter } from './middleware/rateLimiter';
+import { enhancedRequestLogger, developmentLogger, productionLogger } from './middleware/enhancedRequestLogger';
+import enhancedLogger from './utils/enhancedLogger';
 
 // Importar rutas
 import authRoutes from './routes/authRoutes';
@@ -16,8 +18,12 @@ import reportRoutes from './routes/reportRoutes';
 import pqrRoutes from './routes/pqrRoutes';
 import auditRoutes from './routes/auditRoutes';
 import docsRoutes from './routes/docs';
+import migrationRoutes from './routes/migrationRoutes';
 
 const app: Application = express();
+
+// Logger con contexto de la aplicación
+const appLogger = enhancedLogger.child({ service: 'App' });
 
 // Configuración de seguridad
 app.use(helmet({
@@ -47,11 +53,19 @@ app.use(cors({
 // Middleware de compresión
 app.use(compression());
 
-// Middleware de logging
+// Middleware de logging mejorado
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+  app.use(developmentLogger);
+  appLogger.info('Development logging enabled', { 
+    includeBody: true, 
+    includeHeaders: true 
+  });
 } else {
-  app.use(morgan('combined'));
+  app.use(productionLogger);
+  appLogger.info('Production logging enabled', { 
+    includeBody: false, 
+    includeHeaders: false 
+  });
 }
 
 // Middleware de parsing
@@ -63,13 +77,23 @@ app.use(generalLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const healthData = {
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    memory: process.memoryUsage(),
+    pid: process.pid,
+  };
+  
+  appLogger.debug('Health check requested', {
+    uptime: healthData.uptime,
+    memory: healthData.memory,
+    ip: req.ip,
   });
+  
+  res.status(200).json(healthData);
 });
 
 // API Info endpoint
@@ -103,6 +127,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/pqr', pqrRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/docs', docsRoutes);
+app.use('/api/admin', migrationRoutes);
 
 // Middleware para rutas no encontradas
 app.use(notFound);

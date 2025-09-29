@@ -35,66 +35,46 @@ interface Page {
   version: number;
 }
 
+// Páginas estáticas disponibles
+const STATIC_PAGES = [
+  { title: 'Inicio', slug: 'home', status: 'published' },
+  { title: 'Quiénes Somos', slug: 'quienes-somos', status: 'published' },
+  { title: 'Información ESAL', slug: 'informacion-esal', status: 'published' },
+  { title: 'Operación y Gestión', slug: 'operacion-gestion', status: 'published' },
+  { title: 'Portal de Usuario', slug: 'portal-usuario', status: 'published' },
+  { title: 'Normatividad', slug: 'normatividad', status: 'published' },
+  { title: 'Contacto', slug: 'contacto', status: 'published' },
+  { title: 'Consulta de Facturas', slug: 'invoice-query', status: 'published' },
+  { title: 'Página de Factura', slug: 'invoice-page', status: 'published' }
+];
+
 export default function AdminDashboard() {
-  const { token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
   const [stats, setStats] = useState({
-    totalPages: 0,
-    publishedPages: 0,
+    totalPages: STATIC_PAGES.length,
+    publishedPages: STATIC_PAGES.filter(p => p.status === 'published').length,
     pendingInvoices: 0,
     activePQR: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchPages();
     fetchStats();
     fetchRecentActivity();
+    setIsLoading(false);
   }, []);
-
-  const fetchPages = async () => {
-    try {
-      const response = await HttpClient.get('/pages');
-      
-      // Verificar que la respuesta tenga la estructura esperada
-      let pagesData = [];
-      if (response?.success && response?.data && response?.data?.pages) {
-        pagesData = response.data.pages;
-      } else if (response?.pages) {
-        pagesData = response.pages;
-      } else if (Array.isArray(response)) {
-        pagesData = response;
-      }
-      
-      setPages(pagesData);
-
-      setStats(prev => ({
-        ...prev,
-        totalPages: pagesData.length,
-        publishedPages: pagesData.filter((p: any) => p.published || p.status === 'published' || p.isPublished || p.isActive).length
-      }));
-    } catch (error) {
-      console.error('Error fetching pages:', error);
-      // Si hay error de autenticación, redirigir al login
-      navigate('/admin');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchStats = async () => {
     try {
-      const invoicesData: any = await HttpClient.get('/invoices');
-      // Verificar que invoicesData tenga la estructura correcta
-      const invoices = invoicesData?.data?.invoices || invoicesData?.invoices || [];
-      const pendingInvoices = Array.isArray(invoices) ? invoices.filter((inv: any) => inv.status === 'pending').length : 0;
+      // Mantener las estadísticas de páginas estáticas
       setStats(prev => ({
         ...prev,
-        pendingInvoices,
-        activePQR: 0
+        totalPages: STATIC_PAGES.length,
+        publishedPages: STATIC_PAGES.filter(p => p.status === 'published').length
       }));
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -147,32 +127,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const deletePage = async (id: string, title: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la página "${title}"?`)) {
-      return;
-    }
-    try {
-      await HttpClient.delete(`/api/admin/pages/${id}`);
-      alert('Página eliminada exitosamente');
-      fetchPages();
-    } catch (error) {
-      console.error('Error deleting page:', error);
-      alert('Error al eliminar la página');
-    }
-  };
-
   const getStatusColor = (status: string) => {
     return status === 'published'
       ? 'text-green-600 bg-green-50 border-green-200' 
       : 'text-gray-600 bg-gray-50 border-gray-200';
   };
 
-  const createNewPage = () => {
-    navigate('/admin/dashboard/editor/home');
-  };
-
   const editPage = (slugOrId: string) => {
     navigate(`/admin/dashboard/editor/${slugOrId}`);
+  };
+
+  const createNewPage = () => {
+    // Navegar al editor para crear una nueva página
+    navigate('/admin/dashboard/editor/new');
   };
 
   // Stats data
@@ -182,7 +149,7 @@ export default function AdminDashboard() {
       value: stats.totalPages,
       icon: FileText,
       color: 'from-blue-500 to-blue-600',
-      change: '+2 esta semana'
+      change: 'Páginas estáticas'
     },
     {
       title: 'Páginas Publicadas',
@@ -443,32 +410,6 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* Accesos rápidos a páginas públicas */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Páginas Públicas</h3>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { title: 'Inicio', slug: 'home' },
-              { title: 'Quiénes Somos', slug: 'quienes-somos' },
-              { title: 'Información ESAL', slug: 'informacion-esal' },
-              { title: 'Operación y Gestión', slug: 'operacion-gestion' },
-              { title: 'Portal de Usuario', slug: 'portal-usuario' },
-              { title: 'Normatividad', slug: 'normatividad' },
-              { title: 'Contacto', slug: 'contacto' }
-            ].map((pg) => (
-              <button
-                key={pg.slug}
-                onClick={() => editPage(pg.slug)}
-                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
-                title={`Editar ${pg.title}`}
-              >
-                <Edit3 className="inline h-4 w-4 mr-1 align-middle" />
-                <span className="align-middle">{pg.title}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -483,7 +424,7 @@ export default function AdminDashboard() {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actualizada
+                  Tipo
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
@@ -491,14 +432,14 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {pages.slice(0, 5).map((page) => (
-                <tr key={page.id} className="hover:bg-gray-50">
+              {STATIC_PAGES.map((page) => (
+                <tr key={page.slug} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{page.title}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <code className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      /{page.slug || page.id}
+                      /{page.slug}
                     </code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -507,27 +448,28 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(page.updatedAt).toLocaleDateString('es-CO')}</span>
-                    </div>
+                    <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                      Página Estática
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
                       <button
-                        onClick={() => editPage(page.slug || page.id)}
+                        onClick={() => editPage(page.slug)}
                         className="text-blue-600 hover:text-blue-700 transition-colors"
                         title="Editar página"
                       >
                         <Edit3 className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => deletePage(page.id, page.title)}
-                        className="text-red-600 hover:text-red-700 transition-colors"
-                        title="Eliminar página"
+                      <a
+                        href={`/${page.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-700 transition-colors"
+                        title="Ver página"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        <Eye className="h-4 w-4" />
+                      </a>
                     </div>
                   </td>
                 </tr>
@@ -535,20 +477,6 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-
-        {pages.length === 0 && (
-          <div className="text-center py-12">
-            <Edit3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay páginas</h3>
-            <p className="text-gray-600 mb-6">Crea tu primera página para comenzar</p>
-            <Link 
-              to="/admin/content" 
-              className="bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200"
-            >
-              Crear Nueva Página
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );

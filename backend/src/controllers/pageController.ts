@@ -506,6 +506,7 @@
 import { Request, Response } from 'express';
 import Joi from 'joi';
 import { PageService } from '../services/pageService';
+import { GrapesValidator } from '../utils/grapesValidator';
 
 export class PageController {
   // Esquemas de validación
@@ -522,7 +523,21 @@ export class PageController {
       'any.required': 'El slug es requerido'
     }),
     content: Joi.string().allow('').optional(),
-    grapesData: Joi.string().allow('').optional(),
+    grapesData: Joi.string().allow('').optional().custom((value, helpers) => {
+      if (value && value.trim() !== '') {
+        const validation = GrapesValidator.validateGrapesData(value);
+        if (!validation.isValid) {
+          return helpers.error('any.invalid', { 
+            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+          });
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('Advertencias en datos GrapesJS al crear página:', validation.warnings);
+        }
+        return JSON.stringify(validation.sanitizedData);
+      }
+      return value;
+    }),
     metaTitle: Joi.string().max(60).optional().messages({
       'string.max': 'El meta título no puede exceder 60 caracteres'
     }),
@@ -543,7 +558,21 @@ export class PageController {
       'string.pattern.base': 'El slug solo puede contener letras minúsculas, números y guiones'
     }),
     content: Joi.string().allow('').optional(),
-    grapesData: Joi.string().allow('').optional(),
+    grapesData: Joi.string().allow('').optional().custom((value, helpers) => {
+      if (value && value.trim() !== '') {
+        const validation = GrapesValidator.validateGrapesData(value);
+        if (!validation.isValid) {
+          return helpers.error('any.invalid', { 
+            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+          });
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('Advertencias en datos GrapesJS al actualizar página:', validation.warnings);
+        }
+        return JSON.stringify(validation.sanitizedData);
+      }
+      return value;
+    }),
     metaTitle: Joi.string().max(60).optional().messages({
       'string.max': 'El meta título no puede exceder 60 caracteres'
     }),
@@ -561,8 +590,53 @@ export class PageController {
   });
 
   static saveGrapesDataSchema = Joi.object({
-    grapesData: Joi.string().required().messages({
-      'any.required': 'Los datos de GrapesJS son requeridos'
+    grapesData: Joi.string().required().custom((value, helpers) => {
+      // Validación robusta de datos GrapesJS
+      const validation = GrapesValidator.validateGrapesData(value);
+      
+      if (!validation.isValid) {
+        return helpers.error('any.invalid', { 
+          message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+        });
+      }
+
+      if (validation.warnings.length > 0) {
+        console.warn('Advertencias en datos GrapesJS:', validation.warnings);
+      }
+
+      // Retornar datos sanitizados
+      return JSON.stringify(validation.sanitizedData);
+    }).messages({
+      'any.required': 'Los datos de GrapesJS son requeridos',
+      'any.invalid': 'Los datos de GrapesJS no son válidos'
+    }),
+    html: Joi.string().optional().custom((value, helpers) => {
+      if (value) {
+        const validation = GrapesValidator.validateGeneratedHTML(value);
+        if (!validation.isValid) {
+          return helpers.error('any.invalid', { 
+            message: `HTML inválido: ${validation.errors.join(', ')}` 
+          });
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('Advertencias en HTML:', validation.warnings);
+        }
+      }
+      return value;
+    }),
+    css: Joi.string().optional().custom((value, helpers) => {
+      if (value) {
+        const validation = GrapesValidator.validateGeneratedCSS(value);
+        if (!validation.isValid) {
+          return helpers.error('any.invalid', { 
+            message: `CSS inválido: ${validation.errors.join(', ')}` 
+          });
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('Advertencias en CSS:', validation.warnings);
+        }
+      }
+      return value;
     })
   });
 
@@ -698,6 +772,13 @@ export class PageController {
     try {
       const { slug } = req.params;
       const page = await PageService.getPageBySlug(slug);
+      
+      if (!page) {
+        return res.status(404).json({
+          success: false,
+          message: 'Página no encontrada'
+        });
+      }
 
       return res.json({
         success: true,
@@ -783,7 +864,7 @@ export class PageController {
         });
       }
       
-      const page = await PageService.saveGrapesData(id, value.grapesData);
+      const page = await PageService.saveGrapesData(id, value.grapesData, value.html, value.css);
 
       return res.json({
         success: true,

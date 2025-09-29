@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { 
   Upload, 
   FileText, 
@@ -11,6 +10,7 @@ import {
   Code,
   Eye
 } from 'lucide-react';
+import HttpClient from '../utils/http';
 
 interface MigrationResult {
   success: boolean;
@@ -20,7 +20,6 @@ interface MigrationResult {
 }
 
 const PageMigrator = () => {
-  const { user } = useAuth();
   const [htmlContent, setHtmlContent] = useState('');
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,28 +50,23 @@ const PageMigrator = () => {
     setMigrationResult(null);
 
     try {
-      const response = await fetch('/api/admin/migrate-html', {
-        method: 'POST',
+      const response = await HttpClient.post('/admin/migrate-html', htmlContent, {
         headers: {
-          'Content-Type': 'text/html',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: htmlContent,
+          'Content-Type': 'text/html'
+        }
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response?.data) {
         setMigrationResult({
           success: true,
           message: 'HTML migrado exitosamente a formato GrapesJS',
-          grapesData: data
+          grapesData: response.data
         });
       } else {
-        const errorText = await response.text();
         setMigrationResult({
           success: false,
           message: 'Error en la migración',
-          error: errorText
+          error: 'No se recibió respuesta válida'
         });
       }
     } catch (error) {

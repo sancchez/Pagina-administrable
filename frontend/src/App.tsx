@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import PageRenderer from './components/PageRenderer';
-import HomePage from './pages/HomePage';
 import AdminLogin from './admin/AdminLogin';
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/AdminDashboard';
@@ -42,8 +41,7 @@ function App() {
           <Route path="/preview/:slug" element={<PreviewFrame />} />
           
           {/* Rutas públicas dinámicas - PageRenderer maneja todas las páginas desde la DB */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/home" element={<HomePage />} />
+          <Route path="/" element={<PageRenderer />} />
           <Route path="/:slug" element={<PageRenderer />} />
         </Routes>
       </BrowserRouter>

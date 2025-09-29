@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { CreditCard, FileText, Phone, MessageCircle, Clock, User, Search, Download, CheckCircle, Loader2 } from 'lucide-react';
+import { CreditCard, FileText, Phone, MessageCircle, Clock, User, Search, Download, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLoadingState, LoadingButton } from '../components/common/LoadingState';
 
 interface Invoice {
   id: string;
@@ -22,7 +23,12 @@ interface UserData {
 
 export default function PortalUsuario() {
   const [activeService, setActiveService] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const paymentLoading = useLoadingState();
+  const invoiceLoading = useLoadingState();
+  const consumptionLoading = useLoadingState();
+  const requestLoading = useLoadingState();
+  const profileLoading = useLoadingState();
+  
   const [invoiceData, setInvoiceData] = useState<Invoice | null>(null);
   const [userData, setUserData] = useState<UserData>({
     name: '',
@@ -44,17 +50,13 @@ export default function PortalUsuario() {
       toast.error('Primero debes consultar tu factura');
       return;
     }
-    setLoading(true);
-    try {
+    
+    await paymentLoading.execute(async () => {
       // Simular pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Pago procesado exitosamente');
       setInvoiceData({ ...invoiceData, status: 'paid' });
-    } catch {
-      toast.error('Error al procesar el pago');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleInvoiceQuery = async () => {
@@ -62,8 +64,8 @@ export default function PortalUsuario() {
       toast.error('Ingresa tu número de cuenta o cédula');
       return;
     }
-    setLoading(true);
-    try {
+    
+    await invoiceLoading.execute(async () => {
       // Simular consulta de factura
       await new Promise(resolve => setTimeout(resolve, 1500));
       const mockInvoice: Invoice = {
@@ -76,16 +78,11 @@ export default function PortalUsuario() {
       };
       setInvoiceData(mockInvoice);
       toast.success('Factura encontrada');
-    } catch {
-      toast.error('No se encontró información para este número');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleConsumptionQuery = async () => {
-    setLoading(true);
-    try {
+    await consumptionLoading.execute(async () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const mockConsumption = [
         { month: 'Enero 2024', consumption: 15, cost: 85000 },
@@ -95,11 +92,7 @@ export default function PortalUsuario() {
       setConsumptionData(mockConsumption);
       setActiveService('consumption');
       toast.success('Datos de consumo cargados');
-    } catch {
-      toast.error('Error al cargar datos de consumo');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleUpdateUserData = async () => {
@@ -107,46 +100,33 @@ export default function PortalUsuario() {
       toast.error('Completa los campos obligatorios');
       return;
     }
-    setLoading(true);
-    try {
+    
+    await profileLoading.execute(async () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       toast.success('Datos actualizados correctamente');
       setActiveService(null);
-    } catch {
-      toast.error('Error al actualizar datos');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
-
+    
   const handleCreateRequest = async () => {
     if (!requestForm.type || !requestForm.description) {
       toast.error('Completa todos los campos');
       return;
     }
-    setLoading(true);
-    try {
+    
+    await requestLoading.execute(async () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       toast.success('Solicitud creada exitosamente');
       setRequestForm({ type: '', description: '', priority: 'medium' });
       setActiveService(null);
-    } catch {
-      toast.error('Error al crear solicitud');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleDownloadCertificate = async () => {
-    setLoading(true);
-    try {
+    await profileLoading.execute(async () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Certificado descargado exitosamente');
-    } catch {
-      toast.error('Error al descargar certificado');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const services = [
@@ -287,16 +267,20 @@ export default function PortalUsuario() {
                   <h3 className="text-xl font-bold text-gray-800 mb-2">{service.title}</h3>
                   <p className="text-gray-600 mb-4">{service.description}</p>
                   
-                  <button 
+                  <LoadingButton
                     onClick={service.handler}
-                    disabled={loading}
-                    className={`w-full bg-gradient-to-r ${service.color} text-white font-semibold py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                    loading={
+                      (service.id === 'pay' && paymentLoading.loading) ||
+                      (service.id === 'invoice' && invoiceLoading.loading) ||
+                      (service.id === 'consumption' && consumptionLoading.loading) ||
+                      (service.id === 'download' && profileLoading.loading) ||
+                      (service.id === 'profile' && profileLoading.loading) ||
+                      (service.id === 'request' && requestLoading.loading)
+                    }
+                    className={`w-full bg-gradient-to-r ${service.color} text-white font-semibold py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200`}
                   >
-                    {loading && activeService === service.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : null}
                     {service.action}
-                  </button>
+                  </LoadingButton>
                 </div>
               );
             })}
@@ -391,14 +375,13 @@ export default function PortalUsuario() {
                       />
                     </div>
                     
-                    <button
+                    <LoadingButton
                       onClick={handleInvoiceQuery}
-                      disabled={loading}
-                      className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                      loading={invoiceLoading.loading}
+                      className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
-                      {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                       Consultar Factura
-                    </button>
+                    </LoadingButton>
 
                     {/* Mostrar datos de factura */}
                     {invoiceData && (
@@ -437,14 +420,13 @@ export default function PortalUsuario() {
                           </div>
                         </div>
                         {invoiceData.status === 'pending' && (
-                          <button
+                          <LoadingButton
                             onClick={handlePayInvoice}
-                            disabled={loading}
-                            className="mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                            loading={paymentLoading.loading}
+                            className="mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
                           >
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                             Pagar Ahora
-                          </button>
+                          </LoadingButton>
                         )}
                       </div>
                     )}
@@ -533,14 +515,13 @@ export default function PortalUsuario() {
                         placeholder="Tu dirección completa"
                       />
                     </div>
-                    <button
+                    <LoadingButton
                       onClick={handleUpdateUserData}
-                      disabled={loading}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      loading={profileLoading.loading}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                     >
-                      {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                       Actualizar Datos
-                    </button>
+                    </LoadingButton>
                   </div>
                 )}
 
@@ -583,14 +564,13 @@ export default function PortalUsuario() {
                         placeholder="Describe detalladamente tu solicitud o reclamo"
                       />
                     </div>
-                    <button
+                    <LoadingButton
                       onClick={handleCreateRequest}
-                      disabled={loading}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      loading={requestLoading.loading}
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                     >
-                      {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                       Enviar Solicitud
-                    </button>
+                    </LoadingButton>
                   </div>
                 )}
               </div>
@@ -623,14 +603,13 @@ export default function PortalUsuario() {
                     />
                   </div>
                   
-                  <button
+                  <LoadingButton
                     onClick={handleInvoiceQuery}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                    loading={invoiceLoading.loading}
+                    className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                     Consultar Factura
-                  </button>
+                  </LoadingButton>
                 </div>
 
                 {/* Mostrar datos de factura en consulta rápida */}
@@ -651,14 +630,13 @@ export default function PortalUsuario() {
                       </div>
                     </div>
                     {invoiceData.status === 'pending' && (
-                      <button
+                      <LoadingButton
                         onClick={handlePayInvoice}
-                        disabled={loading}
-                        className="mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                        loading={paymentLoading.loading}
+                        className="mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
                       >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         Pagar Ahora
-                      </button>
+                      </LoadingButton>
                     )}
                   </div>
                 )}
