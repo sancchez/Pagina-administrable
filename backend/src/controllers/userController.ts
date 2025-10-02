@@ -441,7 +441,6 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/userService';
-import { UserRole } from '@prisma/client';
 import Joi from 'joi';
 
 // Esquemas de validación
@@ -465,7 +464,7 @@ const createUserSchema = Joi.object({
     'any.required': 'El apellido es requerido',
   }),
   phone: Joi.string().optional().allow(''),
-  role: Joi.string().valid(...Object.values(UserRole)).optional(),
+  role: Joi.string().valid("ADMIN", "MANAGER", "USER").optional(),
 });
 
 const updateUserSchema = Joi.object({
@@ -478,20 +477,20 @@ const updateUserSchema = Joi.object({
     'string.max': 'El apellido no puede exceder 50 caracteres',
   }),
   phone: Joi.string().optional().allow(''),
-  role: Joi.string().valid(...Object.values(UserRole)).optional(),
+  role: Joi.string().valid("ADMIN", "MANAGER", "USER").optional(),
   isActive: Joi.boolean().optional(),
 });
 
 const getUsersQuerySchema = Joi.object({
   search: Joi.string().optional(),
-  role: Joi.string().valid(...Object.values(UserRole)).optional(),
+  role: Joi.string().valid("ADMIN", "MANAGER", "USER").optional(),
   isActive: Joi.boolean().optional(),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
 });
 
 const changeRoleSchema = Joi.object({
-  role: Joi.string().valid(...Object.values(UserRole)).required().messages({
+  role: Joi.string().valid("ADMIN", "MANAGER", "USER").required().messages({
     'any.required': 'El rol es requerido',
     'any.only': 'El rol debe ser uno de los valores válidos',
   }),

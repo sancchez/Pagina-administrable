@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { PQRService } from '../services/pqrService';
-import { PQRType, PQRStatus, Priority } from '@prisma/client';
+
 import Joi from 'joi';
 
 // Esquemas de validación
@@ -15,11 +15,11 @@ const createPQRSchema = Joi.object({
     'string.max': 'La descripción no puede exceder 2000 caracteres',
     'any.required': 'La descripción es requerida',
   }),
-  type: Joi.string().valid(...Object.values(PQRType)).required().messages({
+  type: Joi.string().valid(..."COMPLAINT", "REQUEST", "SUGGESTION").required().messages({
     'any.required': 'El tipo de PQR es requerido',
     'any.only': 'El tipo de PQR debe ser uno de los valores válidos',
   }),
-  priority: Joi.string().valid(...Object.values(Priority)).optional(),
+  priority: Joi.string().valid(..."LOW", "MEDIUM", "HIGH").optional(),
   contactEmail: Joi.string().email().optional().messages({
     'string.email': 'El email de contacto debe ser válido',
   }),
@@ -37,9 +37,9 @@ const updatePQRSchema = Joi.object({
     'string.min': 'La descripción debe tener al menos 10 caracteres',
     'string.max': 'La descripción no puede exceder 2000 caracteres',
   }),
-  type: Joi.string().valid(...Object.values(PQRType)).optional(),
-  priority: Joi.string().valid(...Object.values(Priority)).optional(),
-  status: Joi.string().valid(...Object.values(PQRStatus)).optional(),
+  type: Joi.string().valid(..."COMPLAINT", "REQUEST", "SUGGESTION").optional(),
+  priority: Joi.string().valid(..."LOW", "MEDIUM", "HIGH").optional(),
+  status: Joi.string().valid(..."OPEN", "IN_PROGRESS", "RESOLVED").optional(),
   contactEmail: Joi.string().email().optional().allow('').messages({
     'string.email': 'El email de contacto debe ser válido',
   }),
@@ -50,9 +50,9 @@ const updatePQRSchema = Joi.object({
 
 const getPQRsQuerySchema = Joi.object({
   search: Joi.string().optional(),
-  type: Joi.string().valid(...Object.values(PQRType)).optional(),
-  status: Joi.string().valid(...Object.values(PQRStatus)).optional(),
-  priority: Joi.string().valid(...Object.values(Priority)).optional(),
+  type: Joi.string().valid(..."COMPLAINT", "REQUEST", "SUGGESTION").optional(),
+  status: Joi.string().valid(..."OPEN", "IN_PROGRESS", "RESOLVED").optional(),
+  priority: Joi.string().valid(..."LOW", "MEDIUM", "HIGH").optional(),
   userId: Joi.string().optional(),
   dateFrom: Joi.date().optional(),
   dateTo: Joi.date().optional(),
@@ -61,7 +61,7 @@ const getPQRsQuerySchema = Joi.object({
 });
 
 const changeStatusSchema = Joi.object({
-  status: Joi.string().valid(...Object.values(PQRStatus)).required().messages({
+  status: Joi.string().valid(..."OPEN", "IN_PROGRESS", "RESOLVED").required().messages({
     'any.required': 'El estado es requerido',
     'any.only': 'El estado debe ser uno de los valores válidos',
   }),

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PageController } from '../controllers/pageController';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { generalLimiter } from '../middleware/rateLimiter';
-import { UserRole } from '@prisma/client';
+
 
 const router = Router();
 
@@ -170,7 +170,7 @@ const router = Router();
  *       403:
  *         description: Acceso denegado
  */
-router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.createPage);
+router.post('/', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.createPage);
 
 /**
  * @swagger
@@ -241,7 +241,7 @@ router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), gene
  *       403:
  *         description: Acceso denegado
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), PageController.getPages);
+router.get('/', authenticate, authorize("ADMIN", "MANAGER", "USER"), PageController.getPages);
 
 /**
  * @swagger
@@ -333,7 +333,7 @@ router.get('/published', PageController.getPublishedPages);
  *       403:
  *         description: Acceso denegado
  */
-router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PageController.getPageStats);
+router.get('/stats', authenticate, authorize("ADMIN", "MANAGER"), PageController.getPageStats);
 
 /**
  * @swagger
@@ -408,7 +408,7 @@ router.get('/slug/:slug', optionalAuth, PageController.getPageBySlug);
  *       401:
  *         description: No autorizado
  */
-router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), PageController.getPageById);
+router.get('/:id', authenticate, authorize("ADMIN", "MANAGER", "USER"), PageController.getPageById);
 
 /**
  * @swagger
@@ -458,7 +458,7 @@ router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, Use
  *       403:
  *         description: Acceso denegado
  */
-router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.updatePage);
+router.put('/:id', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.updatePage);
 
 /**
  * @swagger
@@ -486,7 +486,7 @@ router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ge
  *       403:
  *         description: Acceso denegado
  */
-router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PageController.deletePage);
+router.delete('/:id', authenticate, authorize("ADMIN", "MANAGER"), PageController.deletePage);
 
 /**
  * @swagger
@@ -536,7 +536,8 @@ router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER),
  *       403:
  *         description: Acceso denegado
  */
-router.post('/:id/grapes-data', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.saveGrapesData);
+router.get('/:id/grapes-data', authenticate, authorize("ADMIN", "MANAGER", "USER"), PageController.getGrapesData);
+router.post('/:id/grapes-data', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.saveGrapesData);
 
 /**
  * @swagger
@@ -586,7 +587,7 @@ router.post('/:id/grapes-data', authenticate, authorize(UserRole.ADMIN, UserRole
  *       403:
  *         description: Acceso denegado
  */
-router.post('/:id/content', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.saveContent);
+router.post('/:id/content', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.saveContent);
 
 /**
  * @swagger
@@ -628,7 +629,7 @@ router.post('/:id/content', authenticate, authorize(UserRole.ADMIN, UserRole.MAN
  *       403:
  *         description: Acceso denegado
  */
-router.patch('/:id/toggle-publish', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PageController.togglePublishStatus);
+router.patch('/:id/toggle-publish', authenticate, authorize("ADMIN", "MANAGER"), PageController.togglePublishStatus);
 
 /**
  * @swagger
@@ -675,7 +676,7 @@ router.patch('/:id/toggle-publish', authenticate, authorize(UserRole.ADMIN, User
  *       403:
  *         description: Acceso denegado
  */
-router.get('/:id/backups', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PageController.getPageBackups);
+router.get('/:id/backups', authenticate, authorize("ADMIN", "MANAGER"), PageController.getPageBackups);
 
 /**
  * @swagger
@@ -714,7 +715,7 @@ router.get('/:id/backups', authenticate, authorize(UserRole.ADMIN, UserRole.MANA
  *       403:
  *         description: Acceso denegado
  */
-router.post('/:id/backups', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.createManualBackup);
+router.post('/:id/backups', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.createManualBackup);
 
 /**
  * @swagger
@@ -760,7 +761,7 @@ router.post('/:id/backups', authenticate, authorize(UserRole.ADMIN, UserRole.MAN
  *       403:
  *         description: Acceso denegado
  */
-router.post('/:id/restore/:backupId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PageController.restoreFromBackup);
+router.post('/:id/restore/:backupId', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.restoreFromBackup);
 
 
 export default router;

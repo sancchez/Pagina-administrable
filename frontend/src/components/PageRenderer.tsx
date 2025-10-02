@@ -63,7 +63,7 @@ const PageRenderer: React.FC = () => {
 
         // 2. Si no existe página estática, buscar en la base de datos
         console.log('📄 [PageRenderer] No hay página estática, buscando en BD:', slug);
-        const response = await fetch(`http://localhost:3000/api/pages/slug/${slug}`);
+        const response = await fetch(`/api/pages/slug/${slug}`);
         
         if (response.ok) {
           const data = await response.json();

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { InvoiceController } from '../controllers/invoiceController';
 import { authenticate, authorize } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
 import { generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -287,7 +286,7 @@ const router = Router();
  *       403:
  *         description: Acceso denegado
  */
-router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, InvoiceController.createInvoice);
+router.post('/', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, InvoiceController.createInvoice);
 
 /**
  * @swagger
@@ -397,7 +396,7 @@ router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), gene
  *       401:
  *         description: No autorizado
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.getInvoices);
+router.get('/', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.getInvoices);
 
 /**
  * @swagger
@@ -517,7 +516,7 @@ router.get('/my', authenticate, InvoiceController.getMyInvoices);
  *       403:
  *         description: Acceso denegado
  */
-router.get('/overdue', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.getOverdueInvoices);
+router.get('/overdue', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.getOverdueInvoices);
 
 /**
  * @swagger
@@ -576,7 +575,7 @@ router.get('/overdue', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER)
  *       403:
  *         description: Acceso denegado
  */
-router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.getInvoiceStats);
+router.get('/stats', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.getInvoiceStats);
 
 /**
  * @swagger
@@ -642,7 +641,7 @@ router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), 
  *       403:
  *         description: Acceso denegado
  */
-router.get('/user/:userId', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.getUserInvoices);
+router.get('/user/:userId', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.getUserInvoices);
 
 /**
  * @swagger
@@ -682,7 +681,7 @@ router.get('/user/:userId', authenticate, authorize(UserRole.ADMIN, UserRole.MAN
  *       401:
  *         description: No autorizado
  */
-router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), InvoiceController.getInvoiceById);
+router.get('/:id', authenticate, authorize("ADMIN", "MANAGER", "USER"), InvoiceController.getInvoiceById);
 
 /**
  * @swagger
@@ -732,7 +731,7 @@ router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, Use
  *       403:
  *         description: Acceso denegado
  */
-router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, InvoiceController.updateInvoice);
+router.put('/:id', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, InvoiceController.updateInvoice);
 
 /**
  * @swagger
@@ -762,7 +761,7 @@ router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ge
  *       403:
  *         description: Acceso denegado
  */
-router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.deleteInvoice);
+router.delete('/:id', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.deleteInvoice);
 
 /**
  * @swagger
@@ -812,7 +811,7 @@ router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER),
  *       403:
  *         description: Acceso denegado
  */
-router.post('/:id/payments', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, InvoiceController.createPayment);
+router.post('/:id/payments', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, InvoiceController.createPayment);
 
 /**
  * @swagger
@@ -922,6 +921,6 @@ router.post('/:id/payments', authenticate, authorize(UserRole.ADMIN, UserRole.MA
  *       401:
  *         description: No autorizado
  */
-router.get('/payments', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), InvoiceController.getPayments);
+router.get('/payments', authenticate, authorize("ADMIN", "MANAGER"), InvoiceController.getPayments);
 
 export default router;

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { ReportService } from '../services/reportService';
-import { ReportType, ReportStatus } from '@prisma/client';
 import Joi from 'joi';
 
 // Esquemas de validación
@@ -15,7 +14,7 @@ const createReportSchema = Joi.object({
     'string.max': 'La descripción no puede exceder 2000 caracteres',
     'any.required': 'La descripción es requerida',
   }),
-  type: Joi.string().valid(...Object.values(ReportType)).required().messages({
+  type: Joi.string().valid("MONTHLY", "ANNUAL").required().messages({
     'any.required': 'El tipo de reporte es requerido',
     'any.only': 'El tipo de reporte debe ser uno de los valores válidos',
   }),
@@ -32,16 +31,16 @@ const updateReportSchema = Joi.object({
     'string.min': 'La descripción debe tener al menos 10 caracteres',
     'string.max': 'La descripción no puede exceder 2000 caracteres',
   }),
-  type: Joi.string().valid(...Object.values(ReportType)).optional(),
+  type: Joi.string().valid("MONTHLY", "ANNUAL").optional(),
   location: Joi.string().max(200).optional().allow(''),
   priority: Joi.string().valid('LOW', 'MEDIUM', 'HIGH', 'URGENT').optional(),
-  status: Joi.string().valid(...Object.values(ReportStatus)).optional(),
+  status: Joi.string().valid("PENDING", "COMPLETED").optional(),
 });
 
 const getReportsQuerySchema = Joi.object({
   search: Joi.string().optional(),
-  type: Joi.string().valid(...Object.values(ReportType)).optional(),
-  status: Joi.string().valid(...Object.values(ReportStatus)).optional(),
+  type: Joi.string().valid("MONTHLY", "ANNUAL").optional(),
+  status: Joi.string().valid("PENDING", "COMPLETED").optional(),
   priority: Joi.string().valid('LOW', 'MEDIUM', 'HIGH', 'URGENT').optional(),
   userId: Joi.string().optional(),
   dateFrom: Joi.date().optional(),
@@ -59,7 +58,7 @@ const addCommentSchema = Joi.object({
 });
 
 const changeStatusSchema = Joi.object({
-  status: Joi.string().valid(...Object.values(ReportStatus)).required().messages({
+  status: Joi.string().valid("PENDING", "COMPLETED").required().messages({
     'any.required': 'El estado es requerido',
     'any.only': 'El estado debe ser uno de los valores válidos',
   }),

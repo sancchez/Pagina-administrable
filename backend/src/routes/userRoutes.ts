@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/userController';
 import { authenticate, authorize } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -159,7 +158,7 @@ const router = Router();
  *       409:
  *         description: El usuario ya existe
  */
-router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.createUser);
+router.post('/', authenticate, authorize("ADMIN", "MANAGER"), UserController.createUser);
 
 /**
  * @swagger
@@ -215,7 +214,7 @@ router.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), User
  *       403:
  *         description: Sin permisos para ver usuarios
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.getUsers);
+router.get('/', authenticate, authorize("ADMIN", "MANAGER"), UserController.getUsers);
 
 /**
  * @swagger
@@ -247,14 +246,14 @@ router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserC
  *       403:
  *         description: Sin permisos para ver estadísticas
  */
-router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.getUserStats);
+router.get('/stats', authenticate, authorize("ADMIN", "MANAGER"), UserController.getUserStats);
 
 /**
  * @swagger
  * /api/users/{id}:
  *   get:
  *     summary: Obtener usuario por ID
- *     tags: [Usuarios]
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -266,19 +265,19 @@ router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), 
  *         description: ID del usuario
  *     responses:
  *       200:
- *         description: Usuario obtenido exitosamente
+ *         description: Usuario encontrado
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/UserResponse'
  *       401:
- *         description: Usuario no autenticado
+ *         description: No autorizado
  *       403:
- *         description: Sin permisos para ver este usuario
+ *         description: Sin permisos para ver usuarios
  *       404:
  *         description: Usuario no encontrado
  */
-router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.getUserById);
+router.get('/:id', authenticate, authorize("ADMIN", "MANAGER"), UserController.getUserById);
 
 /**
  * @swagger
@@ -317,7 +316,7 @@ router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), Us
  *       404:
  *         description: Usuario no encontrado
  */
-router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.updateUser);
+router.put('/:id', authenticate, authorize("ADMIN", "MANAGER"), UserController.updateUser);
 
 /**
  * @swagger
@@ -355,7 +354,7 @@ router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), Us
  *       404:
  *         description: Usuario no encontrado
  */
-router.delete('/:id', authenticate, authorize(UserRole.ADMIN), UserController.deleteUser);
+router.delete('/:id', authenticate, authorize("ADMIN"), UserController.deleteUser);
 
 /**
  * @swagger
@@ -401,7 +400,7 @@ router.delete('/:id', authenticate, authorize(UserRole.ADMIN), UserController.de
  *       404:
  *         description: Usuario no encontrado
  */
-router.patch('/:id/role', authenticate, authorize(UserRole.ADMIN), UserController.changeUserRole);
+router.patch('/:id/role', authenticate, authorize("ADMIN"), UserController.changeUserRole);
 
 /**
  * @swagger
@@ -434,6 +433,6 @@ router.patch('/:id/role', authenticate, authorize(UserRole.ADMIN), UserControlle
  *       404:
  *         description: Usuario no encontrado
  */
-router.patch('/:id/toggle-status', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), UserController.toggleUserStatus);
+router.patch('/:id/toggle-status', authenticate, authorize("ADMIN", "MANAGER"), UserController.toggleUserStatus);
 
 export default router;

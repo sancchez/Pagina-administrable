@@ -1,4 +1,4 @@
-import { User, UserRole } from '@prisma/client';
+import { User } from '@prisma/client';
 import prisma from '../config/database';
 import { PasswordService } from '../utils/password';
 import { JwtService, JwtPayload, TokenPair } from '../utils/jwt';
@@ -95,7 +95,7 @@ export class AuthService {
         firstName,
         lastName,
         phone,
-        role: UserRole.USER, // Por defecto, los nuevos usuarios son USER
+        role: "USER", // Por defecto, los nuevos usuarios son USER
       },
     });
 

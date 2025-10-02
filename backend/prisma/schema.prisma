@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -17,7 +17,7 @@ model User {
   firstName String
   lastName  String
   phone     String?
-  role      UserRole @default(USER)
+  role      String @default("USER")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -48,9 +48,9 @@ model Report {
   id          String     @id @default(cuid())
   title       String
   description String
-  type        ReportType
-  status      ReportStatus @default(PENDING)
-  priority    Priority   @default(MEDIUM)
+  type        String
+  status      String @default("PENDING")
+  priority    String @default("MEDIUM")
   createdBy   String
   assignedTo  String?
   createdAt   DateTime   @default(now())
@@ -93,11 +93,11 @@ model ReportComment {
 
 model PQR {
   id          String    @id @default(cuid())
-  type        PQRType
+  type        String
   subject     String
   description String
-  status      PQRStatus @default(RECEIVED)
-  priority    Priority  @default(MEDIUM)
+  status      String @default("RECEIVED")
+  priority    String @default("MEDIUM")
   createdBy   String
   assignedTo  String?
   responseText String?
@@ -133,8 +133,8 @@ model Invoice {
   period        String        // Formato: YYYY-MM
   issueDate     DateTime
   dueDate       DateTime
-  amount        Decimal       @db.Decimal(10, 2)
-  status        InvoiceStatus @default(PENDING)
+  amount        Float
+  status        String @default("PENDING")
   paymentDate   DateTime?
   paymentMethod String?
   notes         String?
@@ -154,8 +154,8 @@ model InvoiceItem {
   invoiceId   String
   description String
   quantity    Int
-  unitPrice   Decimal @db.Decimal(10, 2)
-  total       Decimal @db.Decimal(10, 2)
+  unitPrice   Float
+  total       Float
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -165,10 +165,10 @@ model InvoiceItem {
 model Payment {
   id            String        @id @default(cuid())
   invoiceId     String
-  amount        Decimal       @db.Decimal(10, 2)
-  paymentMethod PaymentMethod
-  reference     String?
-  status        PaymentStatus @default(PENDING)
+  amount        Float
+  paymentMethod String
+  transactionId String?
+  status        String @default("PENDING")
   processedAt   DateTime?
   createdAt     DateTime      @default(now())
 
@@ -179,17 +179,21 @@ model Payment {
 
 model Page {
   id              String   @id @default(cuid())
-  name            String   @unique
-  slug            String   @unique
+  name            String   @default("")
   title           String
-  content         String?  // HTML content for display
-  grapesData      String?  // GrapesJS JSON content as string
-  html            String?  // Generated HTML
-  css             String?  // Generated CSS
-  metaTitle       String?  // SEO meta title
-  metaDescription String?  // SEO meta description
-  isPublished     Boolean  @default(true)  // Páginas públicas por defecto
-  isActive        Boolean  @default(true)   // Keep for backward compatibility
+  slug            String   @unique
+  content         String?  // Legacy content field
+  grapesData      String?  // Legacy GrapesJS data field
+  html            String?  // Generated HTML for public view
+  css             String?  // Generated CSS for public view
+  gjsHtml         String   @default("") // GrapesJS HTML content
+  gjsCss          String   @default("") // GrapesJS CSS content
+  gjsComponents   String   @default("[]") // GrapesJS Components JSON
+  gjsStyles       String   @default("[]") // GrapesJS Styles JSON
+  metaTitle       String?
+  metaDescription String?
+  isPublished     Boolean  @default(false)
+  isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -200,17 +204,17 @@ model Page {
 }
 
 model PageBackup {
-  id         String   @id @default(cuid())
-  pageId     String
-  title      String
-  content    String?  // HTML content backup
-  grapesData String?  // GrapesJS JSON content backup as string
-  html       String?  // Generated HTML backup
-  css        String?  // Generated CSS backup
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  pageId        String
+  title         String
+  gjsHtml       String   // GrapesJS HTML content backup
+  gjsCss        String   // GrapesJS CSS content backup
+  gjsComponents String   // GrapesJS Components JSON backup
+  gjsStyles     String   // GrapesJS Styles JSON backup
+  createdAt     DateTime @default(now())
 
   // Relaciones
-  page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page          Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@map("page_backups")
 }
@@ -219,7 +223,7 @@ model Setting {
   id    String @id @default(cuid())
   key   String @unique
   value String
-  type  SettingType @default(STRING)
+  type  String @default("STRING")
   description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -227,76 +231,14 @@ model Setting {
   @@map("settings")
 }
 
-// Enums
-enum UserRole {
-  ADMIN
-  MANAGER
-  USER
-}
-
-enum ReportType {
-  MAINTENANCE
-  BILLING
-  SERVICE
-  COMPLAINT
-  OTHER
-}
-
-enum ReportStatus {
-  PENDING
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum PQRType {
-  PETITION
-  COMPLAINT
-  CLAIM
-  SUGGESTION
-}
-
-enum PQRStatus {
-  RECEIVED
-  IN_REVIEW
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-}
-
-enum InvoiceStatus {
-  PENDING
-  SENT
-  PAID
-  OVERDUE
-  CANCELLED
-}
-
-enum PaymentMethod {
-  CASH
-  BANK_TRANSFER
-  CREDIT_CARD
-  CHECK
-  OTHER
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
-enum SettingType {
-  STRING
-  NUMBER
-  BOOLEAN
-  JSON
-}
+// Note: SQLite doesn't support enums, so we use strings with default values
+// UserRole: ADMIN, MANAGER, USER
+// ReportType: MAINTENANCE, BILLING, SERVICE, COMPLAINT, OTHER
+// ReportStatus: PENDING, IN_PROGRESS, RESOLVED, CLOSED
+// Priority: LOW, MEDIUM, HIGH, URGENT
+// PQRType: PETITION, COMPLAINT, CLAIM, SUGGESTION
+// PQRStatus: RECEIVED, IN_REVIEW, IN_PROGRESS, RESOLVED, CLOSED
+// InvoiceStatus: PENDING, SENT, PAID, OVERDUE, CANCELLED
+// PaymentMethod: CASH, BANK_TRANSFER, CREDIT_CARD, CHECK, OTHER
+// PaymentStatus: PENDING, COMPLETED, FAILED, REFUNDED
+// SettingType: STRING, NUMBER, BOOLEAN, JSON

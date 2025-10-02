@@ -1,7 +1,77 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
+
+interface PageData {
+  title: string;
+  slug: string;
+  gjsHtml: string;
+  gjsCss: string;
+  gjsComponents: string;
+  gjsStyles: string;
+}
+
+async function seedPagesFromConvertedFiles() {
+  const convertedPagesPath = path.resolve(__dirname, '../temp/converted-pages');
+  
+  // Verificar si existe el directorio de páginas convertidas
+  if (!fs.existsSync(convertedPagesPath)) {
+    console.log('⚠️  No se encontraron páginas convertidas. Creando página de inicio por defecto...');
+    
+    // Crear página de inicio por defecto
+    const homePage = await prisma.page.upsert({
+      where: { slug: 'home' },
+      update: {},
+      create: {
+        slug: 'home',
+        title: 'Bienvenido al Acueducto Municipal',
+        gjsHtml: "<div class=\"container\"><h1>Bienvenido al Acueducto Municipal</h1><p>Brindamos servicios de agua potable de calidad para nuestra comunidad.</p></div>",
+        gjsCss: ".container { max-width: 1200px; margin: 0 auto; padding: 20px; } h1 { color: #2563eb; text-align: center; } p { font-size: 18px; text-align: center; color: #6b7280; }",
+        gjsComponents: "[]",
+        gjsStyles: "[]",
+      },
+    });
+    
+    console.log('✅ Página de inicio por defecto creada:', homePage.title);
+    return;
+  }
+
+  // Leer archivos JSON de páginas convertidas
+  const files = fs.readdirSync(convertedPagesPath).filter(file => file.endsWith('.json'));
+  
+  for (const file of files) {
+    try {
+      const filePath = path.join(convertedPagesPath, file);
+      const pageData: PageData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      
+      const page = await prisma.page.upsert({
+        where: { slug: pageData.slug },
+        update: {
+          title: pageData.title,
+          gjsHtml: pageData.gjsHtml,
+          gjsCss: pageData.gjsCss,
+          gjsComponents: pageData.gjsComponents,
+          gjsStyles: pageData.gjsStyles,
+        },
+        create: {
+          slug: pageData.slug,
+          title: pageData.title,
+          gjsHtml: pageData.gjsHtml,
+          gjsCss: pageData.gjsCss,
+          gjsComponents: pageData.gjsComponents,
+          gjsStyles: pageData.gjsStyles,
+        },
+      });
+      
+      console.log(`✅ Página creada/actualizada: ${page.title} (${page.slug})`);
+    } catch (error) {
+      console.error(`❌ Error procesando ${file}:`, error);
+    }
+  }
+}
 
 async function main() {
   console.log('🌱 Iniciando seed de la base de datos...');
@@ -17,7 +87,7 @@ async function main() {
       password: adminPassword,
       firstName: 'Administrador',
       lastName: 'Sistema',
-      role: UserRole.ADMIN,
+      role: "ADMIN",
       phone: '+57 300 123 4567',
     },
   });
@@ -35,7 +105,7 @@ async function main() {
       password: managerPassword,
       firstName: 'Gerente',
       lastName: 'Operaciones',
-      role: UserRole.MANAGER,
+      role: "MANAGER",
       phone: '+57 300 987 6543',
     },
   });
@@ -54,7 +124,7 @@ async function main() {
         password: userPassword,
         firstName: 'Juan',
         lastName: 'Pérez',
-        role: UserRole.USER,
+        role: "USER",
         phone: '+57 300 111 2222',
       },
     }),
@@ -66,7 +136,7 @@ async function main() {
         password: userPassword,
         firstName: 'María',
         lastName: 'García',
-        role: UserRole.USER,
+        role: "USER",
         phone: '+57 300 333 4444',
       },
     }),
@@ -137,25 +207,10 @@ async function main() {
   console.log('✅ Configuraciones del sistema creadas:', settings.length);
 
   // Crear página de inicio con GrapesJS
-  const homePage = await prisma.page.upsert({
-    where: { slug: 'home' },
-    update: {},
-    create: {
-      name: 'Página de Inicio',
-      slug: 'home',
-      title: 'Bienvenido al Acueducto Municipal',
-      content: JSON.stringify({
-        "gjs-html": "<div class=\"container\"><h1>Bienvenido al Acueducto Municipal</h1><p>Brindamos servicios de agua potable de calidad para nuestra comunidad.</p></div>",
-        "gjs-css": ".container { max-width: 1200px; margin: 0 auto; padding: 20px; } h1 { color: #2563eb; text-align: center; } p { font-size: 18px; text-align: center; color: #6b7280; }",
-        "gjs-components": [],
-        "gjs-styles": []
-      }),
-      html: "<div class=\"container\"><h1>Bienvenido al Acueducto Municipal</h1><p>Brindamos servicios de agua potable de calidad para nuestra comunidad.</p></div>",
-      css: ".container { max-width: 1200px; margin: 0 auto; padding: 20px; } h1 { color: #2563eb; text-align: center; } p { font-size: 18px; text-align: center; color: #6b7280; }",
-    },
-  });
+  // Cargar páginas convertidas
+  await seedPagesFromConvertedFiles();
 
-  console.log('✅ Página de inicio creada:', homePage.name);
+  console.log('✅ Todas las páginas han sido creadas desde los archivos convertidos');
 
   console.log('🎉 Seed completado exitosamente!');
 }

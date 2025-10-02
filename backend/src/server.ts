@@ -1,13 +1,15 @@
-import dotenv from 'dotenv';
 import app from './app';
 import { PrismaClient } from '@prisma/client';
 import enhancedLogger from './utils/enhancedLogger';
+import { config } from './config/env';
 
-// Cargar variables de entorno
-dotenv.config();
+console.log('Starting server initialization...');
+console.log('Config loaded, port:', config.port);
 
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 const prisma = new PrismaClient();
+
+console.log('Prisma client created');
 
 // Logger con contexto del servidor
 const serverLogger = enhancedLogger.child({ service: 'Server' });
@@ -81,11 +83,14 @@ process.on('uncaughtException', (error) => {
 
 // Función principal para iniciar el servidor
 async function startServer() {
+  console.log('startServer function called');
   const startTime = Date.now();
   
   try {
+    console.log('About to connect to database...');
     // Conectar a la base de datos
     await connectDatabase();
+    console.log('Database connected successfully');
 
     // Iniciar el servidor
     const server = app.listen(PORT, () => {
@@ -94,7 +99,7 @@ async function startServer() {
       serverLogger.info('Server started successfully', {
         port: PORT,
         duration,
-        environment: process.env.NODE_ENV || 'development',
+        environment: config.nodeEnv,
         nodeVersion: process.version,
         pid: process.pid,
       });

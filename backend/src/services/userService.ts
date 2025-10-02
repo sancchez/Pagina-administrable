@@ -1,4 +1,4 @@
-import { PrismaClient, User, UserRole } from '@prisma/client';
+import { PrismaClient, User } from '@prisma/client';
 import db from '../config/database';
 import { PasswordService } from '../utils/password';
 import { createError } from '../middleware/errorHandler';
@@ -9,20 +9,20 @@ export interface CreateUserData {
   firstName: string;
   lastName: string;
   phone?: string;
-  role?: UserRole;
+  role?: string;
 }
 
 export interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  role?: UserRole;
+  role?: string;
   isActive?: boolean;
 }
 
 export interface UserFilters {
   search?: string;
-  role?: UserRole;
+  role?: string;
   isActive?: boolean;
   page?: number;
   limit?: number;
@@ -55,7 +55,7 @@ export class UserService {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        role: data.role || UserRole.USER,
+        role: data.role || "USER",
       },
       select: {
         id: true,
@@ -223,10 +223,10 @@ export class UserService {
       }),
     ]);
 
-    const roleStats = byRole.reduce((acc: Record<UserRole, number>, item: { role: UserRole; _count: { id: number } }) => {
+    const roleStats = byRole.reduce((acc: Record<string, number>, item: { role: string; _count: { id: number } }) => {
       acc[item.role] = item._count.id;
       return acc;
-    }, {} as Record<UserRole, number>);
+    }, {} as Record<string, number>);
 
     return {
       total,
@@ -236,7 +236,7 @@ export class UserService {
     };
   }
 
-  static async changeUserRole(id: string, role: UserRole): Promise<Omit<User, 'password'>> {
+  static async changeUserRole(id: string, role: string): Promise<Omit<User, 'password'>> {
     // Verificar que el usuario existe
     const existingUser = await db.user.findUnique({
       where: { id },

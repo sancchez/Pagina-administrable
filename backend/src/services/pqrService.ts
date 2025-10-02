@@ -1,12 +1,11 @@
-import { PQRType, PQRStatus, Priority } from '@prisma/client';
 import { createError } from '../middleware/errorHandler';
 import prisma from '../config/database';
 
 interface CreatePQRData {
   title: string;
   description: string;
-  type: PQRType;
-  priority?: Priority;
+  type: string;
+  priority?: string;
   userId: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -15,18 +14,18 @@ interface CreatePQRData {
 interface UpdatePQRData {
   title?: string;
   description?: string;
-  type?: PQRType;
-  priority?: Priority;
-  status?: PQRStatus;
+  type?: string;
+  priority?: string;
+  status?: string;
   contactEmail?: string;
   contactPhone?: string;
 }
 
 interface PQRFilters {
   search?: string;
-  type?: PQRType;
-  status?: PQRStatus;
-  priority?: Priority;
+  type?: string;
+  status?: string;
+  priority?: string;
   userId?: string;
   dateFrom?: Date;
   dateTo?: Date;
@@ -361,7 +360,7 @@ export class PQRService {
     }
   }
 
-  static async changeStatus(id: string, status: PQRStatus) {
+  static async changeStatus(id: string, status: string) {
     try {
       // Verificar que el PQR existe
       const existingPQR = await prisma.pQR.findUnique({

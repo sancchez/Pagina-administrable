@@ -1,11 +1,11 @@
-import { Report, ReportType, ReportStatus, ReportFile, ReportComment } from '@prisma/client';
+import { Report, ReportFile, ReportComment } from '@prisma/client';
 import prisma from '../config/database';
 import { createError } from '../middleware/errorHandler';
 
 export interface CreateReportData {
   title: string;
   description: string;
-  type: ReportType;
+  type: string;
   location?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   userId: string;
@@ -14,16 +14,16 @@ export interface CreateReportData {
 export interface UpdateReportData {
   title?: string;
   description?: string;
-  type?: ReportType;
+  type?: string;
   location?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status?: ReportStatus;
+  status?: string;
 }
 
 export interface ReportFilters {
   search?: string;
-  type?: ReportType;
-  status?: ReportStatus;
+  type?: string;
+  status?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   userId?: string;
   dateFrom?: Date;
@@ -70,7 +70,7 @@ export class ReportService {
         type: data.type,
         priority: data.priority || 'MEDIUM',
         createdBy: data.userId,
-        status: ReportStatus.PENDING,
+        status: "PENDING",
       },
       include: {
         creator: {
@@ -344,12 +344,12 @@ export class ReportService {
     const statusStats = byStatus.reduce((acc, item) => {
       acc[item.status] = item._count.id;
       return acc;
-    }, {} as Record<ReportStatus, number>);
+    }, {} as Record<string, number>);
 
-    const typeStats = byType.reduce((acc: Record<ReportType, number>, item: { type: ReportType; _count: { id: number } }) => {
+    const typeStats = byType.reduce((acc: Record<string, number>, item: { type: string; _count: { id: number } }) => {
       acc[item.type] = item._count.id;
       return acc;
-    }, {} as Record<ReportType, number>);
+    }, {} as Record<string, number>);
 
     const priorityStats = byPriority.reduce((acc: Record<string, number>, item: { priority: string; _count: { id: number } }) => {
       acc[item.priority] = item._count.id;
@@ -454,7 +454,7 @@ export class ReportService {
     });
   }
 
-  static async changeStatus(id: string, status: ReportStatus): Promise<Report> {
+  static async changeStatus(id: string, status: string): Promise<Report> {
     const updatedReport = await prisma.report.update({
       where: { id },
       data: { status },

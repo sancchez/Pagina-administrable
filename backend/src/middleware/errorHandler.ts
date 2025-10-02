@@ -26,7 +26,7 @@ export const errorHandler = (
     url: req.originalUrl,
     ip: networkUtils.getClientIP(req),
     userAgent: networkUtils.getUserAgent(req),
-    userId: req.user?.userId || 'anonymous',
+    userId: (req as any).user?.userId || 'anonymous',
     body: req.method !== 'GET' ? req.body : undefined,
     query: req.query,
   };

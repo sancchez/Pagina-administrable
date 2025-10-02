@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ReportStatus, ReportType, Priority, PQRType, PQRStatus, InvoiceStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PasswordService } from '../src/utils/password';
 import dotenv from 'dotenv';
 
@@ -20,7 +20,7 @@ async function seedUsers() {
       password: adminPassword,
       firstName: 'Admin',
       lastName: 'System',
-      role: UserRole.ADMIN
+      role: "ADMIN"
     }
   });
 
@@ -34,7 +34,7 @@ async function seedUsers() {
       password: managerPassword,
       firstName: 'Manager',
       lastName: 'User',
-      role: UserRole.MANAGER
+      role: "MANAGER"
     }
   });
 
@@ -50,7 +50,7 @@ async function seedUsers() {
         password: userPassword,
         firstName: `User${i}`,
         lastName: `Test`,
-        role: UserRole.USER
+        role: "USER"
       }
     });
     users.push(user);
@@ -78,11 +78,10 @@ async function seedReports(users: any[]) {
       data: {
         title: reportTitles[i],
         description: `Descripción detallada del ${reportTitles[i].toLowerCase()}`,
-        content: `Contenido completo del reporte: ${reportTitles[i]}. Este es un reporte de ejemplo con datos ficticios para demostrar la funcionalidad del sistema.`,
-        status: i % 3 === 0 ? ReportStatus.COMPLETED : i % 3 === 1 ? ReportStatus.IN_PROGRESS : ReportStatus.PENDING,
-        type: i % 2 === 0 ? ReportType.SALES : ReportType.SYSTEM,
-        priority: i % 3 === 0 ? Priority.HIGH : i % 3 === 1 ? Priority.MEDIUM : Priority.LOW,
-        userId: user.id
+        status: i % 3 === 0 ? "COMPLETED" : i % 3 === 1 ? "IN_PROGRESS" : "PENDING",
+        type: i % 2 === 0 ? "MAINTENANCE" : "SERVICE",
+        priority: i % 3 === 0 ? "HIGH" : i % 3 === 1 ? "MEDIUM" : "LOW",
+        createdBy: user.id
       }
     });
 
@@ -109,11 +108,11 @@ async function seedPQRs(users: any[]) {
 
   const pqrs = [];
   const pqrData = [
-    { type: PQRType.PETICION, subject: 'Solicitud de nueva funcionalidad', description: 'Me gustaría solicitar la implementación de un sistema de notificaciones push.' },
-    { type: PQRType.QUEJA, subject: 'Problema con el sistema de login', description: 'He tenido dificultades para acceder al sistema en múltiples ocasiones.' },
-    { type: PQRType.RECLAMO, subject: 'Error en la facturación', description: 'Se ha cobrado incorrectamente en mi última factura.' },
-    { type: PQRType.PETICION, subject: 'Acceso a reportes históricos', description: 'Necesito acceso a los reportes del año anterior para análisis.' },
-    { type: PQRType.QUEJA, subject: 'Lentitud en el sistema', description: 'El sistema ha estado muy lento durante las últimas semanas.' }
+    { type: "PETITION", subject: 'Solicitud de nueva funcionalidad', description: 'Me gustaría solicitar la implementación de un sistema de notificaciones push.' },
+    { type: "COMPLAINT", subject: 'Problema con el sistema de login', description: 'He tenido dificultades para acceder al sistema en múltiples ocasiones.' },
+    { type: "CLAIM", subject: 'Error en la facturación', description: 'Se ha cobrado incorrectamente en mi última factura.' },
+    { type: "PETITION", subject: 'Acceso a reportes históricos', description: 'Necesito acceso a los reportes del año anterior para análisis.' },
+    { type: "COMPLAINT", subject: 'Lentitud en el sistema', description: 'El sistema ha estado muy lento durante las últimas semanas.' }
   ];
 
   for (let i = 0; i < pqrData.length; i++) {
@@ -123,9 +122,9 @@ async function seedPQRs(users: any[]) {
         type: pqrData[i].type,
         subject: pqrData[i].subject,
         description: pqrData[i].description,
-        status: i % 3 === 0 ? PQRStatus.RESOLVED : i % 3 === 1 ? PQRStatus.IN_PROGRESS : PQRStatus.PENDING,
-        priority: i % 2 === 0 ? Priority.HIGH : Priority.MEDIUM,
-        userId: user.id
+        status: i % 3 === 0 ? "RESOLVED" : i % 3 === 1 ? "IN_PROGRESS" : "PENDING",
+        priority: i % 2 === 0 ? "HIGH" : "MEDIUM",
+        createdBy: user.id
       }
     });
 
@@ -147,13 +146,17 @@ async function seedInvoices(users: any[]) {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + (Math.floor(Math.random() * 60) - 30)); // Entre -30 y +30 días
 
+    const issueDate = new Date();
+    issueDate.setDate(issueDate.getDate() - Math.floor(Math.random() * 30)); // Entre 0 y 30 días atrás
+    
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber: `INV-${String(i).padStart(4, '0')}`,
         amount: amount,
-        description: `Factura de servicios #${i}`,
+        period: `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}`,
+        issueDate: issueDate,
         dueDate: dueDate,
-        status: i % 4 === 0 ? InvoiceStatus.PAID : i % 4 === 1 ? InvoiceStatus.OVERDUE : InvoiceStatus.PENDING,
+        status: i % 4 === 0 ? "PAID" : i % 4 === 1 ? "OVERDUE" : "PENDING",
         userId: user.id
       }
     });
@@ -179,15 +182,13 @@ async function seedInvoices(users: any[]) {
     });
 
     // Crear pagos para facturas pagadas
-    if (invoice.status === InvoiceStatus.PAID) {
+    if (invoice.status === "PAID") {
       await prisma.payment.create({
         data: {
           amount: amount,
-          paymentMethod: i % 2 === 0 ? PaymentMethod.CREDIT_CARD : PaymentMethod.BANK_TRANSFER,
-          transactionId: `TXN-${Date.now()}-${i}`,
-          status: PaymentStatus.COMPLETED,
-          invoiceId: invoice.id,
-          userId: user.id
+          paymentMethod: i % 2 === 0 ? "CREDIT_CARD" : "BANK_TRANSFER",
+          status: "COMPLETED",
+          invoiceId: invoice.id
         }
       });
     }
@@ -205,6 +206,7 @@ async function seedPages() {
   const pages = [];
   const pageData = [
     {
+      name: 'inicio',
       title: 'Página de Inicio',
       slug: 'inicio',
       content: '<h1>Bienvenido</h1><p>Esta es la página de inicio de nuestro sitio web.</p>',
@@ -213,6 +215,7 @@ async function seedPages() {
       isPublished: true
     },
     {
+      name: 'acerca-de',
       title: 'Acerca de Nosotros',
       slug: 'acerca-de',
       content: '<h1>Acerca de Nosotros</h1><p>Información sobre nuestra empresa y servicios.</p>',
@@ -221,6 +224,7 @@ async function seedPages() {
       isPublished: true
     },
     {
+      name: 'contacto',
       title: 'Contacto',
       slug: 'contacto',
       content: '<h1>Contacto</h1><p>Información de contacto y formulario.</p>',
@@ -233,13 +237,12 @@ async function seedPages() {
   for (const pageInfo of pageData) {
     const page = await prisma.page.create({
       data: {
-        ...pageInfo,
-        grapesData: JSON.stringify({
-          'gjs-html': pageInfo.content,
-          'gjs-css': 'body { font-family: Arial, sans-serif; }',
-          'gjs-components': [],
-          'gjs-styles': []
-        })
+        title: pageInfo.title,
+        slug: pageInfo.slug,
+        gjsHtml: pageInfo.content,
+        gjsCss: 'body { font-family: Arial, sans-serif; }',
+        gjsComponents: '[]',
+        gjsStyles: '[]'
       }
     });
 

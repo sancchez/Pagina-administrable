@@ -663,7 +663,11 @@ export class PageController {
         }
       }
       return value;
-    })
+    }),
+    gjsHtml: Joi.string().optional(),
+    gjsCss: Joi.string().optional(),
+    gjsComponents: Joi.string().optional(),
+    gjsStyles: Joi.string().optional()
   });
 
   static saveContentSchema = Joi.object({
@@ -806,10 +810,24 @@ export class PageController {
         });
       }
 
+      // Log temporal para debugging
+      console.log('🔍 Backend - Página encontrada:', {
+        id: page.id,
+        title: page.title,
+        slug: page.slug,
+        hasGrapesData: !!page.grapesData,
+        hasHtml: !!page.html,
+        hasCss: !!page.css,
+        hasGjsHtml: !!page.gjsHtml,
+        hasGjsCss: !!page.gjsCss,
+        hasGjsComponents: !!page.gjsComponents,
+        hasGjsStyles: !!page.gjsStyles
+      });
+
       return res.json({
         success: true,
         message: 'Página obtenida exitosamente',
-        data: { page }
+        data: page // Cambiar de { page } a page directamente
       });
     } catch (error: any) {
       return res.status(error.status || 500).json({
@@ -890,7 +908,14 @@ export class PageController {
         });
       }
       
-      const page = await PageService.saveGrapesData(id, value.grapesData, value.html, value.css);
+      const page = await PageService.saveGrapesData(
+        id, 
+        value.grapesData, 
+        value.gjsHtml || value.html, 
+        value.gjsCss || value.css,
+        value.gjsComponents,
+        value.gjsStyles
+      );
 
       return res.json({
         success: true,
@@ -901,6 +926,38 @@ export class PageController {
       return res.status(error.status || 500).json({
         success: false,
         message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Obtener datos de GrapesJS
+   */
+  static async getGrapesData(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      
+      const page = await PageService.getPageById(id);
+      if (!page) {
+        return res.status(404).json({
+          success: false,
+          message: 'Página no encontrada'
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Datos de GrapesJS obtenidos exitosamente',
+        data: {
+          grapesData: page.grapesData,
+          html: page.html,
+          css: page.css
+        }
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor al obtener los datos de GrapesJS'
       });
     }
   }

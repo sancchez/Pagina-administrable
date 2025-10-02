@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { JwtService, JwtPayload } from '../utils/jwt';
-import { UserRole } from '@prisma/client';
 
 // Extender el tipo Request para incluir user
 declare global {
@@ -36,7 +35,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 };
 
-export const authorize = (...roles: UserRole[]) => {
+export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({
@@ -46,7 +45,7 @@ export const authorize = (...roles: UserRole[]) => {
       return;
     }
 
-    if (!roles.includes(req.user.role as UserRole)) {
+    if (!roles.includes(req.user.role as string)) {
       res.status(403).json({
         success: false,
         message: 'No tienes permisos para acceder a este recurso',

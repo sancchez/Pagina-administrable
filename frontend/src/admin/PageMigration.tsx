@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, CheckCircle, XCircle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { renderTsxToHtml, extractGrapesJSData, getPageMetadata } from '../utils/tsxRenderer';
 
 interface StaticPage {
   slug: string;
@@ -21,7 +21,6 @@ interface MigrationStatus {
 }
 
 const PageMigration: React.FC = () => {
-  const { token } = useAuth();
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>({});
   const [dynamicPages, setDynamicPages] = useState<DynamicPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +43,7 @@ const PageMigration: React.FC = () => {
   const loadDynamicPages = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:3000/api/pages/published');
+      const response = await fetch('/api/pages/published');
       
       if (response.ok) {
         const data = await response.json();
@@ -67,68 +66,201 @@ const PageMigration: React.FC = () => {
     setMigrationStatus(prev => ({ ...prev, [slug]: status }));
   };
 
-  const migratePage = async (page: StaticPage) => {
-    if (!token) {
-      setError('No hay token de autenticación disponible');
-      return;
-    }
+  // Función para generar componentes y estilos de GrapesJS apropiados
+  const generateGrapesJSData = (page: StaticPage) => {
+    // Generar componentes estructurados para GrapesJS
+    const gjsComponents = [
+      {
+        type: 'wrapper',
+        components: [
+          {
+            type: 'container',
+            classes: ['main-container'],
+            components: [
+              {
+                type: 'text',
+                tagName: 'h1',
+                classes: ['page-title'],
+                components: [{ type: 'textnode', content: page.name }]
+              },
+              {
+                type: 'text',
+                tagName: 'p',
+                classes: ['migration-info'],
+                components: [{ 
+                  type: 'textnode', 
+                  content: `Esta página ha sido migrada desde el componente estático ${page.component}.` 
+                }]
+              },
+              {
+                type: 'text',
+                tagName: 'p',
+                classes: ['editor-info'],
+                components: [{ 
+                  type: 'textnode', 
+                  content: 'Puedes editarla usando el editor GrapesJS. Agrega más contenido, imágenes, botones y personaliza el diseño.' 
+                }]
+              },
+              {
+                type: 'container',
+                classes: ['content-section'],
+                components: [
+                  {
+                    type: 'text',
+                    tagName: 'h2',
+                    classes: ['section-title'],
+                    components: [{ type: 'textnode', content: 'Contenido de la Página' }]
+                  },
+                  {
+                    type: 'text',
+                    tagName: 'p',
+                    classes: ['section-text'],
+                    components: [{ 
+                      type: 'textnode', 
+                      content: 'Aquí puedes agregar el contenido específico de esta página. Utiliza el editor para personalizar completamente el diseño.' 
+                    }]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ];
 
+    // Generar estilos estructurados para GrapesJS
+    const gjsStyles = [
+      {
+        selectors: [{ name: 'main-container', type: 1 }],
+        style: {
+          'max-width': '1200px',
+          'margin': '0 auto',
+          'padding': '40px 20px',
+          'font-family': 'system-ui, -apple-system, sans-serif'
+        }
+      },
+      {
+        selectors: [{ name: 'page-title', type: 1 }],
+        style: {
+          'color': '#2563eb',
+          'text-align': 'center',
+          'margin-bottom': '30px',
+          'font-size': '2.5rem',
+          'font-weight': 'bold',
+          'line-height': '1.2'
+        }
+      },
+      {
+        selectors: [{ name: 'migration-info', type: 1 }],
+        style: {
+          'font-size': '1.1rem',
+          'text-align': 'center',
+          'color': '#6b7280',
+          'margin-bottom': '20px',
+          'line-height': '1.6'
+        }
+      },
+      {
+        selectors: [{ name: 'editor-info', type: 1 }],
+        style: {
+          'font-size': '1rem',
+          'text-align': 'center',
+          'color': '#9ca3af',
+          'margin-bottom': '40px',
+          'font-style': 'italic'
+        }
+      },
+      {
+        selectors: [{ name: 'content-section', type: 1 }],
+        style: {
+          'background-color': '#f9fafb',
+          'padding': '30px',
+          'border-radius': '8px',
+          'border': '1px solid #e5e7eb'
+        }
+      },
+      {
+        selectors: [{ name: 'section-title', type: 1 }],
+        style: {
+          'color': '#374151',
+          'margin-bottom': '20px',
+          'font-size': '1.5rem',
+          'font-weight': '600'
+        }
+      },
+      {
+        selectors: [{ name: 'section-text', type: 1 }],
+        style: {
+          'color': '#6b7280',
+          'line-height': '1.6',
+          'font-size': '1rem'
+        }
+      }
+    ];
+
+    return { gjsComponents, gjsStyles };
+  };
+
+  const migratePage = async (page: StaticPage) => {
     updateStatus(page.slug, 'migrating');
     
     try {
-      // Crear página dinámica basada en la estática
-      const response = await fetch('http://localhost:3000/api/pages', {
+      // Renderizar el componente TSX a HTML real
+      const renderedHtml = renderTsxToHtml(page.slug);
+      console.log(`📄 HTML renderizado para ${page.slug}:`, renderedHtml.substring(0, 200));
+      
+      // Extraer componentes y estilos de GrapesJS desde el HTML renderizado
+      const { gjsComponents, gjsStyles } = extractGrapesJSData(renderedHtml);
+      console.log(`🎨 Datos GrapesJS extraídos para ${page.slug}:`, { 
+        componentsCount: gjsComponents.length, 
+        stylesCount: gjsStyles.length 
+      });
+      
+      // Obtener metadatos de la página
+      const metadata = getPageMetadata(page.slug);
+      
+      // Crear página dinámica con datos completos de GrapesJS
+      const response = await fetch('/api/pages', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          title: page.name,
+          title: metadata.title,
           slug: page.slug,
-          content: `<div class="migrated-page">
-            <h1>${page.name}</h1>
-            <p>Esta página ha sido migrada desde el componente estático ${page.component}.</p>
-            <p>Puedes editarla usando el editor GrapesJS.</p>
-          </div>`,
-          grapesData: JSON.stringify({
-            "gjs-html": `<div class="container"><h1>${page.name}</h1><p>Esta página ha sido migrada desde el componente estático ${page.component}.</p><p>Puedes editarla usando el editor GrapesJS.</p></div>`,
-            "gjs-css": ".container { max-width: 1200px; margin: 0 auto; padding: 20px; } h1 { color: #2563eb; text-align: center; margin-bottom: 20px; } p { font-size: 16px; text-align: center; color: #6b7280; margin-bottom: 15px; }",
-            "gjs-components": [],
-            "gjs-styles": []
-          }),
-          metaTitle: page.name,
-          metaDescription: `Página ${page.name} del Acueducto Municipal`,
+          gjsHtml: renderedHtml, // HTML real renderizado desde TSX
+          gjsCss: '', // Los estilos están en los gjsStyles
+          gjsComponents: JSON.stringify(gjsComponents), // Componentes extraídos por GrapesJS
+          gjsStyles: JSON.stringify(gjsStyles), // Estilos extraídos por GrapesJS
+          html: renderedHtml, // Para compatibilidad
+          css: '',   // Para compatibilidad
+          metaTitle: metadata.metaTitle,
+          metaDescription: metadata.metaDescription,
+          metaKeywords: metadata.metaKeywords,
           isPublished: true
         })
       });
 
       if (response.ok) {
         updateStatus(page.slug, 'success');
+        console.log(`✅ Página ${page.slug} migrada exitosamente`);
         await loadDynamicPages(); // Recargar la lista
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al migrar la página');
       }
     } catch (err) {
+      console.error(`❌ Error migrando página ${page.slug}:`, err);
       updateStatus(page.slug, 'error');
       setError(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 
   const deleteDynamicPage = async (pageId: string) => {
-    if (!token) {
-      setError('No hay token de autenticación disponible');
-      return;
-    }
-
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:3000/api/pages/${pageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`/api/pages/${pageId}`, {
+        method: 'DELETE'
       });
 
       if (response.ok) {

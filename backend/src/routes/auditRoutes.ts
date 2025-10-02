@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { generalLimiter } from '../middleware/rateLimiter';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -100,7 +99,7 @@ const router = Router();
  *       403:
  *         description: Acceso denegado
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), async (req, res) => {
+router.get('/', authenticate, authorize("ADMIN", "MANAGER"), async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = parseInt(req.query.offset as string) || 0;

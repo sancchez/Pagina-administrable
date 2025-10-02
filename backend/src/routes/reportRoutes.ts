@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { ReportController } from '../controllers/reportController';
 import { authenticate, authorize } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
 import { generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -334,7 +333,7 @@ router.post('/', authenticate, generalLimiter, ReportController.createReport);
  *       401:
  *         description: No autorizado
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), ReportController.getReports);
+router.get('/', authenticate, authorize("ADMIN", "MANAGER", "USER"), ReportController.getReports);
 
 /**
  * @swagger
@@ -446,7 +445,7 @@ router.get('/my', authenticate, ReportController.getUserReports);
  *       403:
  *         description: Acceso denegado
  */
-router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ReportController.getReportStats);
+router.get('/stats', authenticate, authorize("ADMIN", "MANAGER"), ReportController.getReportStats);
 
 /**
  * @swagger
@@ -485,7 +484,7 @@ router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), 
  *       401:
  *         description: No autorizado
  */
-router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), ReportController.getReportById);
+router.get('/:id', authenticate, authorize("ADMIN", "MANAGER", "USER"), ReportController.getReportById);
 
 /**
  * @swagger
@@ -534,7 +533,7 @@ router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, Use
  *       403:
  *         description: Acceso denegado
  */
-router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, ReportController.updateReport);
+router.put('/:id', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, ReportController.updateReport);
 
 /**
  * @swagger
@@ -561,7 +560,7 @@ router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ge
  *       403:
  *         description: Acceso denegado
  */
-router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ReportController.deleteReport);
+router.delete('/:id', authenticate, authorize("ADMIN", "MANAGER"), ReportController.deleteReport);
 
 /**
  * @swagger
@@ -657,7 +656,7 @@ router.post('/:id/comments', authenticate, generalLimiter, ReportController.addC
  *       403:
  *         description: Acceso denegado
  */
-router.patch('/:id/status', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, ReportController.changeStatus);
+router.patch('/:id/status', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, ReportController.changeStatus);
 
 /**
  * @swagger

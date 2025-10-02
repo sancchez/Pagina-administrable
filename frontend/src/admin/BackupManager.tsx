@@ -56,7 +56,7 @@ export default function BackupManager() {
   const fetchPages = async () => {
     try {
       setIsLoading(true);
-      const response = await HttpClient.get('/api/pages');
+      const response = await HttpClient.get('/pages');
       
       if (response?.success) {
         setPages(response.data?.pages || response.pages || []);
@@ -73,7 +73,7 @@ export default function BackupManager() {
 
   const fetchBackups = async (pageId: string) => {
     try {
-      const response = await HttpClient.get(`/api/pages/${pageId}/backups`);
+      const response = await HttpClient.get(`/pages/${pageId}/backups`);
       
       if (response?.success) {
         setBackups(response.data || []);
@@ -89,7 +89,7 @@ export default function BackupManager() {
   const createBackup = async (pageId: string) => {
     try {
       setIsCreatingBackup(true);
-      const response = await HttpClient.post(`/api/pages/${pageId}/backups`, {});
+      const response = await HttpClient.post(`/pages/${pageId}/backups`, {});
       
       if (response?.success) {
         showMessage('success', 'Backup creado exitosamente');
@@ -110,7 +110,7 @@ export default function BackupManager() {
 
     try {
       setIsRestoring(true);
-      const response = await HttpClient.post(`/api/pages/${pageId}/restore/${backupId}`, {});
+      const response = await HttpClient.post(`/pages/${pageId}/restore/${backupId}`, {});
       
       if (response?.success) {
         showMessage('success', 'Página restaurada exitosamente');

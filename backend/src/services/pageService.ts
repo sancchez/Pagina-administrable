@@ -148,10 +148,9 @@ export class PageService {
    */
   static async getPageBySlug(slug: string): Promise<Page | null> {
     try {
-      const page = await prisma.page.findUnique({
+      const page = await prisma.page.findFirst({
         where: { 
           slug,
-          isPublished: true,
           isActive: true
         }
       });
@@ -267,7 +266,14 @@ export class PageService {
   /**
    * Guardar datos de GrapesJS (JSON) junto con HTML y CSS generados automáticamente
    */
-  static async saveGrapesData(id: string, grapesDataString: string, html?: string, css?: string): Promise<Page> {
+  static async saveGrapesData(
+    id: string, 
+    grapesDataString: string, 
+    html?: string, 
+    css?: string,
+    gjsComponents?: string,
+    gjsStyles?: string
+  ): Promise<Page> {
     try {
       const page = await prisma.page.findUnique({
         where: { id }
@@ -278,7 +284,7 @@ export class PageService {
       }
 
       // Crear backup antes de guardar (solo si hay contenido previo)
-      if (page.grapesData || page.html || page.css || page.content) {
+      if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {
         await this.createBackup(page);
       }
 
@@ -297,9 +303,11 @@ export class PageService {
       const generatedContent = PageDataManager.generatePublicContent(grapesData);
       
       const updateData = {
-        grapesData: grapesDataString, // Guardar como string JSON
-        html: html || generatedContent.html,
-        css: css || generatedContent.css,
+        grapesData: grapesDataString, // CRÍTICO: Guardar los datos completos de GrapesJS para el frontend
+        gjsHtml: html || generatedContent.html,
+        gjsCss: css || generatedContent.css,
+        gjsComponents: gjsComponents || JSON.stringify(grapesData['gjs-components'] || []),
+        gjsStyles: gjsStyles || JSON.stringify(grapesData['gjs-styles'] || []),
         updatedAt: new Date()
       };
   
@@ -467,10 +475,10 @@ export class PageService {
         data: {
           pageId: page.id,
           title: page.title,
-          content: page.content,
-          grapesData: page.grapesData as any,
-          html: page.html,
-          css: page.css
+          gjsHtml: page.gjsHtml || '',
+          gjsCss: page.gjsCss || '',
+          gjsComponents: page.gjsComponents || '[]',
+          gjsStyles: page.gjsStyles || '[]'
         }
       });
 
@@ -533,10 +541,10 @@ export class PageService {
         where: { id: pageId },
         data: {
           title: backup.title,
-          content: backup.content,
-          grapesData: backup.grapesData as any,
-          html: backup.html,
-          css: backup.css,
+          gjsHtml: backup.gjsHtml,
+          gjsCss: backup.gjsCss,
+          gjsComponents: backup.gjsComponents,
+          gjsStyles: backup.gjsStyles,
           updatedAt: new Date()
         }
       });

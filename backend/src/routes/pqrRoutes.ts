@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { PQRController } from '../controllers/pqrController';
 import { authenticate, authorize } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
 import { generalLimiter, uploadLimiter } from '../middleware/rateLimiter';
 import multer from 'multer';
 import path from 'path';
@@ -340,7 +339,7 @@ router.post('/', authenticate, generalLimiter, PQRController.createPQR);
  *       401:
  *         description: No autorizado
  */
-router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), PQRController.getPQRs);
+router.get('/', authenticate, authorize("ADMIN", "MANAGER", "USER"), PQRController.getPQRs);
 
 /**
  * @swagger
@@ -450,7 +449,7 @@ router.get('/my', authenticate, PQRController.getUserPQRs);
  *       403:
  *         description: Acceso denegado
  */
-router.get('/recent', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PQRController.getRecentPQRs);
+router.get('/recent', authenticate, authorize("ADMIN", "MANAGER"), PQRController.getRecentPQRs);
 
 /**
  * @swagger
@@ -497,7 +496,7 @@ router.get('/recent', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER),
  *       403:
  *         description: Acceso denegado
  */
-router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PQRController.getPQRStats);
+router.get('/stats', authenticate, authorize("ADMIN", "MANAGER"), PQRController.getPQRStats);
 
 /**
  * @swagger
@@ -536,7 +535,7 @@ router.get('/stats', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), 
  *       401:
  *         description: No autorizado
  */
-router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, UserRole.USER), PQRController.getPQRById);
+router.get('/:id', authenticate, authorize("ADMIN", "MANAGER", "USER"), PQRController.getPQRById);
 
 /**
  * @swagger
@@ -585,7 +584,7 @@ router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER, Use
  *       403:
  *         description: Acceso denegado
  */
-router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PQRController.updatePQR);
+router.put('/:id', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PQRController.updatePQR);
 
 /**
  * @swagger
@@ -612,7 +611,7 @@ router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), ge
  *       403:
  *         description: Acceso denegado
  */
-router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), PQRController.deletePQR);
+router.delete('/:id', authenticate, authorize("ADMIN", "MANAGER"), PQRController.deletePQR);
 
 /**
  * @swagger
@@ -661,7 +660,7 @@ router.delete('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER),
  *       403:
  *         description: Acceso denegado
  */
-router.patch('/:id/status', authenticate, authorize(UserRole.ADMIN, UserRole.MANAGER), generalLimiter, PQRController.changeStatus);
+router.patch('/:id/status', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PQRController.changeStatus);
 
 /**
  * @swagger

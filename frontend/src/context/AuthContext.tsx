@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('accessToken');
       console.log('[Auth] Token encontrado:', token ? 'Sí' : 'No');
       
-      const response = await fetch('http://localhost:3000/api/auth/verify', {
+      const response = await fetch('/api/auth/verify', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('No refresh token available');
       }
 
-      const response = await fetch('http://localhost:3000/api/auth/refresh', {
+      const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

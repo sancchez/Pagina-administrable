@@ -1,4 +1,4 @@
-import { Invoice, InvoiceItem, Payment, InvoiceStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
+import { Invoice, InvoiceItem, Payment } from '@prisma/client';
 import prisma from '../config/database';
 import { createError } from '../middleware/errorHandler';
 
@@ -19,7 +19,7 @@ export interface CreateInvoiceItemData {
 
 export interface UpdateInvoiceData {
   dueDate?: Date;
-  status?: InvoiceStatus;
+  status?: string;
   notes?: string;
   items?: UpdateInvoiceItemData[];
 }
@@ -35,15 +35,15 @@ export interface UpdateInvoiceItemData {
 export interface CreatePaymentData {
   invoiceId: string;
   amount: number;
-  method: PaymentMethod;
-  reference?: string;
+  method: string;
+  transactionId?: string;
   notes?: string;
 }
 
 export interface InvoiceFilters {
   search?: string;
   userId?: string;
-  status?: InvoiceStatus;
+  status?: string;
   dateFrom?: Date;
   dateTo?: Date;
   dueDateFrom?: Date;
@@ -58,8 +58,8 @@ export interface PaymentFilters {
   search?: string;
   invoiceId?: string;
   userId?: string;
-  status?: PaymentStatus;
-  method?: PaymentMethod;
+  status?: string;
+  method?: string;
   dateFrom?: Date;
   dateTo?: Date;
   minAmount?: number;
@@ -425,7 +425,7 @@ export class InvoiceService {
           invoiceId: data.invoiceId,
           amount: data.amount,
          paymentMethod: data.method,
-         reference: data.reference,
+         transactionId: data.transactionId,
           status: 'COMPLETED',
           processedAt: new Date()
         },
