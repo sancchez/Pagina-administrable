@@ -32,42 +32,87 @@ const PreviewFrame = ({ slug: propSlug }: PreviewFrameProps) => {
       const response = await fetch(`/api/pages/slug/${slug}`);
       
       if (response.ok) {
-        const pageData = await response.json();
-        
-        // Si tiene contenido HTML, usarlo directamente
-        if (pageData.data?.page?.content) {
-          setPageContent(pageData.data.page.content);
+        const json = await response.json();
+        const page = json.data?.page || json.data;
+
+        if (!page) {
+          setError('La página no tiene contenido disponible');
+          setLoading(false);
+          return;
         }
-        // Si tiene datos de GrapesJS, renderizar el HTML
-        else if (pageData.data?.page?.grapesData) {
+
+        // Prioridad 1: gjsHtml/gjsCss
+        if (page.gjsHtml) {
+          const fullHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>${page.title || 'Vista previa'}</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                ${page.gjsCss || ''}
+              </style>
+            </head>
+            <body>
+              ${page.gjsHtml}
+            </body>
+            </html>
+          `;
+          setPageContent(fullHtml);
+        }
+        // Prioridad 2: html/css directos
+        else if (page.html || page.css) {
+          const fullHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>${page.title || 'Vista previa'}</title>
+              <style>
+                body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                ${page.css || ''}
+              </style>
+            </head>
+            <body>
+              ${page.html || ''}
+            </body>
+            </html>
+          `;
+          setPageContent(fullHtml);
+        }
+        // Fallback: grapesData
+        else if (page.grapesData) {
           try {
-            const grapesData = JSON.parse(pageData.data.page.grapesData);
-            if (grapesData.html) {
-              const fullHtml = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <title>${pageData.data.page.title || 'Vista previa'}</title>
-                  <style>
-                    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-                    ${grapesData.css || ''}
-                  </style>
-                </head>
-                <body>
-                  ${grapesData.html}
-                </body>
-                </html>
-              `;
-              setPageContent(fullHtml);
-            } else {
-              setError('La página no tiene contenido para mostrar');
-            }
+            const grapesData = JSON.parse(page.grapesData);
+            const fullHtml = `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>${page.title || 'Vista previa'}</title>
+                <style>
+                  body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                  ${grapesData['gjs-css'] || grapesData.css || ''}
+                </style>
+              </head>
+              <body>
+                ${grapesData['gjs-html'] || grapesData.html || ''}
+              </body>
+              </html>
+            `;
+            setPageContent(fullHtml);
           } catch (parseError) {
             console.error('Error parsing GrapesJS data:', parseError);
             setError('Error al procesar los datos de la página');
           }
+        }
+        // Último fallback: content
+        else if (page.content) {
+          setPageContent(page.content);
         } else {
           setError('La página no tiene contenido disponible');
         }

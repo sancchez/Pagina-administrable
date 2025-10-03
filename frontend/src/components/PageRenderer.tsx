@@ -36,6 +36,9 @@ interface DynamicPageData {
   slug: string;
   html?: string;
   css?: string;
+  gjsHtml?: string;
+  gjsCss?: string;
+  content?: string;
   grapesData?: string;
 }
 
@@ -67,7 +70,7 @@ const PageRenderer: React.FC = () => {
         
         if (response.ok) {
           const data = await response.json();
-          const page = data.data?.page;
+          const page = data.data?.page || data.data;
           
           if (page) {
             console.log('📄 [PageRenderer] Página dinámica encontrada:', {
@@ -76,7 +79,10 @@ const PageRenderer: React.FC = () => {
               slug: page.slug,
               hasHtml: !!page.html,
               hasCss: !!page.css,
-              hasGrapesData: !!page.grapesData
+              hasGrapesData: !!page.grapesData,
+              hasGjsHtml: !!page.gjsHtml,
+              hasGjsCss: !!page.gjsCss,
+              hasContent: !!page.content
             });
             
             setDynamicPage(page);
@@ -133,15 +139,21 @@ const PageRenderer: React.FC = () => {
     );
   }
 
-  // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (HTML + CSS sin GrapesJS)
+  // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioriza gjsHtml/gjsCss)
   if (dynamicPage) {
     let htmlContent = '';
     let cssContent = '';
 
-    // Priorizar HTML y CSS directos
-    if (dynamicPage.html && dynamicPage.css) {
-      htmlContent = dynamicPage.html;
-      cssContent = dynamicPage.css;
+    // Prioridad 1: gjsHtml/gjsCss
+    if (dynamicPage.gjsHtml) {
+      htmlContent = dynamicPage.gjsHtml;
+      cssContent = dynamicPage.gjsCss || '';
+      console.log('✅ [PageRenderer] Usando gjsHtml + gjsCss');
+    }
+    // Prioridad 2: HTML y CSS directos
+    else if (dynamicPage.html || dynamicPage.css) {
+      htmlContent = dynamicPage.html || '';
+      cssContent = dynamicPage.css || '';
       console.log('✅ [PageRenderer] Usando HTML + CSS directos');
     }
     // Fallback: extraer HTML y CSS de grapesData si no hay directos
@@ -154,6 +166,12 @@ const PageRenderer: React.FC = () => {
       } catch (parseError) {
         console.error('❌ [PageRenderer] Error parseando grapesData:', parseError);
       }
+    }
+    // Último fallback: contenido simple (legacy)
+    else if (dynamicPage.content) {
+      htmlContent = dynamicPage.content;
+      cssContent = '';
+      console.log('✅ [PageRenderer] Usando content (legacy)');
     }
 
     // Renderizar página dinámica con HTML + CSS

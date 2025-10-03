@@ -453,6 +453,9 @@ async function migrateInformacionEsalPage() {
           title: 'Información ESAL',
           html: INFORMACION_ESAL_HTML,
           css: INFORMACION_ESAL_CSS,
+          gjsHtml: null,
+          gjsCss: null,
+          grapesData: null,
           isPublished: true,
           updatedAt: new Date()
         }
@@ -466,6 +469,9 @@ async function migrateInformacionEsalPage() {
           title: 'Información ESAL',
           html: INFORMACION_ESAL_HTML,
           css: INFORMACION_ESAL_CSS,
+          gjsHtml: null,
+          gjsCss: null,
+          grapesData: null,
           isPublished: true
         }
       });

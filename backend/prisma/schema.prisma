@@ -14,6 +14,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
+  name      String?
   firstName String
   lastName  String
   phone     String?
@@ -186,8 +187,8 @@ model Page {
   grapesData      String?  // Legacy GrapesJS data field
   html            String?  // Generated HTML for public view
   css             String?  // Generated CSS for public view
-  gjsHtml         String   @default("") // GrapesJS HTML content
-  gjsCss          String   @default("") // GrapesJS CSS content
+  gjsHtml         String?  // GrapesJS HTML content (nullable until edited)
+  gjsCss          String?  // GrapesJS CSS content (nullable until edited)
   gjsComponents   String   @default("[]") // GrapesJS Components JSON
   gjsStyles       String   @default("[]") // GrapesJS Styles JSON
   metaTitle       String?

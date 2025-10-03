@@ -60,6 +60,7 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        name: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -79,6 +80,7 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        name: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -117,6 +119,7 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        name: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -184,6 +187,7 @@ export class UserService {
         select: {
           id: true,
           email: true,
+          name: true,
           firstName: true,
           lastName: true,
           phone: true,
@@ -253,6 +257,7 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        name: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -283,6 +288,7 @@ export class UserService {
       select: {
         id: true,
         email: true,
+        name: true,
         firstName: true,
         lastName: true,
         phone: true,

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { processIconsInHtml } from '../utils/iconMapper';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +11,7 @@ const PORTAL_USUARIO_HTML = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal del Usuario - ESAL</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-green-50 min-h-screen">
     <!-- Hero Section -->
@@ -391,10 +392,20 @@ input:focus, select:focus, textarea:focus {
     }
 }
 
-/* Estilos para iconos */
-.fas {
+/* Font Awesome */
+.fas, .fa-solid {
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
+}
+
+.far, .fa-regular {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 400;
+}
+
+.fab, .fa-brands {
+    font-family: "Font Awesome 6 Brands";
+    font-weight: 400;
 }
 
 /* Mejoras visuales */
@@ -421,7 +432,7 @@ async function migratePortalUsuarioPage() {
       await prisma.page.update({
         where: { id: existingPage.id },
         data: {
-          html: PORTAL_USUARIO_HTML,
+          html: processIconsInHtml(PORTAL_USUARIO_HTML),
           css: PORTAL_USUARIO_CSS,
           title: 'Portal del Usuario',
           metaTitle: 'Portal del Usuario - ESAL',
@@ -438,7 +449,7 @@ async function migratePortalUsuarioPage() {
           name: 'Portal del Usuario',
           title: 'Portal del Usuario',
           slug: 'portal-usuario',
-          html: PORTAL_USUARIO_HTML,
+          html: processIconsInHtml(PORTAL_USUARIO_HTML),
           css: PORTAL_USUARIO_CSS,
           metaTitle: 'Portal del Usuario - ESAL',
           metaDescription: 'Accede a todos nuestros servicios en línea de forma fácil y segura. Gestiona tu cuenta, realiza pagos y mantente informado.',

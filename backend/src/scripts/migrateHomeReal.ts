@@ -667,6 +667,9 @@ async function migrateHomePage() {
           title: 'Inicio',
           html: HOME_HTML,
           css: HOME_CSS,
+          gjsHtml: null,
+          gjsCss: null,
+          grapesData: null,
           isPublished: true,
           updatedAt: new Date()
         }
@@ -680,6 +683,9 @@ async function migrateHomePage() {
           title: 'Inicio',
           html: HOME_HTML,
           css: HOME_CSS,
+          gjsHtml: null,
+          gjsCss: null,
+          grapesData: null,
           isPublished: true
         }
       });

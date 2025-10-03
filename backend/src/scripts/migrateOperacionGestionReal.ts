@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { processIconsInHtml } from '../utils/iconMapper';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +11,7 @@ const OPERACION_GESTION_HTML = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operación y Gestión - ESAL</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-green-50 min-h-screen">
     <!-- Hero Section -->
@@ -305,6 +306,22 @@ const OPERACION_GESTION_CSS = `
 }
 
 /* Responsive adjustments */
+/* Font Awesome */
+.fas, .fa-solid {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+.far, .fa-regular {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 400;
+}
+
+.fab, .fa-brands {
+    font-family: "Font Awesome 6 Brands";
+    font-weight: 400;
+}
+
 @media (max-width: 768px) {
     .text-5xl {
         font-size: 2.5rem;
@@ -334,8 +351,11 @@ async function migrateOperacionGestionPage() {
       await prisma.page.update({
         where: { id: existingPage.id },
         data: {
-          html: OPERACION_GESTION_HTML,
+          html: processIconsInHtml(OPERACION_GESTION_HTML),
           css: OPERACION_GESTION_CSS,
+          gjsHtml: undefined,
+        gjsCss: undefined,
+        grapesData: undefined,
           title: 'Operación y Gestión',
           metaTitle: 'Operación y Gestión - ESAL',
           metaDescription: 'Conoce cómo operamos y gestionamos nuestros procesos para garantizar un servicio de agua potable eficiente, confiable y de calidad.',
@@ -351,8 +371,11 @@ async function migrateOperacionGestionPage() {
           name: 'Operación y Gestión',
           title: 'Operación y Gestión',
           slug: 'operacion-gestion',
-          html: OPERACION_GESTION_HTML,
+          html: processIconsInHtml(OPERACION_GESTION_HTML),
           css: OPERACION_GESTION_CSS,
+          gjsHtml: undefined,
+      gjsCss: undefined,
+          grapesData: null,
           metaTitle: 'Operación y Gestión - ESAL',
           metaDescription: 'Conoce cómo operamos y gestionamos nuestros procesos para garantizar un servicio de agua potable eficiente, confiable y de calidad.',
           isPublished: true,

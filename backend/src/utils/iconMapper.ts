@@ -104,6 +104,21 @@ export function convertIconToSvg(iconName: string, props: IconProps = {}): strin
     width = height = 64;
   }
 
+  // Inferir tamaño aproximado desde clases de texto de Tailwind si no hay w/h explícitas
+  if (!(className.includes('w-') && className.includes('h-'))) {
+    if (className.includes('text-xl')) {
+      width = height = 20;
+    } else if (className.includes('text-2xl')) {
+      width = height = 24;
+    } else if (className.includes('text-3xl')) {
+      width = height = 30;
+    } else if (className.includes('text-4xl')) {
+      width = height = 36;
+    } else if (className.includes('text-5xl')) {
+      width = height = 48;
+    }
+  }
+
   return `<svg class="${className}" width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
@@ -113,18 +128,67 @@ export function convertIconToSvg(iconName: string, props: IconProps = {}): strin
 export function processIconsInHtml(html: string): string {
   console.log(`🔍 Procesando HTML para iconos, longitud: ${html.length}`);
   
+  // Convertir etiquetas <i> de Font Awesome a SVG basado en mapeo a lucide
+  const FA_TO_LUCIDE: Record<string, string> = {
+    'fa-credit-card': 'CreditCard',
+    'fa-file-text': 'FileText',
+    'fa-search': 'Search',
+    'fa-download': 'Download',
+    'fa-user': 'User',
+    'fa-comment-dots': 'MessageCircle',
+    'fa-phone': 'Phone',
+    'fa-clock': 'Clock',
+    'fa-check-circle': 'CheckCircle',
+    'fa-info-circle': 'AlertCircle',
+    'fa-shield-alt': 'Shield',
+    'fa-chart-bar': 'BarChart3',
+    'fa-chart-line': 'TrendingUp',
+    'fa-tint': 'Droplets',
+    'fa-cogs': 'Settings',
+    'fa-wrench': 'Wrench',
+    'fa-bolt': 'Zap',
+  };
+  
+  const faIconPattern = /<i([^>]*)>(?:\s*<\/i>)?/g;
+  let processedHtml = html;
+  let matchFa;
+  let faReplacements = 0;
+  
+  while ((matchFa = faIconPattern.exec(processedHtml)) !== null) {
+    const [fullMatch, attrs] = matchFa;
+    const classAttrMatch = attrs.match(/class=("|')([^"']+)(\1)/);
+    const classAttr = classAttrMatch ? classAttrMatch[2] : '';
+    if (!classAttr) continue;
+    
+    const classes = classAttr.split(/\s+/).filter(Boolean);
+    const faIconClass = classes.find(c => c.startsWith('fa-') && c !== 'fa-solid' && c !== 'fa-regular' && c !== 'fa-brands');
+    if (!faIconClass) continue;
+    
+    const lucideName = FA_TO_LUCIDE[faIconClass];
+    if (!lucideName || !ICON_PATHS[lucideName]) {
+      console.warn(`⚠️ FA icono no mapeado o no encontrado: ${faIconClass}`);
+      continue;
+    }
+    
+    const finalClassName = classes.filter(c => !(c === 'fas' || c === 'far' || c === 'fab' || c.startsWith('fa-'))).join(' ');
+    const svgReplacement = convertIconToSvg(lucideName, { className: finalClassName });
+    processedHtml = processedHtml.replace(fullMatch, svgReplacement);
+    faReplacements++;
+  }
+  if (faReplacements > 0) {
+    console.log(`🔄 Convertidos ${faReplacements} iconos de Font Awesome a SVG`);
+  }
+  
   // Patrón mejorado para encontrar componentes de iconos de lucide-react
   // Captura tanto self-closing como tags con contenido
   const iconPattern = /<(\w+)(\s+[^>]*)?(?:\s+className="([^"]*)"[^>]*)?(?:\/>|>[^<]*<\/\1>)/g;
-  
-  let processedHtml = html;
   let match;
   let replacements = 0;
   
   // Reset regex
   iconPattern.lastIndex = 0;
   
-  while ((match = iconPattern.exec(html)) !== null) {
+  while ((match = iconPattern.exec(processedHtml)) !== null) {
     const [fullMatch, iconName, attributes, className] = match;
     
     if (ICON_PATHS[iconName]) {

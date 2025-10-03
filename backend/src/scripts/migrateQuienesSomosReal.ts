@@ -339,6 +339,10 @@ async function migrateQuienesSomosReal() {
           css: QUIENES_SOMOS_CSS.trim(),
           content: null, // Limpiar contenido legacy
           grapesData: null, // Se generará cuando se edite en GrapesJS
+          gjsHtml: undefined,
+          gjsCss: undefined,
+          isPublished: true,
+          isActive: true,
           updatedAt: new Date()
         }
       });
@@ -352,6 +356,10 @@ async function migrateQuienesSomosReal() {
           slug: 'quienes-somos',
           html: QUIENES_SOMOS_HTML.trim(),
           css: QUIENES_SOMOS_CSS.trim(),
+          grapesData: null,
+          gjsHtml: undefined,
+          gjsCss: undefined,
+          isPublished: true,
           isActive: true
         }
       });
