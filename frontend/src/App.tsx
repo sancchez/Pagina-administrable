@@ -9,6 +9,7 @@ import InvoiceManagement from './admin/InvoiceManagement';
 import PQRManagement from './admin/PQRManagement';
 import UserManagement from './admin/UserManagement';
 import ReportsAnalytics from './admin/ReportsAnalytics';
+import PaymentsBilling from './admin/PaymentsBilling';
 import SystemSettings from './admin/SystemSettings';
 import GrapesEditor from './admin/GrapesEditor';
 import PageMigrator from './admin/PageMigrator';
@@ -30,6 +31,7 @@ function App() {
             <Route path="pqr" element={<PQRManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="reports" element={<ReportsAnalytics />} />
+            <Route path="payments" element={<PaymentsBilling />} />
             <Route path="settings" element={<SystemSettings />} />
             <Route path="migrator" element={<PageMigrator />} />
             <Route path="migration" element={<PageMigration />} />

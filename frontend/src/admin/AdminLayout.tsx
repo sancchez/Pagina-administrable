@@ -62,6 +62,13 @@ export default function AdminLayout() {
       description: 'Administrar facturas'
     },
     {
+      title: 'Pagos y Facturación',
+      path: '/admin/dashboard/payments',
+      icon: FileText,
+      color: 'from-pink-500 to-pink-600',
+      description: 'Pagos, cobros y resumen'
+    },
+    {
       title: 'PQR y Solicitudes',
       path: '/admin/dashboard/pqr',
       icon: MessageSquare,
