@@ -19,6 +19,7 @@ import pqrRoutes from './routes/pqrRoutes';
 import auditRoutes from './routes/auditRoutes';
 import docsRoutes from './routes/docs';
 import migrationRoutes from './routes/migrationRoutes';
+import versionRoutes from './routes/versionRoutes';
 
 const app: Application = express();
 
@@ -44,7 +45,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [process.env.FRONTEND_URL || 'https://adminpanel.com']
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5177', 'http://localhost:5180'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -128,6 +129,7 @@ app.use('/api/pqr', pqrRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/admin', migrationRoutes);
+app.use('/api', versionRoutes);
 
 // Middleware para rutas no encontradas
 app.use(notFound);

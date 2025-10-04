@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import prisma from '../config/database';
 import { PageController } from '../controllers/pageController';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { generalLimiter } from '../middleware/rateLimiter';
@@ -289,6 +290,51 @@ router.get('/', authenticate, authorize("ADMIN", "MANAGER", "USER"), PageControl
  *                             format: date-time
  */
 router.get('/published', PageController.getPublishedPages);
+
+// Ruta pública para obtener página por slug priorizando contenido publicado
+router.get('/public/:slug', async (req, res) => {
+  try {
+    const page = await prisma.page.findUnique({
+      where: { slug: req.params.slug }
+    });
+
+    if (!page) {
+      return res.status(404).json({
+        success: false,
+        error: 'Página no encontrada'
+      });
+    }
+
+    const anyPage = page as any;
+    const html = (anyPage.publishedHtml ?? anyPage.gjsHtml ?? page.html ?? '') as string;
+    const css = (anyPage.publishedCss ?? anyPage.gjsCss ?? page.css ?? '') as string;
+    console.log('[PublicRoute] html lengths', {
+      publishedHtmlLen: anyPage.publishedHtml ? String(anyPage.publishedHtml).length : 0,
+      gjsHtmlLen: anyPage.gjsHtml ? String(anyPage.gjsHtml).length : 0
+    });
+    console.log('[PublicRoute] css lengths', {
+      publishedCssLen: anyPage.publishedCss ? String(anyPage.publishedCss).length : 0,
+      gjsCssLen: anyPage.gjsCss ? String(anyPage.gjsCss).length : 0
+    });
+    const publishedAt = (anyPage.publishedAt ?? null) as Date | null;
+
+    res.json({
+      success: true,
+      data: {
+        id: page.id,
+        slug: page.slug,
+        title: page.title,
+        name: page.name,
+        html,
+        css,
+        isPublished: page.isPublished,
+        publishedAt
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 /**
  * @swagger
@@ -588,6 +634,34 @@ router.post('/:id/grapes-data', authenticate, authorize("ADMIN", "MANAGER"), gen
  *         description: Acceso denegado
  */
 router.post('/:id/content', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.saveContent);
+
+/**
+ * @swagger
+ * /api/pages/{id}/publish:
+ *   post:
+ *     summary: Publicar una página generando y guardando publishedHtml/Css
+ *     tags: [Pages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la página
+ *     responses:
+ *       200:
+ *         description: Página publicada exitosamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso denegado
+ *       404:
+ *         description: Página no encontrada
+ */
+router.post('/:id/publish', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.publishPage);
+router.post('/:slug/publish', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.publishPageBySlug);
 
 /**
  * @swagger

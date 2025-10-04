@@ -191,15 +191,20 @@ model Page {
   gjsCss          String?  // GrapesJS CSS content (nullable until edited)
   gjsComponents   String   @default("[]") // GrapesJS Components JSON
   gjsStyles       String   @default("[]") // GrapesJS Styles JSON
+  // Contenido publicado (solo lectura pública)
+  publishedHtml   String?
+  publishedCss    String?
   metaTitle       String?
   metaDescription String?
   isPublished     Boolean  @default(false)
   isActive        Boolean  @default(true)
+  publishedAt     DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relaciones
   backups         PageBackup[]
+  versions        PageVersion[]
 
   @@map("pages")
 }
@@ -218,6 +223,27 @@ model PageBackup {
   page          Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@map("page_backups")
+}
+
+model PageVersion {
+  id            String   @id @default(cuid())
+  pageId        String
+  title         String
+  // Snapshot de borrador (GrapesJS)
+  gjsHtml       String?
+  gjsCss        String?
+  gjsComponents String?  // JSON
+  gjsStyles     String?  // JSON
+  // Snapshot de HTML/CSS renderizados (opcional)
+  html          String?
+  css           String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  // Relaciones
+  page          Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("page_versions")
 }
 
 model Setting {

@@ -6,6 +6,13 @@ import gjsPresetWebpage from 'grapesjs-preset-webpage';
 import { normalizeError, ErrorInfo } from '../utils/errorHandler';
 import HttpClient from '../utils/http';
 
+// Tipado básico para respuestas del API
+interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
+
 interface PageData {
   id: string;
   title: string;
@@ -42,6 +49,8 @@ const GrapesEditor: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasLoadedContent, setHasLoadedContent] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
 
   // Función para guardar datos de la página
   const savePageData = async (grapesData: any, html: string, css: string, components: any, styles: any, isAutoSave = false) => {
@@ -103,6 +112,54 @@ const GrapesEditor: React.FC = () => {
     }
   }, [pageData]);
 
+  // Publicar página (guardar si hay cambios y llamar endpoint de publish)
+  const handlePublish = useCallback(async () => {
+    if (!pageData?.id) return;
+    try {
+      setIsPublishing(true);
+      setPublishStatus('publishing');
+
+      // Guardar cambios antes de publicar
+      if (hasUnsavedChanges) {
+        await handleSave(false);
+      }
+
+      // Llamar endpoint de publicación con tipado
+      const result = await HttpClient.post<ApiResponse<any>>(`/pages/${pageData.id}/publish`, {});
+      console.log('Respuesta de publicación (handlePublish):', result);
+
+      // Verificar éxito explícitamente en el cuerpo JSON
+      if (!result?.success) {
+        throw new Error('Publicación no exitosa');
+      }
+
+      setPublishStatus('success');
+      if (pageData.slug) {
+        // Avisar al usuario
+        alert('✅ Publicado correctamente');
+
+        // Limpiar caché del navegador si está disponible
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        }
+
+        // Redirigir con timestamp para evitar caché
+        setTimeout(() => {
+          window.location.href = `/${pageData.slug}?t=${Date.now()}`;
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('❌ Error al publicar página:', error);
+      setPublishStatus('error');
+    } finally {
+      setIsPublishing(false);
+      // Resetear estado después de unos segundos
+      setTimeout(() => setPublishStatus('idle'), 3000);
+    }
+  }, [pageData, hasUnsavedChanges, handleSave, navigate]);
+
   // Función para programar auto-guardado
   const scheduleAutoSave = useCallback(() => {
     if (autoSaveTimeoutRef.current) {
@@ -126,13 +183,14 @@ const GrapesEditor: React.FC = () => {
         setLoading(true);
         console.log('📡 Cargando datos de la página:', slug);
         
-        const response: any = await HttpClient.get(`/pages/slug/${slug}`);
+        const response = await HttpClient.get<ApiResponse<{ page: PageData }>>(`/pages/slug/${slug}`);
         console.log('📄 Respuesta completa de la API:', response);
-        
-        // Extraer los datos de la página de la respuesta
-        const pageData: PageData = response.data;
-        console.log('📄 Datos de página extraídos:', pageData);
-        setPageData(pageData);
+
+        // Extraer la página desde response.data.page o fallback a response.data
+        const dataAny: any = response.data as any;
+        const extractedPage: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
+        console.log('📄 Datos de página extraídos:', extractedPage);
+        setPageData(extractedPage);
       } catch (error) {
         console.error('❌ Error cargando página:', error);
         setError(normalizeError(error));
@@ -366,6 +424,34 @@ const GrapesEditor: React.FC = () => {
     }
   };
 
+  const publishPage = async () => {
+    if (!confirm('¿Publicar los cambios a la página pública?')) return;
+
+    try {
+      await handleSave();
+      
+      const response = await fetch(`/api/pages/${slug}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      console.log('Respuesta de publicación:', result);
+      
+      if (result && result.success === true) {
+        alert('✅ Página publicada exitosamente. Redirigiendo en 2s...');
+        setTimeout(() => {
+          window.location.href = `/${slug}`;
+        }, 2000);
+      } else {
+        alert('❌ Error: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al publicar');
+    }
+  };
+
   // Obtener texto y color del estado de guardado
   const getSaveStatusDisplay = () => {
     switch (saveStatus) {
@@ -453,6 +539,14 @@ const GrapesEditor: React.FC = () => {
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           >
             Vista Previa
+          </button>
+
+          <button
+            onClick={handlePublish}
+            disabled={isPublishing}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPublishing ? 'Publicando...' : 'Publicar'}
           </button>
         </div>
       </div>

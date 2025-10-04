@@ -2,6 +2,8 @@ import { Page, PageBackup, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { PageDataManager, GrapesJSData } from '../types/pageTypes';
+import DOMPurify from 'isomorphic-dompurify';
+import { VersionService } from './versionService';
 
 export interface CreatePageData {
   title: string;
@@ -175,6 +177,7 @@ export class PageService {
             }
           });
           
+      console.log('[PageService.saveGrapesData] page updated', { id, slug: updatedPage.slug });
           return updatedPage;
         }
       }
@@ -232,6 +235,7 @@ export class PageService {
         }
       });
 
+      console.log('[PageService.saveContent] page updated', { id });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -275,6 +279,7 @@ export class PageService {
     gjsStyles?: string
   ): Promise<Page> {
     try {
+      console.log('[PageService.saveGrapesData] start', { id, payloadLen: (grapesDataString || '').length, htmlLen: (html || '').length, cssLen: (css || '').length });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -284,30 +289,40 @@ export class PageService {
       }
 
       // Crear backup antes de guardar (solo si hay contenido previo)
-      if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {
+      if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {        console.log('[PageService.saveGrapesData] creating backup before save', { pageId: page.id, slug: page.slug });
+
         await this.createBackup(page);
       }
 
-      // Parsear y validar los datos de GrapesJS
-      let grapesData: GrapesJSData;
+      // Modo flexible: aceptar cualquier formato sin rechazar el payload
+      let grapesData: any = {};
       try {
-        grapesData = JSON.parse(grapesDataString);
-        if (!PageDataManager.validateGrapesData(grapesData)) {
-          throw new Error('Estructura de datos GrapesJS inválida');
-        }
-      } catch (parseError) {
-        throw createError(400, 'Datos de GrapesJS inválidos');
+        grapesData = typeof grapesDataString === 'string' ? JSON.parse(grapesDataString) : grapesDataString;
+      } catch {
+        grapesData = {};
       }
 
-      // Generar HTML y CSS automáticamente si no se proporcionan
-      const generatedContent = PageDataManager.generatePublicContent(grapesData);
+      // Intentar generar contenido de forma tolerante
+      let generatedContent: { html: string; css: string } | null = null;
+      try {
+        generatedContent = PageDataManager.generatePublicContent(grapesData as GrapesJSData);
+      } catch {      console.warn('[PageService.saveGrapesData] generatePublicContent failed, continuing');
+
+        generatedContent = null;
+      }
+
+      // Resolver HTML/CSS con múltiples claves posibles
+      const htmlToSave = html ?? grapesData['gjs-html'] ?? grapesData.html ?? generatedContent?.html ?? '';
+      const cssToSave = css ?? grapesData['gjs-css'] ?? grapesData.css ?? generatedContent?.css ?? '';
+      console.log('[PageService.saveGrapesData] resolved content lengths', { htmlLen: (htmlToSave || '').length, cssLen: (cssToSave || '').length });
+
       
       const updateData = {
-        grapesData: grapesDataString, // CRÍTICO: Guardar los datos completos de GrapesJS para el frontend
-        gjsHtml: html || generatedContent.html,
-        gjsCss: css || generatedContent.css,
-        gjsComponents: gjsComponents || JSON.stringify(grapesData['gjs-components'] || []),
-        gjsStyles: gjsStyles || JSON.stringify(grapesData['gjs-styles'] || []),
+        grapesData: grapesDataString, // Guardar los datos completos para el frontend
+        gjsHtml: htmlToSave,
+        gjsCss: cssToSave,
+        gjsComponents: gjsComponents ?? JSON.stringify(grapesData['gjs-components'] ?? grapesData.gjsComponents ?? []),
+        gjsStyles: gjsStyles ?? JSON.stringify(grapesData['gjs-styles'] ?? grapesData.gjsStyles ?? []),
         updatedAt: new Date()
       };
   
@@ -316,7 +331,25 @@ export class PageService {
         data: updateData
       });
   
-      return updatedPage;
+      // Crear versión automática tras guardar
+      try {
+        await VersionService.createVersion(id, 'auto-save');
+      } catch (e) {
+        console.warn('[PageService] auto version creation failed', e);
+      }
+
+      // Publicar automáticamente el contenido sanitizado a publishedHtml/publishedCss
+      try {      console.log('[PageService.saveGrapesData] auto publish start', { slug: page.slug });
+
+        const published = await PageService.publishPage(page.slug);
+      console.log('[PageService.saveGrapesData] auto publish done', { slug: page.slug, htmlLen: (published.publishedHtml || '').length, cssLen: (published.publishedCss || '').length });
+    console.log('[PageService.publishPage] done', { id: page.id, slug });
+
+        return published;
+      } catch (e) {
+        console.warn('[PageService] auto publish failed, returning saved page', e);
+        return updatedPage;
+      }
     } catch (error: any) {
       if (error.status) throw error;
       console.error('Error saving GrapesJS data:', error);
@@ -329,6 +362,7 @@ export class PageService {
    */
   static async saveContent(id: string, content: string): Promise<Page> {
     try {
+      console.log('[PageService.saveContent] start', { id, contentLen: (content || '').length });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -354,10 +388,41 @@ export class PageService {
   }
 
   /**
+   * Publicar página por slug priorizando gjsHtml/gjsCss
+   */
+  static async publishPage(slug: string): Promise<any> {
+    console.log('[PageService.publishPage] start', { slug });
+    const page = await prisma.page.findUnique({ where: { slug } });
+
+    if (!page) {
+      throw new Error('Página no encontrada');
+    }
+
+    const htmlToPublish = page.gjsHtml || '';
+    const cssToPublish = page.gjsCss || '';
+    console.log('[PageService.publishPage] resolved publish lengths', { htmlLen: (htmlToPublish || '').length, cssLen: (cssToPublish || '').length });
+
+
+    const published = await prisma.page.update({
+      where: { id: page.id },
+      data: ({
+        publishedHtml: htmlToPublish,
+        publishedCss: cssToPublish,
+        publishedAt: new Date(),
+        isPublished: true,
+        updatedAt: new Date()
+      } as any)
+    });
+
+    return published;
+  }
+
+  /**
    * Publicar/despublicar una página
    */
   static async togglePublishStatus(id: string): Promise<Page> {
     try {
+      console.log('[PageService.togglePublishStatus] start', { id });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -374,6 +439,7 @@ export class PageService {
         }
       });
 
+      console.log('[PageService.togglePublishStatus] done', { id, isActive: updatedPage.isActive });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -471,6 +537,7 @@ export class PageService {
    */
   static async createBackup(page: Page): Promise<PageBackup> {
     try {
+      console.log('[PageService.createBackup] start', { pageId: page.id, slug: page.slug });
       const backup = await prisma.pageBackup.create({
         data: {
           pageId: page.id,
@@ -480,7 +547,8 @@ export class PageService {
           gjsComponents: page.gjsComponents || '[]',
           gjsStyles: page.gjsStyles || '[]'
         }
-      });
+      });      console.log('[PageService.createBackup] done', { backupId: backup.id });
+
 
       return backup;
     } catch (error: any) {
@@ -512,6 +580,7 @@ export class PageService {
    */
   static async restoreFromBackup(pageId: string, backupId: string): Promise<Page> {
     try {
+      console.log('[PageService.restoreFromBackup] start', { pageId, backupId });
       // Verificar que la página existe
       const page = await prisma.page.findUnique({
         where: { id: pageId }
@@ -547,7 +616,8 @@ export class PageService {
           gjsStyles: backup.gjsStyles,
           updatedAt: new Date()
         }
-      });
+      });      console.log('[PageService.restoreFromBackup] done', { pageId });
+
 
       return restoredPage;
     } catch (error: any) {

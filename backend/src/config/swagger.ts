@@ -1,6 +1,7 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Application } from 'express';
+import { config } from './env';
 
 const options = {
   definition: {
@@ -20,7 +21,7 @@ const options = {
     },
     servers: [
       {
-        url: process.env.API_URL || 'http://localhost:3000',
+        url: process.env.API_URL || `http://localhost:${config.port}`,
         description: 'Servidor de desarrollo'
       },
       {
@@ -594,7 +595,7 @@ export const setupSwagger = (app: Application): void => {
     res.send(specs);
   });
 
-  console.log('📚 Swagger documentation available at: http://localhost:3000/api-docs');
+  console.log(`📚 Swagger documentation available at: http://localhost:${config.port}/api-docs`);
 };
 
 export { specs };

@@ -727,7 +727,13 @@ export class PageController {
         });
       }
       
-      const result = await PageService.getPages(value);
+      const result = await PageService.getPages(value);      console.log('[PageController.publishPage] done', { id: req.params.id });      console.log('[PageController.publishPageBySlug] done', { slug: req.params.slug });      console.log('[PageController.getPageStats] done');      console.log('[PageController.getPageBackups] done', { id: req.params.id });      console.log('[PageController.restoreFromBackup] done', { id: req.params.id, backupId: req.params.backupId });      console.log('[PageController.createManualBackup] done', { id: req.params.id });
+
+
+
+
+
+
 
       return res.json({
         success: true,
@@ -895,6 +901,7 @@ export class PageController {
    */
   static async saveGrapesData(req: Request, res: Response) {
     try {
+      console.log('[PageController.saveGrapesData] start', { id: req.params.id });
       const { id } = req.params;
       const { error, value } = PageController.saveGrapesDataSchema.validate(req.body);
       if (error) {
@@ -917,6 +924,7 @@ export class PageController {
         value.gjsStyles
       );
 
+      console.log('[PageController.saveGrapesData] done', { id: req.params.id });
       return res.json({
         success: true,
         message: 'Datos de GrapesJS guardados exitosamente',
@@ -935,6 +943,7 @@ export class PageController {
    */
   static async getGrapesData(req: Request, res: Response) {
     try {
+      console.log('[PageController.getGrapesData] start', { id: req.params.id });
       const { id } = req.params;
       
       const page = await PageService.getPageById(id);
@@ -967,6 +976,7 @@ export class PageController {
    */
   static async saveContent(req: Request, res: Response) {
     try {
+      console.log('[PageController.saveContent] start', { id: req.params.id });
       const { id } = req.params;
       const { error, value } = PageController.saveContentSchema.validate(req.body);
       if (error) {
@@ -982,6 +992,7 @@ export class PageController {
       
       const page = await PageService.saveContent(id, value.content);
 
+      console.log('[PageController.saveContent] done', { id: req.params.id });
       return res.json({
         success: true,
         message: 'Contenido guardado exitosamente',
@@ -996,13 +1007,80 @@ export class PageController {
   }
 
   /**
+   * Publicar página: genera y guarda publishedHtml/Css
+   */
+  static async publishPage(req: Request, res: Response) {
+    try {
+      console.log('[PageController.publishPage] start', { id: req.params.id });
+      const { id } = req.params;
+      console.log('Publicando página (publishPage):', id);
+      // Aceptar id o slug: intentar por ID, si falla intentar por slug
+      let targetPage: any = null;
+      try {
+        targetPage = await PageService.getPageById(id);
+      } catch (e) {
+        // Ignorar error y probar por slug
+      }
+
+      if (!targetPage) {
+        targetPage = await PageService.getPageBySlug(id);
+      }
+
+      if (!targetPage) {
+        return res.status(404).json({
+          success: false,
+          message: 'Página no encontrada'
+        });
+      }
+
+      const page = await PageService.publishPage(targetPage.slug);
+      console.log('HTML length:', (page.publishedHtml || page.html || '').length);
+      console.log('CSS length:', (page.publishedCss || page.css || '').length);
+      console.log('Página actualizada en BD');
+      return res.json({
+        success: true,
+        message: 'Página publicada exitosamente',
+        data: page
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Publicar página por slug directamente
+   */
+  static async publishPageBySlug(req: Request, res: Response) {
+    try {
+      console.log('[PageController.publishPageBySlug] start', { slug: req.params.slug });
+      const { slug } = req.params as any;
+      if (!slug) {
+        return res.status(400).json({ success: false, message: 'Slug requerido' });
+      }
+      const existing = await PageService.getPageBySlug(slug);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Página no encontrada' });
+      }
+      const page = await PageService.publishPage(slug);
+      return res.json({ success: true, message: 'Página publicada exitosamente', data: page });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({ success: false, message: error.message || 'Error interno del servidor' });
+    }
+  }
+
+  /**
    * Cambiar estado de publicación
    */
   static async togglePublishStatus(req: Request, res: Response) {
     try {
+      console.log('[PageController.togglePublishStatus] start', { id: req.params.id });
       const { id } = req.params;
       const page = await PageService.togglePublishStatus(id);
 
+      console.log('[PageController.togglePublishStatus] done', { id: req.params.id });
       return res.json({
         success: true,
         message: `Página ${page.isActive ? 'publicada' : 'despublicada'} exitosamente`,
@@ -1021,6 +1099,7 @@ export class PageController {
    */
   static async getPageStats(req: Request, res: Response) {
     try {
+      console.log('[PageController.getPageStats] start');
       const stats = await PageService.getPageStats();
 
       return res.json({
@@ -1041,6 +1120,7 @@ export class PageController {
    */
   static async getPageBackups(req: Request, res: Response) {
     try {
+      console.log('[PageController.getPageBackups] start', { id: req.params.id, limit: req.query.limit });
       const { id } = req.params;
       const { limit } = req.query;
 
@@ -1067,6 +1147,7 @@ export class PageController {
    */
   static async restoreFromBackup(req: Request, res: Response) {
     try {
+      console.log('[PageController.restoreFromBackup] start', { id: req.params.id, backupId: req.params.backupId });
       const { id, backupId } = req.params;
 
       const restoredPage = await PageService.restoreFromBackup(id, backupId);
@@ -1089,6 +1170,7 @@ export class PageController {
    */
   static async createManualBackup(req: Request, res: Response) {
     try {
+      console.log('[PageController.createManualBackup] start', { id: req.params.id });
       const { id } = req.params;
 
       // Obtener la página actual

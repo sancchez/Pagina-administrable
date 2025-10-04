@@ -34,6 +34,8 @@ interface DynamicPageData {
   id: number;
   title: string;
   slug: string;
+  publishedHtml?: string;
+  publishedCss?: string;
   html?: string;
   css?: string;
   gjsHtml?: string;
@@ -48,46 +50,35 @@ const PageRenderer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Verificar si existe página estática primero, luego cargar dinámica si no existe
+  // Priorizar contenido dinámico desde BD; usar estático solo como fallback
   useEffect(() => {
     const loadPage = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // 1. Verificar si existe componente estático
-        const StaticComponent = pageComponents[slug];
-        if (StaticComponent) {
-          console.log('📄 [PageRenderer] Usando página estática de React:', slug);
-          setDynamicPage(null);
-          setIsLoading(false);
-          return;
-        }
+        // 1. Intentar cargar desde la BD (API pública)
+        console.log('🔍 [PageRenderer] Intentando cargar desde BD:', slug);
+        const response = await fetch(`/api/pages/public/${slug}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
 
-        // 2. Si no existe página estática, buscar en la base de datos
-        console.log('📄 [PageRenderer] No hay página estática, buscando en BD:', slug);
-        const response = await fetch(`/api/pages/slug/${slug}`);
-        
         if (response.ok) {
-          const data = await response.json();
-          const page = data.data?.page || data.data;
-          
-          if (page) {
-            console.log('📄 [PageRenderer] Página dinámica encontrada:', {
-              id: page.id,
-              title: page.title,
-              slug: page.slug,
-              hasHtml: !!page.html,
-              hasCss: !!page.css,
-              hasGrapesData: !!page.grapesData,
-              hasGjsHtml: !!page.gjsHtml,
-              hasGjsCss: !!page.gjsCss,
-              hasContent: !!page.content
-            });
-            
+          const result = await response.json();
+          console.log('📊 [PageRenderer] Respuesta API:', result);
+          const page = result?.data?.page || result?.data;
+
+          console.log('📄 [PageRenderer] Tiene HTML dinámico:', !!page?.html);
+          console.log('🎨 [PageRenderer] Tiene CSS dinámico:', !!page?.css);
+
+          if (page && (page.html || page.publishedHtml)) {
             setDynamicPage(page);
+            console.log('✅ [PageRenderer] Contenido cargado desde base de datos');
           } else {
-            console.log('📄 [PageRenderer] No se encontró página dinámica');
+            console.log('📄 [PageRenderer] No hay contenido dinámico publicado');
             setDynamicPage(null);
           }
         } else if (response.status === 404) {
@@ -139,51 +130,23 @@ const PageRenderer: React.FC = () => {
     );
   }
 
-  // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioriza gjsHtml/gjsCss)
+  // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioridad)
   if (dynamicPage) {
-    let htmlContent = '';
-    let cssContent = '';
+    const htmlContent = dynamicPage.html || dynamicPage.publishedHtml || '';
+    const cssContent = dynamicPage.css || dynamicPage.publishedCss || '';
 
-    // Prioridad 1: gjsHtml/gjsCss
-    if (dynamicPage.gjsHtml) {
-      htmlContent = dynamicPage.gjsHtml;
-      cssContent = dynamicPage.gjsCss || '';
-      console.log('✅ [PageRenderer] Usando gjsHtml + gjsCss');
-    }
-    // Prioridad 2: HTML y CSS directos
-    else if (dynamicPage.html || dynamicPage.css) {
-      htmlContent = dynamicPage.html || '';
-      cssContent = dynamicPage.css || '';
-      console.log('✅ [PageRenderer] Usando HTML + CSS directos');
-    }
-    // Fallback: extraer HTML y CSS de grapesData si no hay directos
-    else if (dynamicPage.grapesData) {
-      try {
-        const grapesData = JSON.parse(dynamicPage.grapesData);
-        htmlContent = grapesData['gjs-html'] || grapesData.html || '';
-        cssContent = grapesData['gjs-css'] || grapesData.css || '';
-        console.log('✅ [PageRenderer] Usando HTML + CSS extraídos de grapesData');
-      } catch (parseError) {
-        console.error('❌ [PageRenderer] Error parseando grapesData:', parseError);
-      }
-    }
-    // Último fallback: contenido simple (legacy)
-    else if (dynamicPage.content) {
-      htmlContent = dynamicPage.content;
-      cssContent = '';
-      console.log('✅ [PageRenderer] Usando content (legacy)');
-    }
+    console.log('🎬 [PageRenderer] Renderizando:', htmlContent ? 'DINÁMICO' : 'ESTÁTICO');
 
-    // Renderizar página dinámica con HTML + CSS
     if (htmlContent) {
       return (
-        <>
+        <div>
           {/* CSS de la página */}
-          {cssContent && <style>{cssContent}</style>}
-          
+          {cssContent && (
+            <style dangerouslySetInnerHTML={{ __html: cssContent }} />
+          )}
           {/* HTML de la página */}
           <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-        </>
+        </div>
       );
     }
   }
@@ -193,6 +156,7 @@ const PageRenderer: React.FC = () => {
 
   if (PageComponent) {
     console.log('✅ [PageRenderer] Usando componente estático de React');
+    console.log('🎬 [PageRenderer] Renderizando:', 'ESTÁTICO');
     return <PageComponent />;
   }
 

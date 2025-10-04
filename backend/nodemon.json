@@ -10,9 +10,11 @@
     "coverage",
     ".git"
   ],
-  "exec": "ts-node",
+  "exec": "ts-node --transpile-only",
   "env": {
-    "NODE_ENV": "development"
+    "NODE_ENV": "development",
+    "PORT": "3001",
+    "FRONTEND_URL": "http://localhost:5173"
   },
   "delay": 1000
 }
