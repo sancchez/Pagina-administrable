@@ -294,8 +294,30 @@ router.get('/published', PageController.getPublishedPages);
 // Ruta pública para obtener página por slug priorizando contenido publicado
 router.get('/public/:slug', async (req, res) => {
   try {
+    const slug = req.params.slug;
+    console.log(`📥 [/pages/public/:slug] start: ${slug}`);
+
     const page = await prisma.page.findUnique({
-      where: { slug: req.params.slug }
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        name: true,
+        // Campos prioritarios
+        publishedHtml: true,
+        publishedCss: true,
+        // Fallbacks
+        gjsHtml: true,
+        gjsCss: true,
+        html: true,
+        css: true,
+        content: true,
+        // Metadata
+        isPublished: true,
+        publishedAt: true,
+        updatedAt: true,
+      }
     });
 
     if (!page) {
@@ -305,18 +327,27 @@ router.get('/public/:slug', async (req, res) => {
       });
     }
 
-    const anyPage = page as any;
-    const html = (anyPage.publishedHtml ?? anyPage.gjsHtml ?? page.html ?? '') as string;
-    const css = (anyPage.publishedCss ?? anyPage.gjsCss ?? page.css ?? '') as string;
-    console.log('[PublicRoute] html lengths', {
-      publishedHtmlLen: anyPage.publishedHtml ? String(anyPage.publishedHtml).length : 0,
-      gjsHtmlLen: anyPage.gjsHtml ? String(anyPage.gjsHtml).length : 0
-    });
-    console.log('[PublicRoute] css lengths', {
-      publishedCssLen: anyPage.publishedCss ? String(anyPage.publishedCss).length : 0,
-      gjsCssLen: anyPage.gjsCss ? String(anyPage.gjsCss).length : 0
-    });
-    const publishedAt = (anyPage.publishedAt ?? null) as Date | null;
+    // CASCADA DE PRIORIDADES para HTML
+    const html = page.publishedHtml
+      || page.gjsHtml
+      || page.html
+      || page.content
+      || '';
+
+    // CASCADA DE PRIORIDADES para CSS
+    const css = page.publishedCss
+      || page.gjsCss
+      || page.css
+      || '';
+
+    // LOG para debugging
+    console.log(`📤 [${slug}] Enviando:`);
+    console.log(`  publishedHtml: ${page.publishedHtml?.length || 0}`);
+    console.log(`  gjsHtml: ${page.gjsHtml?.length || 0}`);
+    console.log(`  html: ${page.html?.length || 0}`);
+    console.log(`  content: ${page.content?.length || 0}`);
+    console.log(`  → Usando HTML: ${html.length} chars`);
+    console.log(`  → Usando CSS: ${css.length} chars`);
 
     res.json({
       success: true,
@@ -328,10 +359,12 @@ router.get('/public/:slug', async (req, res) => {
         html,
         css,
         isPublished: page.isPublished,
-        publishedAt
+        publishedAt: page.publishedAt,
+        updatedAt: page.updatedAt,
       }
     });
   } catch (error: any) {
+    console.error('❌ Error en /pages/public/:slug:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

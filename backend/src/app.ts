@@ -124,6 +124,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/invoices', invoiceRoutes);
+// Alias admin para facturas
+app.use('/api/admin/invoices', invoiceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pqr', pqrRoutes);
 app.use('/api/audit-logs', auditRoutes);

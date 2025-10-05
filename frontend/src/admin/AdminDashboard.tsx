@@ -435,7 +435,15 @@ export default function AdminDashboard() {
               {STATIC_PAGES.map((page) => (
                 <tr key={page.slug} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{page.title}</div>
+                    <div className="flex items-center gap-3">
+                      {/* Badge para páginas especiales */}
+                      {String(page.slug || '').startsWith('_') && (
+                        <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">
+                          ⚙️ Sistema
+                        </span>
+                      )}
+                      <div className="font-medium text-gray-900">{page.title}</div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <code className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
@@ -455,11 +463,11 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
                       <button
-                        onClick={() => editPage(page.slug)}
+                        onClick={() => editPage(page.slug || '')}
                         className="text-blue-600 hover:text-blue-700 transition-colors"
                         title="Editar página"
                       >
-                        <Edit3 className="h-4 w-4" />
+                        ✏️
                       </button>
                       <a
                         href={`/${page.slug}`}

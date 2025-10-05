@@ -57,6 +57,13 @@ const GrapesEditor: React.FC = () => {
     if (!pageData) return;
 
     try {
+      console.log('📝 [GrapesEditor.savePageData] start', {
+        id: pageData.id,
+        slug: pageData.slug,
+        htmlLen: (html || '').length,
+        cssLen: (css || '').length,
+        isAutoSave,
+      });
       const payload = {
         grapesData: JSON.stringify(grapesData),
         html,
@@ -68,6 +75,7 @@ const GrapesEditor: React.FC = () => {
       };
 
       await HttpClient.post(`/pages/${pageData.id}/grapes-data`, payload);
+      console.log('✅ [GrapesEditor.savePageData] posted', { len: JSON.stringify(payload).length });
       
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
@@ -88,29 +96,90 @@ const GrapesEditor: React.FC = () => {
   // Función para manejar guardado
   const handleSave = useCallback(async (isAutoSave = false) => {
     const inst = editorInstanceRef.current;
-    if (!inst || !pageData || !pageData.id) return;
+    if (!inst || !pageData) return;
 
     try {
       setSaveStatus(isAutoSave ? 'auto-saving' : 'saving');
-      
+
       const grapesData = inst.store ? inst.store() : inst.getProjectData?.();
-      const html = inst.getHtml();
-      const css = inst.getCss();
+      const html = inst.getHtml() || '';
+      const css = inst.getCss() || '';
       const components = inst.getComponents();
       const styles = inst.getStyle();
-      
-      await savePageData(grapesData, html || '', css || '', components, styles, isAutoSave);
-      
-      if (!isAutoSave) {
+
+      console.log('💾 Guardando:', {
+        htmlLen: html.length,
+        cssLen: css.length
+      });
+
+      const payload: any = {
+        // Claves esperadas por backend (Joi)
+        grapesData: JSON.stringify(grapesData ?? {}),
+        // Claves tipo gjs-* para compatibilidad
+        'gjs-html': html,
+        'gjs-css': css,
+        'gjs-components': components,
+        'gjs-styles': styles,
+        // Duplicados en camelCase usados por el servicio
+        gjsHtml: html,
+        gjsCss: css,
+        gjsComponents: typeof components === 'string' ? components : JSON.stringify(components ?? []),
+        gjsStyles: typeof styles === 'string' ? styles : JSON.stringify(styles ?? [])
+      };
+
+      // Intentar guardar por slug primero, luego por id como fallback
+      const urlSlug = slug ? `http://localhost:3001/api/pages/${slug}/grapes-data` : null;
+      const urlId = pageData.id ? `http://localhost:3001/api/pages/${pageData.id}/grapes-data` : null;
+
+      let ok = false;
+      let resultJson: any = null;
+
+      if (urlSlug) {
+        try {
+          const resp = await fetch(urlSlug, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (resp.ok) {
+            ok = true;
+            resultJson = await resp.json();
+          }
+        } catch (e) {
+          console.warn('⚠️ Guardado por slug falló, intentando por ID...', e);
+        }
+      }
+
+      if (!ok && urlId) {
+        const resp = await fetch(urlId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        resultJson = await resp.json();
+        ok = !!resp.ok;
+      }
+
+      if (ok && resultJson?.success) {
+        console.log('✅ Guardado exitoso');
+        setLastSaved(new Date());
+        setHasUnsavedChanges(false);
+        if (!isAutoSave) alert('💾 Cambios guardados');
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        console.error('❌ Error al guardar', resultJson);
+        if (!isAutoSave) alert('❌ Error al guardar');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
       }
     } catch (error) {
-      console.error('❌ Error en handleSave:', error);
+      console.error('Error:', error);
+      if (!isAutoSave) alert('Error de conexión');
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
-  }, [pageData]);
+  }, [pageData, slug]);
 
   // Publicar página (guardar si hay cambios y llamar endpoint de publish)
   const handlePublish = useCallback(async () => {
@@ -126,7 +195,7 @@ const GrapesEditor: React.FC = () => {
 
       // Llamar endpoint de publicación con tipado
       const result = await HttpClient.post<ApiResponse<any>>(`/pages/${pageData.id}/publish`, {});
-      console.log('Respuesta de publicación (handlePublish):', result);
+      console.log('🚀 [GrapesEditor.handlePublish] response', result);
 
       // Verificar éxito explícitamente en el cuerpo JSON
       if (!result?.success) {
@@ -147,7 +216,9 @@ const GrapesEditor: React.FC = () => {
 
         // Redirigir con timestamp para evitar caché
         setTimeout(() => {
-          window.location.href = `/${pageData.slug}?t=${Date.now()}`;
+          const target = `/${pageData.slug}?t=${Date.now()}`;
+          console.log('🔄 [GrapesEditor.handlePublish] redirecting to', target);
+          window.location.href = target;
         }, 1500);
       }
     } catch (error) {
@@ -174,33 +245,55 @@ const GrapesEditor: React.FC = () => {
     }, 5000); // Auto-guardar cada 5 segundos
   }, [hasUnsavedChanges, handleSave]);
 
-  // Cargar datos de la página
-  useEffect(() => {
-    const fetchPageData = async () => {
-      if (!slug) return;
+  // PASO 4: Cargar datos con prioridad (gjsHtml > html > content)
+  const loadPageData = useCallback(async () => {
+    if (!slug) return;
 
-      try {
-        setLoading(true);
-        console.log('📡 Cargando datos de la página:', slug);
-        
-        const response = await HttpClient.get<ApiResponse<{ page: PageData }>>(`/pages/slug/${slug}`);
-        console.log('📄 Respuesta completa de la API:', response);
+    try {
+      setLoading(true);
+      console.log('📡 Cargando datos de la página:', slug);
 
-        // Extraer la página desde response.data.page o fallback a response.data
-        const dataAny: any = response.data as any;
-        const extractedPage: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
-        console.log('📄 Datos de página extraídos:', extractedPage);
-        setPageData(extractedPage);
-      } catch (error) {
-        console.error('❌ Error cargando página:', error);
-        setError(normalizeError(error));
-      } finally {
-        setLoading(false);
+      const response = await HttpClient.get<ApiResponse<{ page: PageData }>>(`/pages/slug/${slug}`);
+      const dataAny: any = response.data as any;
+      const page: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
+
+      console.log('📥 Página cargada para editar:', page.slug);
+
+      // PRIORIDAD: gjsHtml > html > content
+      const htmlToEdit = page.gjsHtml || page.html || page.content || '';
+      const cssToEdit = page.gjsCss || page.css || '';
+
+      console.log('✏️ Contenido para editor:');
+      console.log('  HTML:', htmlToEdit ? String(htmlToEdit).length : 0, 'chars');
+      console.log('  CSS:', cssToEdit ? String(cssToEdit).length : 0, 'chars');
+
+      // Guardar datos y cargar en editor si está listo
+      setPageData(page);
+
+      const editor = editorInstanceRef.current;
+      if (editor && editorReady) {
+        if (htmlToEdit) {
+          editor.setComponents(htmlToEdit);
+        }
+        if (cssToEdit) {
+          editor.setStyle(cssToEdit);
+        }
+        setHasLoadedContent(true);
+      } else {
+        console.log('⏳ Editor no listo aún; se cargará tras inicialización');
       }
-    };
+    } catch (error) {
+      console.error('Error:', error);
+      setError(normalizeError(error));
+    } finally {
+      setLoading(false);
+    }
+  }, [slug, editorReady]);
 
-    fetchPageData();
-  }, [slug]);
+  // Cargar datos de la página usando la nueva función
+  useEffect(() => {
+    loadPageData();
+  }, [loadPageData]);
 
   // Función para inicializar el editor
   const initializeEditor = useCallback(() => {
@@ -227,16 +320,23 @@ const GrapesEditor: React.FC = () => {
         canvas: { 
           styles: [
             'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
-            'https://cdn.tailwindcss.com'
           ],
           scripts: [
-            'https://cdn.tailwindcss.com'
           ]
         },
       });
 
       // Guardar instancia
       editorInstanceRef.current = gEditor;
+
+      // Definir un dispositivo ancho para activar breakpoints md de Tailwind
+      try {
+        gEditor.DeviceManager.add({ id: 'Wide', name: 'Wide', width: '1024px' });
+        gEditor.setDevice('Wide');
+        console.log('📐 Dispositivo del canvas configurado: Wide (1024px)');
+      } catch (e) {
+        console.warn('⚠️ No se pudo configurar dispositivo Wide:', e);
+      }
 
       // Configurar eventos para detectar cambios
       gEditor.on('component:add component:remove component:update', () => {
@@ -249,10 +349,77 @@ const GrapesEditor: React.FC = () => {
         scheduleAutoSave();
       });
 
+      // helper: inyectar Tailwind CDN dentro del iframe del canvas
+      const injectTailwindIntoCanvas = () => {
+        try {
+          const frameEl = gEditor.Canvas.getFrameEl();
+          if (!frameEl) {
+            console.warn('⚠️ No se encontró el iframe del canvas');
+            return;
+          }
+          const doc = frameEl.contentDocument || frameEl.contentWindow?.document;
+          if (!doc) return;
+          // Insertar Tailwind CDN (Play CDN) como script para generar utilidades dentro del iframe
+          const existing = doc.querySelector('script[src="https://cdn.tailwindcss.com"]');
+          if (!existing) {
+            const script = doc.createElement('script');
+            script.src = 'https://cdn.tailwindcss.com';
+            doc.head.appendChild(script);
+            console.log('🔌 Tailwind CDN inyectado en canvas iframe');
+          }
+          // Asegurar Bootstrap también si fuera necesario
+          const existingBootstrap = doc.querySelector('link[href*="bootstrap"]');
+          if (!existingBootstrap) {
+            const link = doc.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css';
+            doc.head.appendChild(link);
+            console.log('🔌 Bootstrap CSS inyectado en canvas iframe');
+          }
+        } catch (err) {
+          console.warn('⚠️ No se pudo inyectar Tailwind en canvas:', err);
+        }
+      };
+
       // Esperar al evento 'load' antes de cargar contenido
       gEditor.on('load', () => {
         console.log('✅ GrapesJS: evento load disparado');
         setEditorReady(true);
+
+        // Bloques personalizados
+        const bm = gEditor.BlockManager;
+        bm.add('cta-button', {
+          label: 'Botón CTA',
+          category: 'Elementos',
+          content: '<a class="px-4 py-2 rounded bg-blue-600 text-white inline-block" href="#">Llamada a la acción</a>'
+        });
+        bm.add('hero-simple', {
+          label: 'Hero simple',
+          category: 'Secciones',
+          content: '<section class="bg-sky-100 py-16"><div class="container mx-auto text-center"><h1 class="text-3xl font-bold mb-4">Bienvenido</h1><p class="text-gray-700">Subtítulo descriptivo de la sección</p></div></section>'
+        });
+        bm.add('features-3col', {
+          label: '3 Features',
+          category: 'Secciones',
+          content: '<section class="py-12"><div class="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-6"><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 1</h3><p class="text-gray-600">Descripción breve.</p></div><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 2</h3><p class="text-gray-600">Descripción breve.</p></div><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 3</h3><p class="text-gray-600">Descripción breve.</p></div></div></section>'
+        });
+
+        // El iframe del canvas puede aún no estar listo; se usa 'canvas:frame:load'
+      });
+
+      // El frame del canvas está listo; ahora podemos inyectar Tailwind y cargar contenido
+      gEditor.on('canvas:frame:load', () => {
+        console.log('🖼️ Canvas frame listo');
+        try {
+          const frameEl = gEditor.Canvas.getFrameEl();
+          const cw = frameEl?.contentWindow?.innerWidth;
+          console.log('📏 Ancho del iframe del canvas:', cw);
+        } catch {}
+        injectTailwindIntoCanvas();
+        if (pageData) {
+          console.log('🔄 Cargando contenido después de canvas:frame:load');
+          loadContentIntoEditor(pageData);
+        }
       });
 
       return true;
@@ -296,7 +463,7 @@ const GrapesEditor: React.FC = () => {
   }, []);
 
   // Método mejorado para cargar contenido
-  const loadContentIntoEditor = (pageData: any) => {
+  const loadContentIntoEditor = async (pageData: any) => {
     if (!editorInstanceRef.current || !editorReady) {
       console.log('⏳ Esperando que el editor esté listo...');
       return;
@@ -311,40 +478,59 @@ const GrapesEditor: React.FC = () => {
     console.log('🔍 pageData recibido:', pageData);
 
     try {
-      // PRIORIDAD 1: Usar gjsHtml con Tailwind CDN (NO cargar gjsCss porque está vacío)
+      // PRIORIDAD 1: Usar gjsHtml con carga correcta en GrapesJS
       if (pageData.gjsHtml) {
-        console.log('✅ Cargando desde gjsHtml con Tailwind CDN');
-        
+        console.log('✅ Cargando desde gjsHtml con método correcto');
+
         // Limpiar tags de React
         let cleanHtml = pageData.gjsHtml;
         cleanHtml = cleanHtml.replace(/<Layout>/g, '').replace(/<\/Layout>/g, '');
-        
-        console.log('📝 HTML limpio:', cleanHtml.substring(0, 200));
-        
-        // Cargar solo el HTML, NO el CSS (porque gjsCss está vacío)
-        editorInstanceRef.current.setComponents(cleanHtml);
-        
-        // NO ejecutar: editorInstanceRef.current.setStyle(pageData.gjsCss);
-        
-        // Forzar recarga del canvas para aplicar Tailwind
-        setTimeout(() => {
+
+        // Logs de verificación
+        console.log('🧪 TEST: ¿Editor existe?', !!editorInstanceRef.current);
+        console.log('🧪 TEST: ¿Tiene setComponents?', typeof editorInstanceRef.current?.setComponents);
+        console.log('🧪 TEST: ¿HTML tiene contenido?', cleanHtml?.length > 0);
+        console.log('📝 HTML limpio:', cleanHtml.substring(0, 100));
+
+        try {
+          // Limpiar editor primero
+          editorInstanceRef.current.setComponents('');
+          editorInstanceRef.current.setStyle('');
+          // Pequeña espera
+          await new Promise(resolve => setTimeout(resolve, 100));
+          // Cargar HTML
+          editorInstanceRef.current.setComponents(cleanHtml);
+          console.log('✅ Componentes establecidos');
+          // Cargar CSS si existe
+          if (pageData.gjsCss) {
+            editorInstanceRef.current.setStyle(pageData.gjsCss);
+            console.log('✅ Estilos establecidos');
+          }
+          // Forzar render
+          editorInstanceRef.current.render();
+          console.log('✅ Editor renderizado');
+
+          // Inyectar Tailwind dentro del iframe para aplicar utilidades
           try {
-            const canvasFrames = document.querySelectorAll('iframe[id*="gjs-cv-"]');
-            const canvasFrame = canvasFrames[0] as HTMLIFrameElement;
-            if (canvasFrame && canvasFrame.contentWindow) {
-              // Recargar Tailwind en el iframe
-              const script = canvasFrame.contentWindow.document.createElement('script');
-              script.src = 'https://cdn.tailwindcss.com';
-              canvasFrame.contentWindow.document.head.appendChild(script);
-              console.log('🔄 Tailwind CDN recargado en iframe');
+            const frameEl = editorInstanceRef.current.Canvas.getFrameEl();
+            const doc = frameEl?.contentDocument || frameEl?.contentWindow?.document;
+            if (doc) {
+              const exists = doc.querySelector('script[src="https://cdn.tailwindcss.com"]');
+              if (!exists) {
+                const script = doc.createElement('script');
+                script.src = 'https://cdn.tailwindcss.com';
+                doc.head.appendChild(script);
+                console.log('🔄 Tailwind CDN recargado en iframe tras render');
+              }
             }
           } catch (error) {
             console.warn('⚠️ No se pudo recargar Tailwind en iframe:', error);
           }
-        }, 500);
-        
+        } catch (err) {
+          console.error('❌ Error al cargar contenido:', err);
+        }
+
         setHasLoadedContent(true);
-        console.log('✅ HTML cargado, estilos de Tailwind CDN');
         return;
       }
 
@@ -395,10 +581,11 @@ const GrapesEditor: React.FC = () => {
 
   // Asegúrate de que este useEffect se ejecute cuando cambien las dependencias
   useEffect(() => {
-    if (pageData && editorInstanceRef.current && editorReady && !hasLoadedContent) {
+    if (editorInstanceRef.current && editorReady && pageData) {
+      console.log('🔄 Editor listo y datos disponibles, cargando...');
       loadContentIntoEditor(pageData);
     }
-  }, [pageData, editorReady, hasLoadedContent]);
+  }, [editorInstanceRef.current, editorReady, pageData]);
 
   // Previsualizar página
   const handlePreview = () => {

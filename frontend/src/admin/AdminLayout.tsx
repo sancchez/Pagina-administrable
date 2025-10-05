@@ -219,6 +219,16 @@ export default function AdminLayout() {
                 <Shield className="h-4 w-4" />
                 <span>Configurar seguridad</span>
               </Link>
+              {/* Páginas del Sistema */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-semibold text-gray-700 mb-2">⚙️ Páginas del Sistema</h4>
+                <Link to="/admin/dashboard/editor/_header" className="block py-2 px-2 rounded hover:bg-gray-100">
+                  📄 Editar Header
+                </Link>
+                <Link to="/admin/dashboard/editor/_footer" className="block py-2 px-2 rounded hover:bg-gray-100">
+                  📄 Editar Footer
+                </Link>
+              </div>
             </div>
           </div>
 

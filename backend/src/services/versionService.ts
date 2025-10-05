@@ -4,41 +4,35 @@ import { createError } from '../middleware/errorHandler';
 import { PageDataManager, GrapesJSData } from '../types/pageTypes';
 
 export class VersionService {
-  static async createVersion(pageId: string, note?: string): Promise<PageVersion> {
+  static async createVersion(pageId: string, description?: string): Promise<PageVersion> {
     const page = await prisma.page.findUnique({ where: { id: pageId } });
     if (!page) throw createError(404, 'Página no encontrada');
 
-    let grapesJson: string | null = null;
-    let renderedHtml: string | null = null;
-    let renderedCss: string | null = null;
-
-    try {
-      if (page.grapesData) {
-        grapesJson = page.grapesData;
-        try {
-          const parsed: GrapesJSData = JSON.parse(page.grapesData);
-          const generated = PageDataManager.generatePublicContent(parsed);
-          renderedHtml = generated?.html || null;
-          renderedCss = generated?.css || null;
-        } catch {
-          renderedHtml = null;
-          renderedCss = null;
-        }
-      }
-    } catch {}
-
-    // Resolver html/css directos o gjs
-    if (!renderedHtml) renderedHtml = page.gjsHtml || page.html || null;
-    if (!renderedCss) renderedCss = page.gjsCss || page.css || null;
+    // Determinar contenido publicado (o borrador) con cascada
+    const htmlSnapshot = page.publishedHtml || page.gjsHtml || page.html || page.content || null;
+    const cssSnapshot = page.publishedCss || page.gjsCss || page.css || null;
 
     const version = await prisma.pageVersion.create({
       data: {
-        pageId,
-        grapesJson,
-        renderedHtml,
-        renderedCss,
-        note: note || 'snapshot',
-      },
+        pageId: page.id,
+        // Snapshot completo de estado de edición (GrapesJS)
+        gjsHtml: page.gjsHtml || null,
+        gjsCss: page.gjsCss || null,
+        gjsComponents: page.gjsComponents || null,
+        gjsStyles: page.gjsStyles || null,
+        grapesData: page.grapesData || null,
+        // Snapshot de HTML/CSS preferentemente publicados
+        html: htmlSnapshot,
+        css: cssSnapshot,
+        // Contenido publicado explícito
+        publishedHtml: page.publishedHtml || null,
+        publishedCss: page.publishedCss || null,
+        // Versión numérica de la página al momento del snapshot
+        version: page.version,
+        // Nota descriptiva
+        note: description || `Versión ${page.version}`,
+        createdAt: new Date()
+      }
     });
 
     return version;
@@ -64,11 +58,13 @@ export class VersionService {
     const updated = await prisma.page.update({
       where: { id: pageId },
       data: {
-        grapesData: version.grapesJson ?? page.grapesData,
-        gjsHtml: version.renderedHtml ?? page.gjsHtml,
-        gjsCss: version.renderedCss ?? page.gjsCss,
-        html: version.renderedHtml ?? page.html,
-        css: version.renderedCss ?? page.css,
+        grapesData: version.grapesData ?? page.grapesData,
+        gjsHtml: version.gjsHtml ?? page.gjsHtml,
+        gjsCss: version.gjsCss ?? page.gjsCss,
+        html: version.html ?? page.html,
+        css: version.css ?? page.css,
+        publishedHtml: version.publishedHtml ?? page.publishedHtml,
+        publishedCss: version.publishedCss ?? page.publishedCss,
         updatedAt: new Date(),
       },
     });

@@ -182,6 +182,7 @@ model Page {
   id              String   @id @default(cuid())
   name            String   @default("")
   title           String
+  description     String?
   slug            String   @unique
   content         String?  // Legacy content field
   grapesData      String?  // Legacy GrapesJS data field
@@ -199,6 +200,7 @@ model Page {
   isPublished     Boolean  @default(false)
   isActive        Boolean  @default(true)
   publishedAt     DateTime?
+  version         Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -237,6 +239,13 @@ model PageVersion {
   // Snapshot de HTML/CSS renderizados (opcional)
   html          String?
   css           String?
+  // Contenido publicado en el momento del snapshot
+  publishedHtml String?
+  publishedCss  String?
+  // Datos completos de GrapesJS
+  grapesData    String?
+  // Versión de la página al momento del snapshot
+  version       Int?
   note          String?
   createdAt     DateTime @default(now())
 

@@ -177,7 +177,7 @@ export class PageService {
             }
           });
           
-      console.log('[PageService.saveGrapesData] page updated', { id, slug: updatedPage.slug });
+      console.log('[PageService.getPageBySlug] page updated', { id: updatedPage.id, slug: updatedPage.slug });
           return updatedPage;
         }
       }
@@ -339,11 +339,12 @@ export class PageService {
       }
 
       // Publicar automáticamente el contenido sanitizado a publishedHtml/publishedCss
-      try {      console.log('[PageService.saveGrapesData] auto publish start', { slug: page.slug });
+      try {
+        console.log('[PageService.saveGrapesData] auto publish start', { slug: page.slug });
 
         const published = await PageService.publishPage(page.slug);
-      console.log('[PageService.saveGrapesData] auto publish done', { slug: page.slug, htmlLen: (published.publishedHtml || '').length, cssLen: (published.publishedCss || '').length });
-    console.log('[PageService.publishPage] done', { id: page.id, slug });
+        console.log('[PageService.saveGrapesData] auto publish done', { slug: page.slug, htmlLen: (published.publishedHtml || '').length, cssLen: (published.publishedCss || '').length });
+        console.log('[PageService.publishPage] done', { id: page.id, slug: page.slug });
 
         return published;
       } catch (e) {
@@ -392,28 +393,47 @@ export class PageService {
    */
   static async publishPage(slug: string): Promise<any> {
     console.log('[PageService.publishPage] start', { slug });
-    const page = await prisma.page.findUnique({ where: { slug } });
+    const page = await prisma.page.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        gjsHtml: true,
+        gjsCss: true,
+        html: true,
+        css: true,
+        content: true
+      }
+    });
 
     if (!page) {
       throw new Error('Página no encontrada');
     }
 
-    const htmlToPublish = page.gjsHtml || '';
-    const cssToPublish = page.gjsCss || '';
-    console.log('[PageService.publishPage] resolved publish lengths', { htmlLen: (htmlToPublish || '').length, cssLen: (cssToPublish || '').length });
+    // CASCADA: Usar gjsHtml primero, sino html legacy y luego content
+    const htmlToPublish = page.gjsHtml || page.html || page.content || '';
+    const cssToPublish = page.gjsCss || page.css || '';
 
+    console.log('🚀 Publicando:', slug);
+    console.log('  - Origen gjsHtml:', page.gjsHtml?.length || 0);
+    console.log('  - Publicando:', htmlToPublish.length, 'chars');
+
+    if (!htmlToPublish) {
+      throw new Error('No hay contenido para publicar');
+    }
 
     const published = await prisma.page.update({
       where: { id: page.id },
-      data: ({
+      data: {
         publishedHtml: htmlToPublish,
         publishedCss: cssToPublish,
         publishedAt: new Date(),
         isPublished: true,
         updatedAt: new Date()
-      } as any)
+      }
     });
 
+    console.log('✅ Publicado - publishedHtml:', published.publishedHtml?.length);
     return published;
   }
 

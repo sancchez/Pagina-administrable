@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import Layout from './Layout';
 
 // Importar todas las páginas estáticas
 import HomePage from '../pages/HomePage';
@@ -49,8 +50,13 @@ const PageRenderer: React.FC = () => {
   const [dynamicPage, setDynamicPage] = useState<DynamicPageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [headerHtml, setHeaderHtml] = useState<string>('');
+  const [headerCss, setHeaderCss] = useState<string>('');
+  const [footerHtml, setFooterHtml] = useState<string>('');
+  const [footerCss, setFooterCss] = useState<string>('');
 
   // Priorizar contenido dinámico desde BD; usar estático solo como fallback
+
   useEffect(() => {
     const loadPage = async () => {
       try {
@@ -99,6 +105,51 @@ const PageRenderer: React.FC = () => {
     loadPage();
   }, [slug]);
 
+  // Cargar header y footer dinámicos
+  useEffect(() => {
+    const loadHeaderFooter = async () => {
+      try {
+        const [hRes, fRes] = await Promise.all([
+          fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+          fetch('/api/pages/public/_footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+        ]);
+        if (hRes.ok) {
+          const hJson = await hRes.json();
+          const hPage = hJson?.data?.page || hJson?.data || {};
+          const hHtml = hPage.publishedHtml || hPage.gjsHtml || hPage.html || '';
+          const hCss = hPage.publishedCss || hPage.gjsCss || hPage.css || '';
+          console.log('🧩 [PageRenderer] Header recibido', {
+            slug: hPage.slug,
+            publishedHtmlLen: hPage.publishedHtml ? String(hPage.publishedHtml).length : 0,
+            gjsHtmlLen: hPage.gjsHtml ? String(hPage.gjsHtml).length : 0,
+            htmlLen: hPage.html ? String(hPage.html).length : 0,
+            usingHtmlLen: hHtml.length,
+          });
+          setHeaderHtml(hHtml);
+          setHeaderCss(hCss);
+        }
+        if (fRes.ok) {
+          const fJson = await fRes.json();
+          const fPage = fJson?.data?.page || fJson?.data || {};
+          const fHtml = fPage.publishedHtml || fPage.gjsHtml || fPage.html || '';
+          const fCss = fPage.publishedCss || fPage.gjsCss || fPage.css || '';
+          console.log('🧩 [PageRenderer] Footer recibido', {
+            slug: fPage.slug,
+            publishedHtmlLen: fPage.publishedHtml ? String(fPage.publishedHtml).length : 0,
+            gjsHtmlLen: fPage.gjsHtml ? String(fPage.gjsHtml).length : 0,
+            htmlLen: fPage.html ? String(fPage.html).length : 0,
+            usingHtmlLen: fHtml.length,
+          });
+          setFooterHtml(fHtml);
+          setFooterCss(fCss);
+        }
+      } catch (e) {
+        console.error('❌ [PageRenderer] Error al cargar header/footer:', e);
+      }
+    };
+    loadHeaderFooter();
+  }, []);
+
   // Mostrar loading
   if (isLoading) {
     return (
@@ -132,21 +183,26 @@ const PageRenderer: React.FC = () => {
 
   // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioridad)
   if (dynamicPage) {
-    const htmlContent = dynamicPage.html || dynamicPage.publishedHtml || '';
-    const cssContent = dynamicPage.css || dynamicPage.publishedCss || '';
+    const htmlContent = dynamicPage.publishedHtml || dynamicPage.html || dynamicPage.gjsHtml || '';
+    const cssContent = dynamicPage.publishedCss || dynamicPage.css || dynamicPage.gjsCss || '';
 
     console.log('🎬 [PageRenderer] Renderizando:', htmlContent ? 'DINÁMICO' : 'ESTÁTICO');
+    console.log('📥 [PageRenderer] Datos recibidos de API', {
+      slug: dynamicPage.slug,
+      htmlPreview: htmlContent.substring(0, 50),
+      cssPreview: cssContent.substring(0, 50),
+    });
 
     if (htmlContent) {
       return (
-        <div>
+        <Layout headerHtml={headerHtml} headerCss={headerCss} footerHtml={footerHtml} footerCss={footerCss}>
           {/* CSS de la página */}
           {cssContent && (
             <style dangerouslySetInnerHTML={{ __html: cssContent }} />
           )}
           {/* HTML de la página */}
           <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-        </div>
+        </Layout>
       );
     }
   }
