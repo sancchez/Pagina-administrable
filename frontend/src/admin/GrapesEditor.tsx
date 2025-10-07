@@ -646,6 +646,399 @@ const GrapesEditor: React.FC = () => {
 
       // Contadores simples desactivados: los helpers globales manejan reintentos
 
+      // Registrar tipo personalizado 'gradient' en StyleManager
+      try {
+        const sm = gEditor.StyleManager as any;
+        const isValidColor = (c: string) => {
+          const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+          const rgba = /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(\s*,\s*(0|1|0?\.\d+))?\s*\)$/;
+          return hex.test(c) || rgba.test(c);
+        };
+
+        const getColorsFromUI = (root: HTMLElement) => {
+          const rows = Array.from(root.querySelectorAll('.gjs-grad-row')) as HTMLElement[];
+          return rows.map(r => {
+            const v = (r.querySelector('input[type="color"]') as HTMLInputElement)?.value || '#ffffff';
+            return isValidColor(v) ? v : '#ffffff';
+          });
+        };
+        const setColorsToUI = (root: HTMLElement, colors: string[], positions?: number[]) => {
+          const list = root.querySelector('.gjs-grad-list') as HTMLElement;
+          if (!list) return;
+          list.innerHTML = '';
+          colors.forEach((color, idx) => {
+            const row = document.createElement('div');
+            row.className = 'gjs-grad-row';
+            row.innerHTML = `
+              <div class="gjs-field gjs-field-color">
+                <input type="color" value="${color}" />
+              </div>
+              <div class="gjs-field" style="width:88px;">
+                <input type="number" min="0" max="100" class="gjs-grad-pos" value="${positions && typeof positions[idx] === 'number' ? positions[idx] : ''}" placeholder="%" />
+              </div>
+              <button class="gjs-grad-up gjs-btn">↑</button>
+              <button class="gjs-grad-down gjs-btn">↓</button>
+              <button class="gjs-grad-del gjs-btn">✕</button>
+            `;
+            list.appendChild(row);
+          });
+        };
+
+        // Obtiene pares color/posición desde la UI
+        const getStopsFromUI = (root: HTMLElement) => {
+          const rows = Array.from(root.querySelectorAll('.gjs-grad-row')) as HTMLElement[];
+          return rows.map(r => {
+            const color = (r.querySelector('input[type="color"]') as HTMLInputElement)?.value || '#ffffff';
+            const posRaw = (r.querySelector('.gjs-grad-pos') as HTMLInputElement)?.value;
+            let pos = posRaw ? Number(posRaw) : NaN;
+            if (!isFinite(pos)) pos = NaN;
+            if (!isNaN(pos)) pos = Math.max(0, Math.min(100, Math.round(pos)));
+            return { color: isValidColor(color) ? color : '#ffffff', pos: isNaN(pos) ? undefined : pos };
+          });
+        };
+
+        const updatePreview = (root: HTMLElement) => {
+          const angleInput = root.querySelector('.gjs-grad-angle') as HTMLInputElement;
+          const angle = Number(angleInput?.value || 0);
+          const rows = getStopsFromUI(root);
+          const repeat = (root.querySelector('.gjs-grad-repeat') as HTMLInputElement)?.checked || false;
+          const preview = root.querySelector('.gjs-grad-preview') as HTMLElement;
+          if (!preview) return;
+          if (rows.length <= 1) {
+            const only = rows[0]?.color || '#ffffff';
+            preview.style.background = only;
+            return;
+          }
+          const anyPos = rows.some(r => typeof r.pos === 'number');
+          const stops = rows.map((r, i, arr) => {
+            let p = r.pos;
+            if (typeof p !== 'number') {
+              const step = 100 / (arr.length - 1);
+              p = Math.round(step * i);
+            }
+            const clamp = Math.max(0, Math.min(100, Math.round(p as number)));
+            const input = (root.querySelectorAll('.gjs-grad-pos')[i] as HTMLInputElement | undefined);
+            if (input && input.value) input.value = String(clamp);
+            return `${r.color} ${clamp}%`;
+          });
+          const fn = repeat ? 'repeating-linear-gradient' : 'linear-gradient';
+          preview.style.background = `${fn}(${angle}deg, ${stops.join(', ')})`;
+        };
+
+        sm.addType('gradient', {
+          create({ props, change }: any) {
+            const root = document.createElement('div');
+            root.className = 'gjs-grad-root';
+            root.innerHTML = `
+              <div class="gjs-grad-controls">
+                <div class="gjs-field">
+                  <label>Modo</label>
+                  <select class="gjs-grad-mode">
+                    <option value="background">Fondo</option>
+                    <option value="text">Texto</option>
+                  </select>
+                </div>
+                <div class="gjs-field">
+                  <label>Patrón</label>
+                  <select class="gjs-grad-pattern">
+                    <option value="free">Libre (ángulo)</option>
+                    <option value="tb">Arriba → abajo</option>
+                    <option value="bt">Abajo → arriba</option>
+                    <option value="lr">Izquierda → derecha</option>
+                    <option value="rl">Derecha → izquierda</option>
+                    <option value="diag-br">Diagonal ↘︎</option>
+                    <option value="diag-bl">Diagonal ↙︎</option>
+                  </select>
+                </div>
+                <label>Ángulo</label>
+                <div class="gjs-field">
+                  <input type="range" min="0" max="360" value="0" class="gjs-grad-angle" />
+                </div>
+                <div class="gjs-field">
+                  <input type="number" min="0" max="360" value="0" class="gjs-grad-angle-num" />
+                </div>
+                <div class="gjs-field">
+                  <label><input type="checkbox" class="gjs-grad-repeat" /> Repetir patrón</label>
+                </div>
+                <button class="gjs-grad-add gjs-btn gjs-btn-prim">Agregar color</button>
+              </div>
+              <div class="gjs-grad-list"></div>
+              <div class="gjs-grad-preview"></div>
+            `;
+            // Inicialización desde el componente seleccionado
+            try {
+              const sel = gEditor.getSelected();
+              const style = sel?.getStyle ? sel.getStyle() : {};
+              const bgImg = (style as any)['background-image'] || '';
+              const bg = (style as any)['background'] || '';
+              const bgColor = (style as any)['background-color'] || '';
+              const src = typeof bgImg === 'string' && /linear-gradient\(/.test(bgImg) ? bgImg : (typeof bg === 'string' && /linear-gradient\(/.test(bg) ? bg : '');
+              if (src) {
+                const m = src.match(/linear-gradient\((\d+)deg,\s*(.*)\)/);
+                if (m) {
+                  const ang = Number(m[1] || 0);
+                  const stopsStr = m[2] || '';
+                  const colors = stopsStr.split(',').map(s => s.trim().split(' ')[0]).filter(Boolean);
+                  setColorsToUI(root, colors.length ? colors : ['#ffffff', '#000000']);
+                  const angleRange = root.querySelector('.gjs-grad-angle') as HTMLInputElement;
+                  const angleNum = root.querySelector('.gjs-grad-angle-num') as HTMLInputElement;
+                  angleRange.value = String(ang);
+                  angleNum.value = String(ang);
+                } else {
+                  setColorsToUI(root, ['#ffffff', '#000000']);
+                }
+              } else if (bgColor) {
+                setColorsToUI(root, [bgColor]);
+              } else {
+                setColorsToUI(root, ['#ffffff']);
+              }
+            } catch {
+              setColorsToUI(root, ['#ffffff']);
+            }
+            updatePreview(root);
+
+            const angleRange = root.querySelector('.gjs-grad-angle') as HTMLInputElement;
+            const angleNum = root.querySelector('.gjs-grad-angle-num') as HTMLInputElement;
+            const addBtn = root.querySelector('.gjs-grad-add') as HTMLButtonElement;
+            const list = root.querySelector('.gjs-grad-list') as HTMLElement;
+            const modeSel = root.querySelector('.gjs-grad-mode') as HTMLSelectElement;
+            const patternSel = root.querySelector('.gjs-grad-pattern') as HTMLSelectElement;
+            const repeatChk = root.querySelector('.gjs-grad-repeat') as HTMLInputElement;
+
+            const syncAngle = (v: number) => {
+              angleRange.value = String(v);
+              angleNum.value = String(v);
+            };
+
+            patternSel.addEventListener('change', (event) => {
+              const val = (event.target as HTMLSelectElement).value;
+              const map: Record<string, number | undefined> = {
+                free: undefined,
+                tb: 180,
+                bt: 0,
+                lr: 90,
+                rl: 270,
+                'diag-br': 135,
+                'diag-bl': 225,
+              };
+              const ang = map[val];
+              if (typeof ang === 'number') { syncAngle(ang); }
+              updatePreview(root);
+              change({ event });
+            });
+            repeatChk.addEventListener('change', (event) => { updatePreview(root); change({ event }); });
+            modeSel.addEventListener('change', (event) => { updatePreview(root); change({ event }); });
+
+            angleRange.addEventListener('input', (event) => { const v = Math.max(0, Math.min(360, Number((event.target as HTMLInputElement).value))); syncAngle(v); updatePreview(root); change({ event, partial: true }); });
+            angleRange.addEventListener('change', (event) => { const v = Math.max(0, Math.min(360, Number((event.target as HTMLInputElement).value))); syncAngle(v); updatePreview(root); change({ event }); });
+            angleNum.addEventListener('input', (event) => { const v = Math.max(0, Math.min(360, Number((event.target as HTMLInputElement).value))); syncAngle(v); updatePreview(root); change({ event, partial: true }); });
+            angleNum.addEventListener('change', (event) => { const v = Math.max(0, Math.min(360, Number((event.target as HTMLInputElement).value))); syncAngle(v); updatePreview(root); change({ event }); });
+
+            addBtn.addEventListener('click', (event) => {
+              const colors = getColorsFromUI(root);
+              const last = colors[colors.length - 1] || '#ffffff';
+              setColorsToUI(root, [...colors, last]);
+              updatePreview(root);
+              change({ event });
+            });
+
+            list.addEventListener('click', (event) => {
+              const target = event.target as HTMLElement;
+              const row = target.closest('.gjs-grad-row') as HTMLElement;
+              if (!row) return;
+              const colors = getColorsFromUI(root);
+              const idx = Array.from(list.children).indexOf(row);
+
+              if (target.classList.contains('gjs-grad-del')) {
+                colors.splice(idx, 1);
+                if (colors.length === 0) colors.push('#ffffff');
+                setColorsToUI(root, colors);
+                updatePreview(root);
+                change({ event });
+              } else if (target.classList.contains('gjs-grad-up')) {
+                if (idx > 0) {
+                  const tmp = colors[idx - 1];
+                  colors[idx - 1] = colors[idx];
+                  colors[idx] = tmp;
+                  setColorsToUI(root, colors);
+                  updatePreview(root);
+                  change({ event });
+                }
+              } else if (target.classList.contains('gjs-grad-down')) {
+                if (idx < colors.length - 1) {
+                  const tmp = colors[idx + 1];
+                  colors[idx + 1] = colors[idx];
+                  colors[idx] = tmp;
+                  setColorsToUI(root, colors);
+                  updatePreview(root);
+                  change({ event });
+                }
+              }
+            });
+
+            list.addEventListener('input', (event) => {
+              updatePreview(root);
+              change({ event, partial: true });
+            });
+
+            // Validación y normalización de posiciones 0–100%
+            list.addEventListener('change', (event) => {
+              const t = event.target as HTMLInputElement;
+              if (t && t.classList.contains('gjs-grad-pos')) {
+                const v = Math.round(Math.max(0, Math.min(100, Number(t.value) || 0)));
+                t.value = String(v);
+              }
+              updatePreview(root);
+              change({ event, partial: true });
+            });
+
+            return root;
+          },
+          emit({ props, updateStyle }: any, { event, partial }: any) {
+            try {
+              const root = (event?.target as HTMLElement)?.closest('.gjs-grad-root') as HTMLElement;
+              if (!root) return;
+              const stopsUI = getStopsFromUI(root);
+              const colors = stopsUI.map(s => s.color);
+              const angle = Number((root.querySelector('.gjs-grad-angle') as HTMLInputElement)?.value || 0);
+              const selected = gEditor.getSelected();
+              const repeat = (root.querySelector('.gjs-grad-repeat') as HTMLInputElement)?.checked || false;
+              const mode = (root.querySelector('.gjs-grad-mode') as HTMLSelectElement)?.value || 'background';
+
+              if (colors.length <= 1) {
+                const color = colors[0] || '#ffffff';
+                updateStyle(color);
+                if (selected) {
+                  const add: Record<string, any> = { 'background': color, 'background-color': '' };
+                  if (mode === 'text') {
+                    add['color'] = 'transparent';
+                    add['background-clip'] = 'text';
+                    add['-webkit-background-clip'] = 'text';
+                    add['-webkit-text-fill-color'] = 'transparent';
+                  }
+                  selected.addStyle(add);
+                }
+              } else {
+                const anyPos = stopsUI.some(s => typeof s.pos === 'number');
+                const stops = stopsUI.map((s, i, arr) => {
+                  let p = s.pos;
+                  if (typeof p !== 'number') {
+                    const step = 100 / (arr.length - 1);
+                    p = Math.round(step * i);
+                  }
+                  const clamp = Math.max(0, Math.min(100, Math.round(p as number)));
+                  return `${s.color} ${clamp}%`;
+                });
+                const fn = repeat ? 'repeating-linear-gradient' : 'linear-gradient';
+                const value = `${fn}(${angle}deg, ${stops.join(', ')})`;
+                updateStyle(value);
+                if (selected) {
+                  const add: Record<string, any> = { 'background': value, 'background-color': '' };
+                  if (mode === 'text') {
+                    add['color'] = 'transparent';
+                    add['background-clip'] = 'text';
+                    add['-webkit-background-clip'] = 'text';
+                    add['-webkit-text-fill-color'] = 'transparent';
+                  }
+                  selected.addStyle(add);
+                }
+              }
+            } catch (e) {
+              console.warn('emit gradient error', e);
+            }
+          },
+          update({ props }: any) {
+            try {
+              const { value, el } = props;
+              const root = el as HTMLElement;
+              if (!root) return;
+              const angleRange = root.querySelector('.gjs-grad-angle') as HTMLInputElement;
+              const angleNum = root.querySelector('.gjs-grad-angle-num') as HTMLInputElement;
+              const gradMatch = typeof value === 'string' ? value.match(/(repeating-)?linear-gradient\((\d+)deg,\s*(.*)\)/) : null;
+              if (gradMatch) {
+                const ang = Number(gradMatch[2] || 0);
+                const stopsStr = gradMatch[3] || '';
+                const parts = stopsStr.split(',').map(s => s.trim());
+                const colors = parts.map(p => p.split(' ')[0]).filter(Boolean);
+                const positions = parts.map(p => {
+                  const m = p.match(/\s(\d+)\%/);
+                  return m ? Math.max(0, Math.min(100, Number(m[1]))) : undefined as any;
+                });
+                setColorsToUI(root, colors.length ? colors : ['#ffffff', '#000000'], positions as any);
+                angleRange.value = String(ang);
+                angleNum.value = String(ang);
+                const repeat = !!gradMatch[1];
+                (root.querySelector('.gjs-grad-repeat') as HTMLInputElement).checked = repeat;
+              } else {
+                // Si no hay gradient en 'background', intentar leer 'background-color'
+                try {
+                  const sel = gEditor.getSelected();
+                  const style = sel?.getStyle ? sel.getStyle() : {};
+                  const bgColor = (style as any)['background-color'] || '';
+                  if (bgColor) {
+                    setColorsToUI(root, [bgColor]);
+                  } else {
+                    setColorsToUI(root, ['#ffffff']);
+                  }
+                  // Detectar modo texto
+                  try {
+                    const modeSel = root.querySelector('.gjs-grad-mode') as HTMLSelectElement;
+                    const clip = (style as any)['background-clip'] || '';
+                    const color = (style as any)['color'] || '';
+                    if ((clip && String(clip).includes('text')) || (color && String(color).includes('transparent'))) {
+                      modeSel.value = 'text';
+                    } else {
+                      modeSel.value = 'background';
+                    }
+                  } catch {}
+                } catch {
+                  setColorsToUI(root, ['#ffffff']);
+                }
+                angleRange.value = '0';
+                angleNum.value = '0';
+              }
+              updatePreview(root);
+            } catch (e) {
+              console.warn('update gradient error', e);
+            }
+          }
+        });
+
+        // Añadir propiedad 'background-gradient' tipo 'gradient' en sector 'Fondos y Gradientes'
+        try {
+          const sectors = sm.getSectors();
+          let fondosId: string | undefined;
+          let fondosSector: any;
+          let colorFondoId: string | undefined;
+          sectors.forEach((s: any) => {
+            const name = s.get('name');
+            const id = s.get('id') || name;
+            if (name === 'Fondos y Gradientes') { fondosId = id; fondosSector = s; }
+            if (name === 'Color y Fondo') { colorFondoId = id; }
+          });
+          if (fondosId) {
+            sm.addProperty(fondosId, { id: 'background-gradient', type: 'gradient', property: 'background', label: 'Gradiente de fondo', defaults: '' });
+            try { fondosSector?.set('open', true); } catch {}
+            console.log('🎛️ Propiedad gradient añadida en sector Fondos y Gradientes');
+          } else {
+            console.warn('No se encontró sector "Fondos y Gradientes"');
+          }
+          // Remover el 'background' básico del sector 'Color y Fondo' para evitar colisiones visuales
+          try {
+            if (colorFondoId) {
+              sm.removeProperty(colorFondoId, 'background');
+              console.log('🧹 Propiedad básica background removida del sector Color y Fondo');
+            }
+          } catch (e) {
+            console.warn('No se pudo remover background básico:', e);
+          }
+        } catch (e) {
+          console.warn('addProperty gradient error', e);
+        }
+      } catch (e) {
+        console.warn('Registro de tipo gradient falló:', e);
+      }
+
       // helper: inyectar scripts externos e inline desde el último HTML
       const injectPageScripts = (maxRetries: number = 20) => {
         try {
