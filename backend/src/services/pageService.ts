@@ -338,19 +338,9 @@ export class PageService {
         console.warn('[PageService] auto version creation failed', e);
       }
 
-      // Publicar automáticamente el contenido sanitizado a publishedHtml/publishedCss
-      try {
-        console.log('[PageService.saveGrapesData] auto publish start', { slug: page.slug });
-
-        const published = await PageService.publishPage(page.slug);
-        console.log('[PageService.saveGrapesData] auto publish done', { slug: page.slug, htmlLen: (published.publishedHtml || '').length, cssLen: (published.publishedCss || '').length });
-        console.log('[PageService.publishPage] done', { id: page.id, slug: page.slug });
-
-        return published;
-      } catch (e) {
-        console.warn('[PageService] auto publish failed, returning saved page', e);
-        return updatedPage;
-      }
+      // Ya no publicamos automáticamente para separar las funcionalidades de guardar y publicar
+      console.log('[PageService.saveGrapesData] completed without auto-publishing', { id: updatedPage.id, slug: page.slug });
+      return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
       console.error('Error saving GrapesJS data:', error);
@@ -625,7 +615,7 @@ export class PageService {
       // Crear backup del estado actual antes de restaurar
       await this.createBackup(page);
 
-      // Restaurar desde el backup
+      // Restaurar desde el backup y publicar los cambios
       const restoredPage = await prisma.page.update({
         where: { id: pageId },
         data: {
@@ -634,9 +624,12 @@ export class PageService {
           gjsCss: backup.gjsCss,
           gjsComponents: backup.gjsComponents,
           gjsStyles: backup.gjsStyles,
+          // Actualizar también los campos de publicación para que se refleje en la página pública
+          publishedHtml: backup.gjsHtml,
+          publishedCss: backup.gjsCss,
           updatedAt: new Date()
         }
-      });      console.log('[PageService.restoreFromBackup] done', { pageId });
+      });      console.log('[PageService.restoreFromBackup] done', { pageId, published: true });
 
 
       return restoredPage;

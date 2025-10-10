@@ -374,12 +374,121 @@ export default function BackupManager() {
               <iframe
                 title="Preview"
                 className="w-full h-full"
-                srcDoc={`<!DOCTYPE html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'>
-                <style>body{margin:0;font-family:Arial,sans-serif;} ${
-                  (previewBackup as any).gjsCss || (previewBackup as any).css || ''
-                }</style></head><body>${
-                  (previewBackup as any).gjsHtml || (previewBackup as any).html || (previewBackup as any).content || ''
-                }</body></html>`}
+                srcDoc={`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Vista previa - Versión ${previewBackup.version}</title>
+  
+  <!-- Fuentes y recursos externos -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    
+    /* Estilos base para iconos y elementos comunes */
+    .icon, .bi {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+    }
+    
+    /* Soporte para gradientes en texto */
+    .text-gradient {
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    /* Estilos específicos del backup */
+    ${(previewBackup as any).gjsCss || (previewBackup as any).css || ''}
+    
+    /* Estilos para componentes GrapesJS */
+    ${(() => {
+      try {
+        // Intentar parsear los estilos de GrapesJS si están disponibles
+        const gjsStyles = (previewBackup as any).gjsStyles;
+        if (gjsStyles) {
+          const styles = JSON.parse(gjsStyles);
+          if (Array.isArray(styles) && styles.length > 0) {
+            return styles.map(style => {
+              if (style.selectors && style.style) {
+                const selectors = Array.isArray(style.selectors) 
+                  ? style.selectors.join(', ') 
+                  : style.selectors;
+                
+                const styleProps = Object.entries(style.style)
+                  .map(([prop, value]) => `${prop}: ${value};`)
+                  .join(' ');
+                
+                return `${selectors} { ${styleProps} }`;
+              }
+              return '';
+            }).join('\n');
+          }
+        }
+        return '';
+      } catch (e) {
+        console.error('Error parsing gjsStyles', e);
+        return '';
+      }
+    })()}
+  </style>
+</head>
+<body>
+  ${(previewBackup as any).gjsHtml || (previewBackup as any).html || (previewBackup as any).content || ''}
+  
+  <!-- Script para asegurar que las imágenes, iconos y componentes se carguen correctamente -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Corregir rutas de imágenes relativas
+      document.querySelectorAll('img').forEach(img => {
+        if (img.src && img.src.startsWith('/')) {
+          const originalSrc = img.src;
+          img.onerror = function() {
+            if (!this.dataset.tried) {
+              this.dataset.tried = 'true';
+              this.src = window.location.origin + originalSrc;
+            }
+          };
+        }
+      });
+      
+      // Aplicar estilos de componentes GrapesJS si están disponibles
+      try {
+        const gjsComponents = ${JSON.stringify((previewBackup as any).gjsComponents || '[]')};
+        if (gjsComponents && gjsComponents !== '[]') {
+          const components = typeof gjsComponents === 'string' ? JSON.parse(gjsComponents) : gjsComponents;
+          if (Array.isArray(components)) {
+            // Los componentes ya están renderizados en el HTML, solo necesitamos asegurar
+            // que cualquier script o funcionalidad especial se inicialice correctamente
+            components.forEach(comp => {
+              if (comp.script) {
+                try {
+                  // Ejecutar scripts de componentes si existen
+                  new Function(comp.script)();
+                } catch (e) {
+                  console.error('Error executing component script', e);
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Error processing GrapesJS components', e);
+      }
+    });
+  </script>
+</body>
+</html>`}
               />
             </div>
           </div>
@@ -402,25 +511,243 @@ export default function BackupManager() {
                 <iframe
                   title="Backup Preview"
                   className="w-full h-full"
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'>
-                  <style>body{margin:0;font-family:Arial,sans-serif;} ${
-                    (compareBackup as any).gjsCss || (compareBackup as any).css || ''
-                  }</style></head><body>${
-                    (compareBackup as any).gjsHtml || (compareBackup as any).html || (compareBackup as any).content || ''
-                  }</body></html>`}
+                  srcDoc={`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Backup - Versión ${compareBackup.version}</title>
+  
+  <!-- Fuentes y recursos externos -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    
+    /* Estilos base para iconos y elementos comunes */
+    .icon, .bi {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+    }
+    
+    /* Soporte para gradientes en texto */
+    .text-gradient {
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    /* Estilos específicos del backup */
+    ${(compareBackup as any).gjsCss || (compareBackup as any).css || ''}
+    
+    /* Estilos para componentes GrapesJS */
+    ${(() => {
+      try {
+        // Intentar parsear los estilos de GrapesJS si están disponibles
+        const gjsStyles = (compareBackup as any).gjsStyles;
+        if (gjsStyles) {
+          const styles = JSON.parse(gjsStyles);
+          if (Array.isArray(styles) && styles.length > 0) {
+            return styles.map(style => {
+              if (style.selectors && style.style) {
+                const selectors = Array.isArray(style.selectors) 
+                  ? style.selectors.join(', ') 
+                  : style.selectors;
+                
+                const styleProps = Object.entries(style.style)
+                  .map(([prop, value]) => `${prop}: ${value};`)
+                  .join(' ');
+                
+                return `${selectors} { ${styleProps} }`;
+              }
+              return '';
+            }).join('\n');
+          }
+        }
+        return '';
+      } catch (e) {
+        console.error('Error parsing gjsStyles', e);
+        return '';
+      }
+    })()}
+  </style>
+</head>
+<body>
+  ${(compareBackup as any).gjsHtml || (compareBackup as any).html || (compareBackup as any).content || ''}
+  
+  <!-- Script para asegurar que las imágenes, iconos y componentes se carguen correctamente -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Corregir rutas de imágenes relativas
+      document.querySelectorAll('img').forEach(img => {
+        if (img.src && img.src.startsWith('/')) {
+          const originalSrc = img.src;
+          img.onerror = function() {
+            if (!this.dataset.tried) {
+              this.dataset.tried = 'true';
+              this.src = window.location.origin + originalSrc;
+            }
+          };
+        }
+      });
+      
+      // Aplicar estilos de componentes GrapesJS si están disponibles
+      try {
+        const gjsComponents = ${JSON.stringify((compareBackup as any).gjsComponents || '[]')};
+        if (gjsComponents && gjsComponents !== '[]') {
+          const components = typeof gjsComponents === 'string' ? JSON.parse(gjsComponents) : gjsComponents;
+          if (Array.isArray(components)) {
+            // Los componentes ya están renderizados en el HTML, solo necesitamos asegurar
+            // que cualquier script o funcionalidad especial se inicialice correctamente
+            components.forEach(comp => {
+              if (comp.script) {
+                try {
+                  // Ejecutar scripts de componentes si existen
+                  new Function(comp.script)();
+                } catch (e) {
+                  console.error('Error executing component script', e);
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Error processing GrapesJS components', e);
+      }
+    });
+  </script>
+</body>
+</html>`}
                 />
               </div>
               <div>
-                <div className="p-2 text-sm font-medium">Actual</div>
+                <div className="p-2 text-sm font-medium">Versión actual</div>
                 <iframe
-                  title="Current Preview"
+                  title="Current Version Preview"
                   className="w-full h-full"
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'>
-                  <style>body{margin:0;font-family:Arial,sans-serif;} ${
-                    currentPageContent?.gjsCss || currentPageContent?.css || ''
-                  }</style></head><body>${
-                    currentPageContent?.gjsHtml || currentPageContent?.html || ''
-                  }</body></html>`}
+                  srcDoc={`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Versión Actual</title>
+  
+  <!-- Fuentes y recursos externos -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    
+    /* Estilos base para iconos y elementos comunes */
+    .icon, .bi {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+    }
+    
+    /* Soporte para gradientes en texto */
+    .text-gradient {
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    /* Estilos específicos de la versión actual */
+    ${currentPageContent?.gjsCss || currentPageContent?.css || ''}
+    
+    /* Estilos para componentes GrapesJS */
+    ${(() => {
+      try {
+        // Intentar parsear los estilos de GrapesJS si están disponibles
+        const gjsStyles = currentPageContent?.gjsStyles;
+        if (gjsStyles) {
+          const styles = JSON.parse(gjsStyles);
+          if (Array.isArray(styles) && styles.length > 0) {
+            return styles.map(style => {
+              if (style.selectors && style.style) {
+                const selectors = Array.isArray(style.selectors) 
+                  ? style.selectors.join(', ') 
+                  : style.selectors;
+                
+                const styleProps = Object.entries(style.style)
+                  .map(([prop, value]) => `${prop}: ${value};`)
+                  .join(' ');
+                
+                return `${selectors} { ${styleProps} }`;
+              }
+              return '';
+            }).join('\n');
+          }
+        }
+        return '';
+      } catch (e) {
+        console.error('Error parsing gjsStyles', e);
+        return '';
+      }
+    })()}
+  </style>
+</head>
+<body>
+  ${currentPageContent?.gjsHtml || currentPageContent?.html || currentPageContent?.content || ''}
+  
+  <!-- Script para asegurar que las imágenes, iconos y componentes se carguen correctamente -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Corregir rutas de imágenes relativas
+      document.querySelectorAll('img').forEach(img => {
+        if (img.src && img.src.startsWith('/')) {
+          const originalSrc = img.src;
+          img.onerror = function() {
+            if (!this.dataset.tried) {
+              this.dataset.tried = 'true';
+              this.src = window.location.origin + originalSrc;
+            }
+          };
+        }
+      });
+      
+      // Aplicar estilos de componentes GrapesJS si están disponibles
+      try {
+        const gjsComponents = ${JSON.stringify(currentPageContent?.gjsComponents || '[]')};
+        if (gjsComponents && gjsComponents !== '[]') {
+          const components = typeof gjsComponents === 'string' ? JSON.parse(gjsComponents) : gjsComponents;
+          if (Array.isArray(components)) {
+            // Los componentes ya están renderizados en el HTML, solo necesitamos asegurar
+            // que cualquier script o funcionalidad especial se inicialice correctamente
+            components.forEach(comp => {
+              if (comp.script) {
+                try {
+                  // Ejecutar scripts de componentes si existen
+                  new Function(comp.script)();
+                } catch (e) {
+                  console.error('Error executing component script', e);
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Error processing GrapesJS components', e);
+      }
+    });
+  </script>
+</body>
+</html>`}
                 />
               </div>
             </div>

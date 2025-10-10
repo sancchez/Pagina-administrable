@@ -13,6 +13,7 @@ import HttpClient from '../utils/http';
 interface ApiResponse<T> {
   success: boolean;
   message?: string;
+  error?: string;
   data: T;
 }
 
@@ -251,55 +252,32 @@ const GrapesEditor: React.FC = () => {
         cssLen: css.length
       });
 
-      const payload: any = {
-        // Claves esperadas por backend (Joi)
-        grapesData: JSON.stringify(grapesData ?? {}),
-        // Claves tipo gjs-* para compatibilidad
-        'gjs-html': html,
-        'gjs-css': css,
-        'gjs-components': components,
-        'gjs-styles': styles,
-        // Duplicados en camelCase usados por el servicio
-        gjsHtml: html,
-        gjsCss: css,
-        gjsComponents: typeof components === 'string' ? components : JSON.stringify(components ?? []),
-        gjsStyles: typeof styles === 'string' ? styles : JSON.stringify(styles ?? [])
+      // Preparar payload con datos de GrapesJS
+      const grapesJsData = {
+        html: html || '',
+        css: css || '',
+        components: typeof components === 'string' ? JSON.parse(components) : components || [],
+        styles: typeof styles === 'string' ? JSON.parse(styles) : styles || []
       };
 
-      // Intentar guardar por slug primero, luego por id como fallback
-      const urlSlug = slug ? `http://localhost:3001/api/pages/${slug}/grapes-data` : null;
-      const urlId = pageData.id ? `http://localhost:3001/api/pages/${pageData.id}/grapes-data` : null;
+      // Solo enviar los campos permitidos por el backend
+      const payload: any = {
+        // Clave principal esperada por el backend
+        grapesData: JSON.stringify(grapesJsData),
+        // Campos en camelCase que sí están permitidos según el error
+        gjsHtml: html,
+        gjsCss: css,
+        gjsComponents: typeof components === 'string' ? components : JSON.stringify(components || []),
+        gjsStyles: typeof styles === 'string' ? styles : JSON.stringify(styles || [])
+      };
 
-      let ok = false;
-      let resultJson: any = null;
+      // Guardar por ID usando HttpClient con Authorization
+      const resultJson = await HttpClient.post<ApiResponse<{ page: PageData }>>(
+        `/pages/${pageData.id}/grapes-data`,
+        payload
+      );
 
-      if (urlSlug) {
-        try {
-          const resp = await fetch(urlSlug, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (resp.ok) {
-            ok = true;
-            resultJson = await resp.json();
-          }
-        } catch (e) {
-          console.warn('⚠️ Guardado por slug falló, intentando por ID...', e);
-        }
-      }
-
-      if (!ok && urlId) {
-        const resp = await fetch(urlId, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        resultJson = await resp.json();
-        ok = !!resp.ok;
-      }
-
-      if (ok && resultJson?.success) {
+      if (resultJson?.success) {
         console.log('✅ Guardado exitoso');
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
@@ -805,6 +783,15 @@ const GrapesEditor: React.FC = () => {
             const patternSel = root.querySelector('.gjs-grad-pattern') as HTMLSelectElement;
             const repeatChk = root.querySelector('.gjs-grad-repeat') as HTMLInputElement;
 
+            // Preseleccionar modo Texto si la propiedad corresponde al gradiente de texto
+            try {
+              const propName = (props && (props.property || (props as any).prop)) || '';
+              const propId = (props && (props as any).id) || '';
+              if (propId === 'text-gradient' || propName === 'color') {
+                modeSel.value = 'text';
+              }
+            } catch {}
+
             const syncAngle = (v: number) => {
               angleRange.value = String(v);
               angleNum.value = String(v);
@@ -1004,16 +991,19 @@ const GrapesEditor: React.FC = () => {
           }
         });
 
-        // Añadir propiedad 'background-gradient' tipo 'gradient' en sector 'Fondos y Gradientes'
+        // Añadir propiedad 'background-gradient' tipo 'gradient' en sector 'Fondos y Gradientes' y 'text-gradient' en Texto
         try {
           const sectors = sm.getSectors();
           let fondosId: string | undefined;
           let fondosSector: any;
+          let textoId: string | undefined;
+          let textoSector: any;
           let colorFondoId: string | undefined;
           sectors.forEach((s: any) => {
             const name = s.get('name');
             const id = s.get('id') || name;
             if (name === 'Fondos y Gradientes') { fondosId = id; fondosSector = s; }
+            if (name === 'Texto') { textoId = id; textoSector = s; }
             if (name === 'Color y Fondo') { colorFondoId = id; }
           });
           if (fondosId) {
@@ -1022,6 +1012,13 @@ const GrapesEditor: React.FC = () => {
             console.log('🎛️ Propiedad gradient añadida en sector Fondos y Gradientes');
           } else {
             console.warn('No se encontró sector "Fondos y Gradientes"');
+          }
+          if (textoId) {
+            sm.addProperty(textoId, { id: 'text-gradient', type: 'gradient', property: 'color', label: 'Gradiente de texto', defaults: '' });
+            try { textoSector?.set('open', true); } catch {}
+            console.log('🎛️ Propiedad gradient añadida en sector Texto');
+          } else {
+            console.warn('No se encontró sector "Texto"');
           }
           // Remover el 'background' básico del sector 'Color y Fondo' para evitar colisiones visuales
           try {
@@ -1774,12 +1771,7 @@ const GrapesEditor: React.FC = () => {
     try {
       await handleSave();
       
-      const response = await fetch(`/api/pages/${slug}/publish`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const result = await response.json();
+      const result = await HttpClient.post<ApiResponse<any>>(`/pages/${slug}/publish`, {});
       console.log('Respuesta de publicación:', result);
       
       if (result && result.success === true) {
@@ -1788,7 +1780,7 @@ const GrapesEditor: React.FC = () => {
           window.location.href = `/${slug}`;
         }, 2000);
       } else {
-        alert('❌ Error: ' + result.error);
+        alert('❌ Error: ' + (result?.message || result?.error || 'Error desconocido'));
       }
     } catch (error) {
       console.error('Error:', error);
