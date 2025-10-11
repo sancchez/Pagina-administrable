@@ -8,6 +8,9 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 import { generalLimiter } from './middleware/rateLimiter';
 import { enhancedRequestLogger, developmentLogger, productionLogger } from './middleware/enhancedRequestLogger';
 import enhancedLogger from './utils/enhancedLogger';
+import path from 'path';
+import { config } from './config/env';
+import { imageUpload, handleUploadError } from './utils/upload';
 
 // Importar rutas
 import authRoutes from './routes/authRoutes';
@@ -97,6 +100,16 @@ app.get('/health', (req, res) => {
   res.status(200).json(healthData);
 });
 
+// Servir archivos estáticos de uploads
+try {
+  const uploadsDir = path.isAbsolute(config.upload.path)
+    ? config.upload.path
+    : path.join(process.cwd(), config.upload.path);
+  app.use('/api/uploads', express.static(uploadsDir));
+} catch (e) {
+  appLogger.warn('No se pudo montar estáticos de uploads', { error: (e as any)?.message });
+}
+
 // API Info endpoint
 app.get('/api', (req, res) => {
   res.status(200).json({
@@ -132,6 +145,34 @@ app.use('/api/audit-logs', auditRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/admin', migrationRoutes);
 app.use('/api', versionRoutes);
+
+// Endpoint de subida de imágenes
+app.post('/api/upload', imageUpload.single('file'), (req, res) => {
+  try {
+    const file = (req as any).file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No se recibió archivo', error: 'NO_FILE' });
+    }
+
+    // Construir URL pública relativa servida por /api/uploads
+    const subdir = 'images';
+    const publicUrl = `/api/uploads/${subdir}/${file.filename}`;
+
+    return res.status(201).json({
+      success: true,
+      message: 'Archivo subido',
+      data: {
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        url: publicUrl,
+      }
+    });
+  } catch (error) {
+    appLogger.error('Error al procesar subida', { error });
+    return res.status(500).json({ success: false, message: 'Error interno', error: 'INTERNAL_ERROR' });
+  }
+}, handleUploadError);
 
 // Middleware para rutas no encontradas
 app.use(notFound);

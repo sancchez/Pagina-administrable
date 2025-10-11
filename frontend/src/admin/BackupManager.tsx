@@ -370,10 +370,10 @@ export default function BackupManager() {
               </div>
               <button onClick={() => setPreviewBackup(null)} className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200">Cerrar</button>
             </div>
-            <div className="h-[70vh]">
+            <div className="h-[70vh] overflow-hidden rounded-lg shadow-inner">
               <iframe
                 title="Preview"
-                className="w-full h-full"
+                className="w-full h-full border-0"
                 srcDoc={`<!DOCTYPE html>
 <html>
 <head>
@@ -497,20 +497,20 @@ export default function BackupManager() {
 
       {compareBackup && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[85vh] overflow-hidden">
-            <div className="p-4 border-b flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between bg-gray-50">
               <div>
-                <h3 className="text-lg font-semibold">Comparar versión {compareBackup.version} vs actual</h3>
-                <p className="text-sm text-gray-600">Backup: {formatDate(compareBackup.createdAt)}</p>
+                <h3 className="text-lg font-semibold text-gray-800">Comparando versiones</h3>
+                <p className="text-sm text-gray-600">Versión {compareBackup.version} vs Versión actual</p>
               </div>
-              <button onClick={() => { setCompareBackup(null); setCurrentPageContent(null); }} className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200">Cerrar</button>
+              <button onClick={() => { setCompareBackup(null); setCurrentPageContent(null); }} className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shadow-sm">Cerrar</button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 h-[75vh]">
-              <div className="border-r">
-                <div className="p-2 text-sm font-medium">Backup</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 h-[80vh] gap-2 p-2 bg-gray-100">
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="p-2 text-sm font-medium bg-gray-50 border-b">Versión {compareBackup.version}</div>
                 <iframe
                   title="Backup Preview"
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                   srcDoc={`<!DOCTYPE html>
 <html>
 <head>
@@ -628,11 +628,11 @@ export default function BackupManager() {
 </html>`}
                 />
               </div>
-              <div>
-                <div className="p-2 text-sm font-medium">Versión actual</div>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="p-2 text-sm font-medium bg-gray-50 border-b">Versión actual</div>
                 <iframe
                   title="Current Version Preview"
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                   srcDoc={`<!DOCTYPE html>
 <html>
 <head>

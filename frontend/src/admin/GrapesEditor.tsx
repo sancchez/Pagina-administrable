@@ -65,13 +65,14 @@ const GrapesEditor: React.FC = () => {
   const [showStyles, setShowStyles] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [showClasses, setShowClasses] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [rightWidth, setRightWidth] = useState<number>(320);
+  const [rightCollapsed, setRightCollapsed] = useState(true);
+  const [rightWidth, setRightWidth] = useState<number>(280);
   const dragStateRef = useRef<{ side: 'left' | 'right' | null; startX: number; startW: number }>({ side: null, startX: 0, startW: 0 });
   // Constructor de gradiente (UI personalizada)
   const [gradientStopCount, setGradientStopCount] = useState<number>(2);
   const [gradientStops, setGradientStops] = useState<string[]>(['#3b82f6', '#8b5cf6']);
   const [gradientAngle, setGradientAngle] = useState<number>(90);
+  const [selectedInfo, setSelectedInfo] = useState<{ width: number; height: number; name?: string } | null>(null);
 
   // Panel izquierdo eliminado
 
@@ -506,50 +507,139 @@ const GrapesEditor: React.FC = () => {
         styleManager: {
           sectors: [
             {
-              name: 'Fondos y Gradientes',
-              open: false,
-              properties: [
-                {
-                  type: 'color',
-                  property: 'background-color',
-                  label: 'Color de fondo sólido'
-                }
-              ]
-            },
-            {
-              name: "Posición",
-              open: true,
-              properties: [
-                {
-                  type: "select",
-                  property: "position",
-                  list: [
-                    { id: "static", value: "static", name: "Estático" },
-                    { id: "relative", value: "relative", name: "Relativo" },
-                    { id: "absolute", value: "absolute", name: "Absoluto" },
-                    { id: "fixed", value: "fixed", name: "Fijo" }
-                  ]
-                },
-                "top",
-                "right",
-                "bottom",
-                "left",
-                {
-                  type: "integer",
-                  property: "z-index",
-                  label: "Capa (Z)",
-                  min: -10,
-                  max: 100
-                }
-              ]
-            },
-            {
-              name: 'Dimensiones',
+              name: '📐 Dimensiones',
               open: true,
               buildProps: ['width', 'height', 'max-width', 'min-height', 'padding', 'margin']
             },
             {
-              name: 'Texto',
+              name: '↔️ Alineación',
+              open: true,
+              properties: [
+                {
+                  id: 'horizontal-align',
+                  type: 'align',
+                  property: 'horizontal-align',
+                  name: 'Alineación horizontal'
+                },
+                {
+                  type: 'select',
+                  name: 'Alineación de texto',
+                  property: 'text-align',
+                  options: [
+                    { id: 'left', name: 'Izquierda' },
+                    { id: 'center', name: 'Centro' },
+                    { id: 'right', name: 'Derecha' },
+                    { id: 'justify', name: 'Justificar' }
+                  ]
+                }
+              ]
+            },
+            {
+              name: '🧱 General',
+              open: true,
+              properties: [
+                {
+                  type: 'select',
+                  name: 'display',
+                  property: 'display',
+                  options: [
+                    { id: 'block', name: 'Block' },
+                    { id: 'inline', name: 'Inline' },
+                    { id: 'inline-block', name: 'Inline-block' },
+                    { id: 'flex', name: 'Flex' },
+                    { id: 'grid', name: 'Grid' }
+                  ]
+                },
+                {
+                  type: 'select',
+                  name: 'float',
+                  property: 'float',
+                  options: [
+                    { id: 'none', name: 'Ninguno' },
+                    { id: 'left', name: 'Izquierda' },
+                    { id: 'right', name: 'Derecha' }
+                  ]
+                }
+                // 'margin' ya existe en 📐 Dimensiones
+              ]
+            },
+            {
+              name: '🧲 Flex/Grid',
+              open: true,
+              properties: [
+                {
+                  type: 'select',
+                  name: 'align-self',
+                  property: 'align-self',
+                  options: [
+                    { id: 'auto', name: 'Auto' },
+                    { id: 'flex-start', name: 'Inicio' },
+                    { id: 'center', name: 'Centro' },
+                    { id: 'flex-end', name: 'Fin' },
+                    { id: 'stretch', name: 'Extender' }
+                  ]
+                },
+                {
+                  type: 'select',
+                  name: 'justify-self',
+                  property: 'justify-self',
+                  options: [
+                    { id: 'auto', name: 'Auto' },
+                    { id: 'start', name: 'Inicio' },
+                    { id: 'center', name: 'Centro' },
+                    { id: 'end', name: 'Fin' },
+                    { id: 'stretch', name: 'Extender' }
+                  ]
+                }
+              ]
+            },
+            {
+              name: '🎨 Apariencia',
+              open: true,
+              buildProps: ['color', 'background-color', 'background', 'border', 'border-radius', 'box-shadow'],
+              properties: [
+                {
+                  type: 'color',
+                  name: 'color',
+                  property: 'color',
+                  defaults: '#000000',
+                },
+                {
+                  type: 'composite',
+                  name: 'border',
+                  property: 'border',
+                  properties: [
+                    { type: 'number', units: ['px'], name: 'border-width' },
+                    { type: 'select', name: 'border-style', options: [
+                      { id: 'none', name: 'Ninguno' },
+                      { id: 'solid', name: 'Sólido' },
+                      { id: 'dashed', name: 'Discontinuo' },
+                      { id: 'dotted', name: 'Punteado' },
+                      { id: 'double', name: 'Doble' },
+                    ]},
+                    { type: 'color', name: 'border-color' },
+                  ],
+                },
+                {
+                  type: 'composite',
+                  name: 'border-radius',
+                  property: 'border-radius',
+                  properties: [
+                    { type: 'number', units: ['px', '%'], name: 'border-top-left-radius' },
+                    { type: 'number', units: ['px', '%'], name: 'border-top-right-radius' },
+                    { type: 'number', units: ['px', '%'], name: 'border-bottom-right-radius' },
+                    { type: 'number', units: ['px', '%'], name: 'border-bottom-left-radius' },
+                  ],
+                },
+                {
+                  type: 'stack',
+                  name: 'box-shadow',
+                  property: 'box-shadow',
+                },
+              ]
+            },
+            {
+              name: '📝 Texto',
               open: true,
               buildProps: [
                 'font-size', 'font-family', 'font-weight', 'letter-spacing',
@@ -557,14 +647,102 @@ const GrapesEditor: React.FC = () => {
               ]
             },
             {
-              name: 'Color y Fondo',
-              open: false,
-              buildProps: ['color', 'background-color', 'border-color', 'background']
+              name: '🖼️ Medios',
+              open: true,
+              properties: [
+                {
+                  type: 'select',
+                  name: 'Encaje (object-fit)',
+                  property: 'object-fit',
+                  options: [
+                    { id: 'fill', name: 'Rellenar' },
+                    { id: 'contain', name: 'Contener' },
+                    { id: 'cover', name: 'Cubrir' },
+                    { id: 'none', name: 'Ninguno' },
+                    { id: 'scale-down', name: 'Reducir' },
+                  ]
+                },
+                {
+                  type: 'select',
+                  name: 'Posición del objeto',
+                  property: 'object-position',
+                  options: [
+                    { id: 'left top', name: 'Izquierda arriba' },
+                    { id: 'center center', name: 'Centro' },
+                    { id: 'right bottom', name: 'Derecha abajo' },
+                    { id: 'left center', name: 'Izquierda centro' },
+                    { id: 'right center', name: 'Derecha centro' }
+                  ]
+                }
+              ]
             },
             {
-              name: 'Bordes y Sombras',
+              name: '🖼️ Fondos',
               open: false,
-              buildProps: ['border', 'border-radius', 'box-shadow']
+              buildProps: ['background-image', 'background-repeat', 'background-position', 'background-size', 'background-attachment'],
+              properties: [
+                {
+                  type: 'text',
+                  name: 'URL de imagen de fondo',
+                  property: 'background-image',
+                  defaults: '',
+                },
+                {
+                  type: 'select',
+                  name: 'background-repeat',
+                  property: 'background-repeat',
+                  options: [
+                    { id: 'repeat', name: 'Repetir' },
+                    { id: 'repeat-x', name: 'Repetir X' },
+                    { id: 'repeat-y', name: 'Repetir Y' },
+                    { id: 'no-repeat', name: 'No repetir' },
+                    { id: 'space', name: 'Espaciado' },
+                    { id: 'round', name: 'Redondear' },
+                  ],
+                },
+                {
+                  type: 'select',
+                  name: 'background-position',
+                  property: 'background-position',
+                  options: [
+                    { id: 'left top', name: 'Izquierda arriba' },
+                    { id: 'center top', name: 'Centro arriba' },
+                    { id: 'right top', name: 'Derecha arriba' },
+                    { id: 'left center', name: 'Izquierda centro' },
+                    { id: 'center center', name: 'Centro centro' },
+                    { id: 'right center', name: 'Derecha centro' },
+                    { id: 'left bottom', name: 'Izquierda abajo' },
+                    { id: 'center bottom', name: 'Centro abajo' },
+                    { id: 'right bottom', name: 'Derecha abajo' },
+                  ],
+                },
+                {
+                  type: 'select',
+                  name: 'background-size',
+                  property: 'background-size',
+                  options: [
+                    { id: 'auto', name: 'Auto' },
+                    { id: 'cover', name: 'Cubrir' },
+                    { id: 'contain', name: 'Contener' },
+                  ],
+                },
+                {
+                  type: 'select',
+                  name: 'background-attachment',
+                  property: 'background-attachment',
+                  options: [
+                    { id: 'scroll', name: 'Desplazable' },
+                    { id: 'fixed', name: 'Fijo' },
+                    { id: 'local', name: 'Local' },
+                  ],
+                },
+              ],
+            },
+            
+            {
+              name: '🔄 Efectos',
+              open: false,
+              buildProps: ['transition', 'opacity', 'transform']
             }
           ]
         },
@@ -616,6 +794,92 @@ const GrapesEditor: React.FC = () => {
         console.warn('⚠️ No se pudo configurar dispositivo Wide:', e);
       }
 
+      // Registrar tipo SVG como estilable para alineación
+      try {
+        const dc: any = (gEditor as any).DomComponents;
+        if (dc && dc.addType) {
+          dc.addType('svg', {
+            isComponent: (el: any) => !!el && (String(el.tagName).toLowerCase() === 'svg' || el instanceof (window as any).SVGElement),
+            model: {
+              defaults: {
+                tagName: 'svg',
+                stylable: ['display', 'margin', 'margin-left', 'margin-right', 'float', 'align-self', 'justify-self', 'text-align', 'position', 'left', 'right', 'transform'],
+                resizable: true,
+                traits: [
+                  {
+                    type: 'select',
+                    label: 'Alineación',
+                    name: 'svgAlign',
+                    options: [
+                      { id: 'left', name: 'Izquierda' },
+                      { id: 'center', name: 'Centro' },
+                      { id: 'right', name: 'Derecha' },
+                    ],
+                  },
+                ],
+              },
+              init(this: any) {
+                this.on('change:svgAlign', () => {
+                  try {
+                    const value = this.get('svgAlign') || 'left';
+                    const el: HTMLElement | null = (this as any)?.view?.el || null;
+                    const parentComp: any = (this as any)?.parent?.() || null;
+                    const parentEl: HTMLElement | null = parentComp?.view?.el || el?.parentElement || null;
+                    const cs = el ? window.getComputedStyle(el) : null;
+                    const pcs = parentEl ? window.getComputedStyle(parentEl) : null;
+
+                    const isAbs = cs ? (cs.position === 'absolute' || cs.position === 'fixed') : false;
+                    const isFlexParent = pcs ? String(pcs.display).includes('flex') : false;
+                    const isGridParent = pcs ? String(pcs.display).includes('grid') : false;
+
+                    if (value === 'center') {
+                      if (isAbs) {
+                        (this as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
+                      } else if (isFlexParent) {
+                        try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                        (this as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
+                      } else if (isGridParent) {
+                        (this as any).addStyle({ 'justify-self': 'center' });
+                      } else {
+                        try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                        (this as any).addStyle({ display: 'inline-block' });
+                      }
+                    } else if (value === 'right') {
+                      if (isAbs) {
+                        (this as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
+                      } else if (isFlexParent) {
+                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                        (this as any).addStyle({ display: 'block' });
+                      } else if (isGridParent) {
+                        (this as any).addStyle({ 'justify-self': 'end' });
+                      } else {
+                        try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                        (this as any).addStyle({ display: 'inline-block' });
+                      }
+                    } else {
+                      if (isAbs) {
+                        (this as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
+                      } else if (isFlexParent) {
+                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                        (this as any).addStyle({ display: 'block' });
+                      } else if (isGridParent) {
+                        (this as any).addStyle({ 'justify-self': 'start' });
+                      } else {
+                        try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                        (this as any).addStyle({ display: 'inline-block' });
+                      }
+                    }
+                  } catch (err) { console.warn('svg align trait error', err); }
+                });
+              }
+            }
+          });
+          console.log('✅ Tipo SVG registrado como estilable para alineación');
+        }
+      } catch (e) {
+        console.warn('Registro de tipo SVG falló', e);
+      }
+
       // Eventos desactivados temporalmente para diagnóstico de performance
       try {
         gEditor.on('load', () => console.log('🎯 Editor load'));
@@ -627,6 +891,40 @@ const GrapesEditor: React.FC = () => {
       // Registrar tipo personalizado 'gradient' en StyleManager
       try {
         const sm = gEditor.StyleManager as any;
+        
+        // Funciones auxiliares para el gradiente
+        const setColorsToUI = (root: HTMLElement, colors: string[], positions?: number[]) => {
+          const list = root.querySelector('.gjs-grad-list') as HTMLElement;
+          if (!list) return;
+          list.innerHTML = '';
+          colors.forEach((color, i) => {
+            const row = document.createElement('div');
+            row.className = 'gjs-grad-row';
+            const pos = positions && positions[i] !== undefined ? positions[i] : null;
+            row.innerHTML = `
+              <div class="gjs-grad-color">
+                <input type="color" value="${color}" class="gjs-grad-clr" />
+              </div>
+              <div class="gjs-grad-position">
+                <input type="number" min="0" max="100" value="${pos !== null ? pos : ''}" class="gjs-grad-pos" placeholder="%" />
+              </div>
+              <div class="gjs-grad-actions">
+                <button class="gjs-grad-up">↑</button>
+                <button class="gjs-grad-down">↓</button>
+                <button class="gjs-grad-del">×</button>
+              </div>
+            `;
+            list.appendChild(row);
+          });
+        };
+
+        // Función para obtener colores del UI
+        // Esta función ya está definida en otra parte del código
+
+        // Función para obtener paradas de color con posiciones
+        // Esta función ya está definida en otra parte del código
+
+        // Esta función ya está definida arriba
         const isValidColor = (c: string) => {
           const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
           const rgba = /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(\s*,\s*(0|1|0?\.\d+))?\s*\)$/;
@@ -640,40 +938,20 @@ const GrapesEditor: React.FC = () => {
             return isValidColor(v) ? v : '#ffffff';
           });
         };
-        const setColorsToUI = (root: HTMLElement, colors: string[], positions?: number[]) => {
-          const list = root.querySelector('.gjs-grad-list') as HTMLElement;
-          if (!list) return;
-          list.innerHTML = '';
-          colors.forEach((color, idx) => {
-            const row = document.createElement('div');
-            row.className = 'gjs-grad-row';
-            row.innerHTML = `
-              <div class="gjs-field gjs-field-color">
-                <input type="color" value="${color}" />
-              </div>
-              <div class="gjs-field" style="width:88px;">
-                <input type="number" min="0" max="100" class="gjs-grad-pos" value="${positions && typeof positions[idx] === 'number' ? positions[idx] : ''}" placeholder="%" />
-              </div>
-              <button class="gjs-grad-up gjs-btn">↑</button>
-              <button class="gjs-grad-down gjs-btn">↓</button>
-              <button class="gjs-grad-del gjs-btn">✕</button>
-            `;
-            list.appendChild(row);
-          });
-        };
 
-        // Obtiene pares color/posición desde la UI
         const getStopsFromUI = (root: HTMLElement) => {
           const rows = Array.from(root.querySelectorAll('.gjs-grad-row')) as HTMLElement[];
           return rows.map(r => {
             const color = (r.querySelector('input[type="color"]') as HTMLInputElement)?.value || '#ffffff';
-            const posRaw = (r.querySelector('.gjs-grad-pos') as HTMLInputElement)?.value;
-            let pos = posRaw ? Number(posRaw) : NaN;
-            if (!isFinite(pos)) pos = NaN;
-            if (!isNaN(pos)) pos = Math.max(0, Math.min(100, Math.round(pos)));
-            return { color: isValidColor(color) ? color : '#ffffff', pos: isNaN(pos) ? undefined : pos };
+            const posInput = r.querySelector('.gjs-grad-pos') as HTMLInputElement;
+            const pos = posInput && posInput.value ? Number(posInput.value) : null;
+            return { color: isValidColor(color) ? color : '#ffffff', pos: !isNaN(pos as any) ? pos : null };
           });
         };
+        
+        // Esta función ya está definida arriba
+
+        // Esta función ya está definida arriba
 
         const updatePreview = (root: HTMLElement) => {
           const angleInput = root.querySelector('.gjs-grad-angle') as HTMLInputElement;
@@ -991,43 +1269,40 @@ const GrapesEditor: React.FC = () => {
           }
         });
 
-        // Añadir propiedad 'background-gradient' tipo 'gradient' en sector 'Fondos y Gradientes' y 'text-gradient' en Texto
+        // Añadir propiedades de gradiente en sectores reales del StyleManager
         try {
           const sectors = sm.getSectors();
-          let fondosId: string | undefined;
-          let fondosSector: any;
+          let aparienciaId: string | undefined;
+          let aparienciaSector: any;
           let textoId: string | undefined;
           let textoSector: any;
-          let colorFondoId: string | undefined;
           sectors.forEach((s: any) => {
-            const name = s.get('name');
-            const id = s.get('id') || name;
-            if (name === 'Fondos y Gradientes') { fondosId = id; fondosSector = s; }
-            if (name === 'Texto') { textoId = id; textoSector = s; }
-            if (name === 'Color y Fondo') { colorFondoId = id; }
+            const name = (typeof s.getName === 'function' ? s.getName() : s.get('name'));
+            const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || name));
+            if (name === '🎨 Apariencia') { aparienciaId = id; aparienciaSector = s; }
+            if (name === '📝 Texto') { textoId = id; textoSector = s; }
           });
-          if (fondosId) {
-            sm.addProperty(fondosId, { id: 'background-gradient', type: 'gradient', property: 'background', label: 'Gradiente de fondo', defaults: '' });
-            try { fondosSector?.set('open', true); } catch {}
-            console.log('🎛️ Propiedad gradient añadida en sector Fondos y Gradientes');
-          } else {
-            console.warn('No se encontró sector "Fondos y Gradientes"');
-          }
-          if (textoId) {
-            sm.addProperty(textoId, { id: 'text-gradient', type: 'gradient', property: 'color', label: 'Gradiente de texto', defaults: '' });
-            try { textoSector?.set('open', true); } catch {}
-            console.log('🎛️ Propiedad gradient añadida en sector Texto');
-          } else {
-            console.warn('No se encontró sector "Texto"');
-          }
-          // Remover el 'background' básico del sector 'Color y Fondo' para evitar colisiones visuales
-          try {
-            if (colorFondoId) {
-              sm.removeProperty(colorFondoId, 'background');
-              console.log('🧹 Propiedad básica background removida del sector Color y Fondo');
+          // Asegurar propiedad de gradiente para fondo en Apariencia
+          if (aparienciaId) {
+            const props = sm.getProperties(aparienciaId) || [];
+            const exists = props.some((p: any) => p.id === 'background-gradient');
+            if (!exists) {
+              sm.addProperty(aparienciaId, { id: 'background-gradient', type: 'gradient', property: 'background', label: 'Gradiente de fondo', defaults: '' });
             }
-          } catch (e) {
-            console.warn('No se pudo remover background básico:', e);
+            try { aparienciaSector?.set('open', true); } catch {}
+          } else {
+            console.warn('No se encontró sector "🎨 Apariencia"');
+          }
+          // Asegurar propiedad de gradiente para texto
+          if (textoId) {
+            const propsT = sm.getProperties(textoId) || [];
+            const existsT = propsT.some((p: any) => p.id === 'text-gradient');
+            if (!existsT) {
+              sm.addProperty(textoId, { id: 'text-gradient', type: 'gradient', property: 'color', label: 'Gradiente de texto', defaults: '' });
+            }
+            try { textoSector?.set('open', true); } catch {}
+          } else {
+            console.warn('No se encontró sector "📝 Texto"');
           }
         } catch (e) {
           console.warn('addProperty gradient error', e);
@@ -1035,6 +1310,390 @@ const GrapesEditor: React.FC = () => {
       } catch (e) {
         console.warn('Registro de tipo gradient falló:', e);
       }
+
+      // Registrar tipo personalizado 'align' para alineación horizontal simple
+      try {
+        const sm = gEditor.StyleManager as any;
+        sm.addType('align', {
+          create() {
+            const root = document.createElement('div');
+            root.className = 'gjs-align-control flex items-center gap-2';
+            const mkBtn = (label: string, value: 'left' | 'center' | 'right') => {
+              const btn = document.createElement('button');
+              btn.className = 'px-2 py-1 text-xs rounded bg-gray-50 hover:bg-gray-100';
+              btn.textContent = label;
+              btn.dataset.value = value;
+              return btn;
+            };
+            const bLeft = mkBtn('Izquierda', 'left');
+            const bCenter = mkBtn('Centro', 'center');
+            const bRight = mkBtn('Derecha', 'right');
+            [bLeft, bCenter, bRight].forEach(b => root.appendChild(b));
+            return root;
+          },
+          events: {
+            'click button': 'onClick',
+          },
+          onClick(args: any) {
+            const target = args?.event?.target as HTMLElement | null;
+            const value = (target?.dataset?.value as 'left' | 'center' | 'right') || 'left';
+            try {
+              args?.property?.setValue?.(value);
+            } catch {}
+            const ed = (window as any).editor || editorInstanceRef.current;
+            const sel = ed?.getSelected?.();
+            if (!sel) return;
+            try {
+              const el: HTMLElement | null = (sel as any)?.getEl?.() || (sel as any)?.view?.el || null;
+              const parentComp: any = (sel as any)?.parent?.() || null;
+              const parentEl: HTMLElement | null = parentComp?.getEl?.() || parentComp?.view?.el || el?.parentElement || null;
+              const cs = el ? window.getComputedStyle(el) : null;
+              const pcs = parentEl ? window.getComputedStyle(parentEl) : null;
+
+              const isAbs = cs ? (cs.position === 'absolute' || cs.position === 'fixed') : false;
+              const isFlexParent = pcs ? String(pcs.display).includes('flex') : false;
+              const isGridParent = pcs ? String(pcs.display).includes('grid') : false;
+              const isInline = cs ? (cs.display === 'inline' || cs.display === 'inline-block') : false;
+              const isSvg = !!(el && (el instanceof SVGElement));
+
+              if (value === 'center') {
+                if (isAbs) {
+                  // Centrado para posicionamiento absoluto/fijo
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
+                } else if (isFlexParent) {
+                  // Centrado en contenedor flex: usar justify-content en el padre
+                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                  (sel as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
+                } else if (isGridParent) {
+                  // Centrado en grid: justificar el ítem
+                  (sel as any).addStyle({ 'justify-self': 'center' });
+                } else if (isInline || isSvg) {
+                  // Elementos inline/SVG: centrar vía text-align del padre
+                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  // Bloque normal: margen auto
+                  (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': 'auto' });
+                }
+              } else if (value === 'right') {
+                if (isAbs) {
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
+                } else if (isFlexParent) {
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                  (sel as any).addStyle({ display: 'block' });
+                } else if (isGridParent) {
+                  (sel as any).addStyle({ 'justify-self': 'end' });
+                } else if (isInline || isSvg) {
+                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': '0' });
+                }
+              } else {
+                // left
+                if (isAbs) {
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
+                } else if (isFlexParent) {
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                  (sel as any).addStyle({ display: 'block' });
+                } else if (isGridParent) {
+                  (sel as any).addStyle({ 'justify-self': 'start' });
+                } else if (isInline || isSvg) {
+                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  (sel as any).addStyle({ display: 'block', 'margin-left': '0', 'margin-right': 'auto' });
+                }
+              }
+            } catch (e) { console.warn('align apply error', e); }
+          },
+          onValueChange(args: any) {
+            const value = (args?.value as 'left' | 'center' | 'right') || 'left';
+            const ed = (window as any).editor || editorInstanceRef.current;
+            const sel = ed?.getSelected?.();
+            if (!sel) return;
+            try {
+              const el: HTMLElement | null = (sel as any)?.getEl?.() || (sel as any)?.view?.el || null;
+              const parentComp: any = (sel as any)?.parent?.() || null;
+              const parentEl: HTMLElement | null = parentComp?.getEl?.() || parentComp?.view?.el || el?.parentElement || null;
+              const cs = el ? window.getComputedStyle(el) : null;
+              const pcs = parentEl ? window.getComputedStyle(parentEl) : null;
+
+              const isAbs = cs ? (cs.position === 'absolute' || cs.position === 'fixed') : false;
+              const isFlexParent = pcs ? String(pcs.display).includes('flex') : false;
+              const isGridParent = pcs ? String(pcs.display).includes('grid') : false;
+              const isInline = cs ? (cs.display === 'inline' || cs.display === 'inline-block') : false;
+              const isSvg = !!(el && (el instanceof SVGElement));
+
+              if (value === 'center') {
+                if (isAbs) {
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
+                } else if (isFlexParent) {
+                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                  (sel as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
+                } else if (isGridParent) {
+                  (sel as any).addStyle({ 'justify-self': 'center' });
+                } else if (isInline || isSvg) {
+                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': 'auto' });
+                }
+              } else if (value === 'right') {
+                if (isAbs) {
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
+                } else if (isFlexParent) {
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                  (sel as any).addStyle({ display: 'block' });
+                } else if (isGridParent) {
+                  (sel as any).addStyle({ 'justify-self': 'end' });
+                } else if (isInline || isSvg) {
+                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': '0' });
+                }
+              } else {
+                if (isAbs) {
+                  (sel as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
+                } else if (isFlexParent) {
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                  (sel as any).addStyle({ display: 'block' });
+                } else if (isGridParent) {
+                  (sel as any).addStyle({ 'justify-self': 'start' });
+                } else if (isInline || isSvg) {
+                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                  (sel as any).addStyle({ display: 'inline-block' });
+                } else {
+                  (sel as any).addStyle({ display: 'block', 'margin-left': '0', 'margin-right': 'auto' });
+                }
+              }
+            } catch (e) { console.warn('align apply error', e); }
+          },
+          update(args: any) {
+            const el = args?.el as HTMLElement;
+            try {
+              const ed = (window as any).editor || editorInstanceRef.current;
+              const sel = ed?.getSelected?.();
+              const style = sel?.getStyle?.() || {};
+              const ml = String((style as any)['margin-left'] || '');
+              const mr = String((style as any)['margin-right'] || '');
+              const buttons = el.querySelectorAll('button');
+              buttons.forEach((b: any) => b.classList.remove('bg-gray-200'));
+              let current: 'left' | 'center' | 'right' = 'left';
+              if (ml.includes('auto') && mr.includes('auto')) current = 'center';
+              else if (ml.includes('auto')) current = 'right';
+              else if (mr.includes('auto')) current = 'left';
+              const btn = el.querySelector(`button[data-value="${current}"]`);
+              if (btn) btn.classList.add('bg-gray-200');
+            } catch {}
+          },
+        });
+      } catch (e) { console.warn('Registro de tipo align falló', e); }
+
+      // Soporte de pegado de imagen/video desde portapapeles con subida a backend
+      const attachPasteHandler = () => {
+        try {
+          const doc = gEditor.Canvas.getDocument();
+          const win = (gEditor.Canvas as any)?.getWindow?.() || (doc as any)?.defaultView || null;
+          const handlePaste = (e: any) => {
+            try {
+              const cd = e.clipboardData;
+              if (!cd) return;
+              const items = cd.items || [];
+              const appendAndSelect = (html: string) => {
+                try {
+                  const targetSel = gEditor.getSelected() || gEditor.getWrapper();
+                  if (!targetSel || !(targetSel as any).append) {
+                    console.warn('No hay selección ni wrapper para insertar contenido pegado');
+                    return;
+                  }
+                  const comp = (targetSel as any).append(html) as any;
+                  const added = Array.isArray(comp) ? comp[comp.length - 1] : comp;
+                  try { added?.set?.({ resizable: true }); } catch {}
+                  try { gEditor.select(added); } catch {}
+                } catch (err) { console.warn('append error', err); }
+              };
+              // Archivos (imagen/video)
+              for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                if (it.kind === 'file') {
+                  const file = it.getAsFile();
+                  if (!file) continue;
+                  const type = String(file.type || '');
+                  if (type.startsWith('image/')) {
+                    // Intentar subir la imagen al backend
+                    (async () => {
+                      try {
+                        const resp: any = await HttpClient.uploadFile('/upload', file);
+                        const url = (resp?.data?.url) || (resp?.url) || '';
+                        if (url) {
+                          appendAndSelect(`<img src="${url}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                        } else {
+                          // Fallback: incrustar como DataURL si no hay URL
+                          const fr = new FileReader();
+                          fr.onload = () => appendAndSelect(`<img src="${fr.result}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                          fr.readAsDataURL(file);
+                        }
+                      } catch (err) {
+                        console.warn('Upload falló, usando DataURL', err);
+                        const fr = new FileReader();
+                        fr.onload = () => appendAndSelect(`<img src="${fr.result}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                        fr.readAsDataURL(file);
+                      }
+                    })();
+                    e.preventDefault();
+                    return;
+                  } else if (type.startsWith('video/')) {
+                    const url = URL.createObjectURL(file);
+                    appendAndSelect(`<video src="${url}" controls style="max-width:100%;display:block;border-radius:8px;"></video>`);
+                    e.preventDefault();
+                    return;
+                  }
+                }
+              }
+              // Texto (URL o data URI)
+              for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                if (it.kind === 'string') {
+                  it.getAsString((text: string) => {
+                    try {
+                      const t = text.trim();
+                      if (!t) return;
+                      const isDataImg = t.startsWith('data:image/');
+                      const isImgUrl = /\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i.test(t);
+                      const isVideoUrl = /\.(mp4|webm|ogg)(\?.*)?$/i.test(t);
+                      const isHttp = /^https?:\/\//i.test(t);
+                      if (isDataImg || (isHttp && isImgUrl)) {
+                        appendAndSelect(`<img src="${t}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                        e.preventDefault();
+                        return;
+                      }
+                      if (isHttp && isVideoUrl) {
+                        appendAndSelect(`<video src="${t}" controls style="max-width:100%;display:block;border-radius:8px;"></video>`);
+                        e.preventDefault();
+                        return;
+                      }
+                    } catch {}
+                  });
+                }
+              }
+            } catch (err) { console.warn('paste handler error', err); }
+          };
+          doc.addEventListener('paste', handlePaste as any);
+          // Capturar atajos de teclado para pegar (Cmd/Ctrl+V) y usar Clipboard API
+          const keyHandler = async (e: KeyboardEvent) => {
+            try {
+              const isMac = navigator.platform.toLowerCase().includes('mac');
+              const combo = (isMac && (e.metaKey && e.key.toLowerCase() === 'v')) || (!isMac && (e.ctrlKey && e.key.toLowerCase() === 'v'));
+              if (!combo) return;
+              e.preventDefault();
+              const fn = (window as any).pasteFromClipboard;
+              if (typeof fn === 'function') await fn();
+            } catch (err) { console.warn('key paste error', err); }
+          };
+          doc.addEventListener('keydown', keyHandler as any);
+          if (win) { (win as Window).addEventListener('keydown', keyHandler); }
+        } catch (e) { console.warn('No se pudo adjuntar handler de pegado', e); }
+      };
+      attachPasteHandler();
+
+      // Acción explícita de lectura del portapapeles con user gesture
+      const pasteFromClipboard = async () => {
+        const ed = editorInstanceRef.current || (window as any).editor;
+        if (!ed) return;
+        const appendAndSelect = (html: string) => {
+          try {
+            const targetSel = ed.getSelected() || ed.getWrapper();
+            if (!targetSel || !(targetSel as any).append) {
+              console.warn('No hay selección ni wrapper para insertar contenido pegado');
+              return;
+            }
+            const comp = (targetSel as any).append(html) as any;
+            const added = Array.isArray(comp) ? comp[comp.length - 1] : comp;
+            try { added?.set?.({ resizable: true }); } catch {}
+            try { ed.select(added); } catch {}
+          } catch (err) { console.warn('append error', err); }
+        };
+
+        // Intentar leer contenido rico (imágenes) del portapapeles
+        const hasRichClipboard = !!(navigator as any).clipboard?.read;
+        if (hasRichClipboard) {
+          try {
+            const items: any[] = await (navigator as any).clipboard.read();
+            for (const item of items) {
+              try {
+                // Buscar imagen
+                const types: string[] = item.types || [];
+                const imgType = types.find(t => t.startsWith('image/')) || null;
+                if (imgType) {
+                  const blob = await item.getType(imgType);
+                  if (blob) {
+                    // Subir si es posible
+                    try {
+                      const file = new File([blob], `clipboard.${(imgType.split('/')[1] || 'png')}`, { type: imgType });
+                      const resp: any = await HttpClient.uploadFile('/upload', file);
+                      const url = (resp?.data?.url) || (resp?.url) || '';
+                      if (url) {
+                        appendAndSelect(`<img src="${url}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                      } else {
+                        const fr = new FileReader();
+                        fr.onload = () => appendAndSelect(`<img src="${fr.result}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                        fr.readAsDataURL(blob);
+                      }
+                    } catch (err) {
+                      console.warn('Upload falló, usando DataURL', err);
+                      const fr = new FileReader();
+                      fr.onload = () => appendAndSelect(`<img src="${fr.result}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+                      fr.readAsDataURL(blob);
+                    }
+                  }
+                  return;
+                }
+              } catch {}
+            }
+          } catch (err) {
+            console.warn('clipboard.read falló, intento texto', err);
+          }
+        }
+
+        // Fallback: leer texto y detectar URL/data URI de imagen
+        try {
+          const text = await navigator.clipboard.readText();
+          const t = (text || '').trim();
+          if (!t) return;
+          const isDataImg = t.startsWith('data:image/');
+          const isImgUrl = /(https?:\/\/.*\.(png|jpg|jpeg|gif|webp))(\?.*)?$/i.test(t);
+          if (isDataImg || isImgUrl) {
+            appendAndSelect(`<img src="${t}" style="max-width:100%;display:block;object-fit:cover;border-radius:8px;"/>`);
+          } else {
+            console.warn('Contenido del portapapeles no es imagen');
+          }
+        } catch (err) {
+          console.warn('readText falló', err);
+        }
+      };
+      try { (window as any).pasteFromClipboard = pasteFromClipboard; } catch {}
+
+      // Habilitar resizable en selección de imágenes, videos y SVG
+      try {
+        gEditor.on('component:selected', (comp: any) => {
+          try { comp?.set?.({ resizable: true }); } catch {}
+          try {
+            const sm: any = gEditor.StyleManager;
+            const sectors = sm.getSectors?.() || [];
+            const name = comp?.get?.('type') || comp?.getName?.() || comp?.getTag?.() || '';
+            const isText = comp?.is?.('text') || /^(p|h1|h2|h3|h4|h5|h6|span|label)$/i.test(comp?.getTag?.() || '');
+            const isSection = comp?.is?.('section') || /^(section|div)$/i.test(comp?.getTag?.() || '');
+            sectors.forEach((s: any) => {
+              const sname = s.getName?.() || s.get('name');
+              if (isText && (sname === '📝 Texto' || sname === '🎨 Apariencia')) s.set('open', true);
+              else if (isSection && (sname === '🖼️ Fondos' || sname === '🎨 Apariencia')) s.set('open', true);
+              else s.set('open', false);
+            });
+          } catch (e) { /* noop */ }
+        });
+      } catch (e) { console.warn('No se pudo habilitar resizable', e); }
 
       // helper: inyectar scripts externos e inline desde el último HTML
       const injectPageScripts = (maxRetries: number = 20) => {
@@ -1125,51 +1784,308 @@ const GrapesEditor: React.FC = () => {
         }
 
         // Forzar población del Style Manager al seleccionar componentes
-        gEditor.on('component:selected', (component: any) => {
+        const updateSelectedInfo = () => {
           try {
-            console.log('Componente seleccionado:', component.getName && component.getName());
-            console.log('Estilos:', component.getStyle && component.getStyle());
-          } catch (e) {
-            console.warn('No se pudo loguear selección de componente:', e);
-          }
-        });
+            const sel = gEditor.getSelected();
+            if (!sel) { setSelectedInfo(null); return; }
+            const doc = gEditor.Canvas.getDocument();
+            const el = sel.getEl ? sel.getEl() : null;
+            let w = 0, h = 0;
+            if (el && doc) {
+              const rect = (el as HTMLElement).getBoundingClientRect();
+              w = rect.width; h = rect.height;
+            } else {
+              const style = sel.getStyle ? sel.getStyle() : {};
+              const sw = Number(parseFloat(String((style as any).width || 0)) || 0);
+              const sh = Number(parseFloat(String((style as any).height || 0)) || 0);
+              w = sw; h = sh;
+            }
+            const name = sel.getName ? sel.getName() : sel.getId?.() || undefined;
+            setSelectedInfo({ width: w, height: h, name });
+          } catch (e) { console.warn('No se pudo calcular tamaño seleccionado', e); }
+        };
+        gEditor.on('component:selected', updateSelectedInfo);
+        gEditor.on('style:change', updateSelectedInfo);
 
         // Renderizado de managers bajo demanda via toggles
 
         // Bloques personalizados
         const bm = gEditor.BlockManager;
+        
         // PASO 1: Bloques básicos
         bm.add('text-simple', {
-          label: 'Texto',
-          category: 'Básico',
+          label: '📝 Texto',
+          category: '📌 Básico',
           content: '<p>Texto editable</p>'
         });
 
         bm.add('button-link', {
-          label: 'Botón',
-          category: 'Básico',
+          label: '🔘 Botón',
+          category: '📌 Básico',
           content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">Botón</a>'
         });
 
         bm.add('image-block', {
-          label: 'Imagen',
-          category: 'Básico',
+          label: '🖼️ Imagen',
+          category: '📌 Básico',
           content: '<img src="https://via.placeholder.com/400x300" style="max-width: 100%;">'
         });
+
+        // Elementos adicionales
         bm.add('cta-button', {
-          label: 'Botón CTA',
-          category: 'Elementos',
+          label: '🔔 Botón CTA',
+          category: '🧩 Elementos',
           content: '<a class="px-4 py-2 rounded bg-blue-600 text-white inline-block" href="#">Llamada a la acción</a>'
         });
+
+        bm.add('card-simple', {
+          label: '🃏 Tarjeta Simple',
+          category: '🧩 Elementos',
+          content: `
+            <div class="p-6 bg-white rounded-lg shadow-md">
+              <h3 class="text-lg font-bold mb-2">Título de Tarjeta</h3>
+              <p class="text-gray-600">Contenido descriptivo de la tarjeta que puede editarse.</p>
+            </div>
+          `
+        });
+
+        bm.add('divider', {
+          label: '➖ Divisor',
+          category: '🧩 Elementos',
+          content: `<hr class="my-6 border-t border-gray-200">`
+        });
+
+        bm.add('icon-text', {
+          label: '🔣 Icono + Texto',
+          category: '🧩 Elementos',
+          content: `
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <p>Texto con icono personalizable</p>
+            </div>
+          `
+        });
+
+        // PASO 2: Layouts y Secciones
         bm.add('hero-simple', {
-          label: 'Hero simple',
-          category: 'Secciones',
+          label: '🏆 Hero Simple',
+          category: '📊 Secciones',
           content: '<section class="bg-sky-100 py-16"><div class="container mx-auto text-center"><h1 class="text-3xl font-bold mb-4">Bienvenido</h1><p class="text-gray-700">Subtítulo descriptivo de la sección</p></div></section>'
         });
+
+        bm.add('hero-image', {
+          label: '🏆 Hero con Imagen',
+          category: '📊 Secciones',
+          content: `
+            <section class="py-16 bg-gradient-to-r from-blue-50 to-sky-50">
+              <div class="container mx-auto px-4">
+                <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:w-1/2 mb-8 md:mb-0 md:pr-8">
+                    <h1 class="text-4xl font-bold mb-4 text-gray-800">Título Principal</h1>
+                    <p class="text-lg text-gray-600 mb-6">Descripción atractiva que explica el propósito de esta sección y motiva al usuario.</p>
+                    <div class="flex space-x-4">
+                      <a href="#" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Botón Principal</a>
+                      <a href="#" class="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition">Botón Secundario</a>
+                    </div>
+                  </div>
+                  <div class="md:w-1/2">
+                    <img src="https://via.placeholder.com/600x400" alt="Hero Image" class="rounded-lg shadow-lg">
+                  </div>
+                </div>
+              </div>
+            </section>
+          `
+        });
+
         bm.add('features-3col', {
-          label: '3 Características',
-          category: 'Secciones',
+          label: '📊 3 Características',
+          category: '📊 Secciones',
           content: '<section class="py-12"><div class="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-6"><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 1</h3><p class="text-gray-600">Descripción breve.</p></div><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 2</h3><p class="text-gray-600">Descripción breve.</p></div><div class="p-6 border rounded"><h3 class="font-semibold mb-2">Característica 3</h3><p class="text-gray-600">Descripción breve.</p></div></div></section>'
+        });
+
+        bm.add('features-2col', {
+          label: '📊 2 Características',
+          category: '📊 Secciones',
+          content: `
+            <section class="py-12 bg-white">
+              <div class="container mx-auto px-4">
+                <h2 class="text-3xl font-bold text-center mb-12">Nuestras Características</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div class="p-6 border border-gray-200 rounded-lg hover:shadow-md transition">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Característica 1</h3>
+                    <p class="text-gray-600">Descripción detallada de esta característica y sus beneficios para el usuario.</p>
+                  </div>
+                  <div class="p-6 border border-gray-200 rounded-lg hover:shadow-md transition">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                      </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Característica 2</h3>
+                    <p class="text-gray-600">Descripción detallada de esta característica y sus beneficios para el usuario.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `
+        });
+
+        bm.add('features-4col', {
+          label: '📊 4 Características',
+          category: '📊 Secciones',
+          content: `
+            <section class="py-16 bg-gray-50">
+              <div class="container mx-auto px-4">
+                <h2 class="text-3xl font-bold text-center mb-12">Nuestros Servicios</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                      </svg>
+                    </div>
+                    <h3 class="font-bold mb-2">Servicio 1</h3>
+                    <p class="text-gray-600 text-sm">Descripción breve del servicio.</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <h3 class="font-bold mb-2">Servicio 2</h3>
+                    <p class="text-gray-600 text-sm">Descripción breve del servicio.</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                      </svg>
+                    </div>
+                    <h3 class="font-bold mb-2">Servicio 3</h3>
+                    <p class="text-gray-600 text-sm">Descripción breve del servicio.</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                      <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <h3 class="font-bold mb-2">Servicio 4</h3>
+                    <p class="text-gray-600 text-sm">Descripción breve del servicio.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `
+        });
+
+        bm.add('testimonial-section', {
+          label: '💬 Testimonios',
+          category: '📊 Secciones',
+          content: `
+            <section class="py-16 bg-blue-50">
+              <div class="container mx-auto px-4">
+                <h2 class="text-3xl font-bold text-center mb-12">Lo que dicen nuestros clientes</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center mb-4">
+                      <div class="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                      <div>
+                        <h4 class="font-bold">Nombre Cliente</h4>
+                        <p class="text-sm text-gray-600">Cargo / Empresa</p>
+                      </div>
+                    </div>
+                    <p class="text-gray-600 italic">"Testimonio del cliente sobre su experiencia con nuestros servicios. Muy satisfecho con los resultados obtenidos."</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center mb-4">
+                      <div class="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                      <div>
+                        <h4 class="font-bold">Nombre Cliente</h4>
+                        <p class="text-sm text-gray-600">Cargo / Empresa</p>
+                      </div>
+                    </div>
+                    <p class="text-gray-600 italic">"Testimonio del cliente sobre su experiencia con nuestros servicios. Muy satisfecho con los resultados obtenidos."</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center mb-4">
+                      <div class="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                      <div>
+                        <h4 class="font-bold">Nombre Cliente</h4>
+                        <p class="text-sm text-gray-600">Cargo / Empresa</p>
+                      </div>
+                    </div>
+                    <p class="text-gray-600 italic">"Testimonio del cliente sobre su experiencia con nuestros servicios. Muy satisfecho con los resultados obtenidos."</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `
+        });
+
+        bm.add('contact-section', {
+          label: '📞 Contacto',
+          category: '📊 Secciones',
+          content: `
+            <section class="py-16 bg-white">
+              <div class="container mx-auto px-4">
+                <div class="max-w-4xl mx-auto">
+                  <h2 class="text-3xl font-bold text-center mb-8">Contáctenos</h2>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <h3 class="text-xl font-bold mb-4">Información de Contacto</h3>
+                      <div class="space-y-4">
+                        <div class="flex items-start">
+                          <svg class="w-6 h-6 text-blue-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                          </svg>
+                          <p>Calle Principal #123, Ciudad</p>
+                        </div>
+                        <div class="flex items-start">
+                          <svg class="w-6 h-6 text-blue-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                          </svg>
+                          <p>(123) 456-7890</p>
+                        </div>
+                        <div class="flex items-start">
+                          <svg class="w-6 h-6 text-blue-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                          </svg>
+                          <p>info@ejemplo.com</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 class="text-xl font-bold mb-4">Envíenos un Mensaje</h3>
+                      <form>
+                        <div class="mb-4">
+                          <input type="text" placeholder="Nombre" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                          <input type="email" placeholder="Email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                          <textarea rows="4" placeholder="Mensaje" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                        <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Enviar Mensaje</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `
         });
 
         // Bloques personalizados para Acueducto
@@ -1746,6 +2662,7 @@ const GrapesEditor: React.FC = () => {
     
     const html = editorInstanceRef.current.getHtml();
     const css = editorInstanceRef.current.getCss();
+    const styles = editorInstanceRef.current.getStyle();
     
     const previewWindow = window.open('', '_blank');
     if (previewWindow) {
@@ -1754,11 +2671,84 @@ const GrapesEditor: React.FC = () => {
         <html>
           <head>
             <title>Vista Previa - ${pageData?.title}</title>
-            <style>${css}</style>
-            <!-- Tailwind desactivado temporalmente -->
-            <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Roboto', Arial, sans-serif;
+              }
+              
+              /* Estilos base para iconos y elementos comunes */
+              .icon, .bi {
+                display: inline-block;
+                width: 1em;
+                height: 1em;
+                vertical-align: -0.125em;
+              }
+              
+              /* Soporte para gradientes en texto */
+              .text-gradient {
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+              }
+              
+              ${css}
+              
+              /* Estilos para componentes GrapesJS */
+              ${(() => {
+                try {
+                  if (styles) {
+                    const stylesObj = typeof styles === 'string' ? JSON.parse(styles) : styles;
+                    if (Array.isArray(stylesObj) && stylesObj.length > 0) {
+                      return stylesObj.map(style => {
+                        if (style.selectors && style.style) {
+                          const selectors = Array.isArray(style.selectors) 
+                            ? style.selectors.join(', ') 
+                            : style.selectors;
+                          
+                          const styleProps = Object.entries(style.style)
+                            .map(([prop, value]) => `${prop}: ${value};`)
+                            .join(' ');
+                          
+                          return `${selectors} { ${styleProps} }`;
+                        }
+                        return '';
+                      }).join('\n');
+                    }
+                  }
+                  return '';
+                } catch (e) {
+                  console.error('Error parsing styles', e);
+                  return '';
+                }
+              })()}
+            </style>
           </head>
-          <body>${html}</body>
+          <body>
+            ${html}
+            
+            <!-- Script para corregir rutas de imágenes relativas -->
+            <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                // Corregir rutas de imágenes relativas
+                document.querySelectorAll('img').forEach(img => {
+                  if (img.src && img.src.startsWith('/')) {
+                    const originalSrc = img.src;
+                    img.onerror = function() {
+                      if (!this.dataset.tried) {
+                        this.dataset.tried = 'true';
+                        this.src = window.location.origin + originalSrc;
+                      }
+                    };
+                  }
+                });
+              });
+            </script>
+          </body>
         </html>
       `);
       previewWindow.document.close();
@@ -1837,43 +2827,182 @@ const GrapesEditor: React.FC = () => {
     <div className="h-screen flex flex-col">
       {/* Overrides visuales para unificar paleta y estilo GrapesJS */}
       <style>{`
+        /* Colores base modernos y minimalistas */
         .gjs-one-bg { background-color: #0f172a !important; }
-        .gjs-two-bg { background-color: #1f2937 !important; }
-        .gjs-three-bg { background-color: #111827 !important; }
+        .gjs-two-bg { background-color: #1e293b !important; }
+        .gjs-three-bg { background-color: #0f172a !important; }
         .gjs-four-bg { background-color: #0b1220 !important; }
-        .gjs-two-color { color: #e5e7eb !important; }
-        .gjs-link, .gjs-color-warn { color: #8b5cf6 !important; }
-        .gjs-primary-color { color: #8b5cf6 !important; }
-        .gjs-primary-bg { background-color: #8b5cf6 !important; }
-        .gjs-blocks, .gjs-layers, .gjs-sm-sectors { background: #111827 !important; border-radius: 8px; }
-        .gjs-block { border-radius: 6px; }
+        .gjs-two-color { color: #f1f5f9 !important; }
+        
+        /* Colores de acento y primarios más modernos */
+        .gjs-link, .gjs-color-warn { color: #6366f1 !important; }
+        .gjs-primary-color { color: #6366f1 !important; }
+        .gjs-primary-bg { background-color: #6366f1 !important; }
+        
+        /* Paneles y contenedores con estilo más limpio */
+        .gjs-blocks, .gjs-layers, .gjs-sm-sectors { 
+          background: #0f172a !important; 
+          border-radius: 12px !important; 
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+          border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+        
+        /* Bloques con diseño más moderno */
+        .gjs-block { 
+          border-radius: 8px !important; 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          border: 1px solid rgba(255, 255, 255, 0.05) !important;
+          background-color: #1e293b !important;
+          margin: 5px !important;
+        }
+        .gjs-block:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+          background-color: #2d3748 !important;
+        }
+        
+        /* Sectores y propiedades con mejor organización */
         .gjs-sm-sector, .gjs-sm-property { background: transparent !important; }
-        .gjs-sm-label, .gjs-layer-title { color: #e5e7eb !important; }
-        .gjs-btn-prim { background: #8b5cf6 !important; color: #fff !important; border-radius: 6px; }
-        .gjs-field { background: #0f172a !important; border-color: #1f2937 !important; color: #e5e7eb !important; }
+        .gjs-sm-sector { 
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+          margin-bottom: 12px !important;
+          padding-bottom: 12px !important;
+        }
+        .gjs-sm-label, .gjs-layer-title { 
+          color: #f1f5f9 !important; 
+          font-weight: 500 !important;
+          letter-spacing: 0.025em !important;
+        }
+        
+        /* Botones y controles más elegantes */
+        .gjs-btn-prim { 
+          background: #6366f1 !important; 
+          color: #fff !important; 
+          border-radius: 8px !important; 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          border: none !important;
+          padding: 10px 18px !important;
+          font-weight: 500 !important;
+          letter-spacing: 0.025em !important;
+        }
+        .gjs-btn-prim:hover {
+          background: #818cf8 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4) !important;
+        }
+        
+        /* Campos de entrada más modernos */
+        .gjs-field { 
+          background: #1e293b !important; 
+          border-color: #334155 !important; 
+          color: #f1f5f9 !important;
+          border-radius: 8px !important;
+          transition: all 0.3s ease;
+          padding: 8px !important;
+        }
+        .gjs-field:focus-within {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3) !important;
+        }
+        
+        /* Capas y estructura más organizadas */
+        .gjs-layer {
+          border-radius: 6px !important;
+          margin-bottom: 3px !important;
+          transition: all 0.2s ease;
+          padding: 5px !important;
+        }
+        .gjs-layer.gjs-selected {
+          background-color: rgba(99, 102, 241, 0.2) !important;
+          border-left: 3px solid #6366f1 !important;
+        }
+        .gjs-layer-vis {
+          color: rgba(255, 255, 255, 0.8) !important;
+        }
+        
+        /* Mejoras para paneles colapsables */
+        .gjs-pn-btn {
+          border-radius: 8px !important;
+          margin: 2px !important;
+          transition: all 0.2s ease !important;
+        }
+        .gjs-pn-btn:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        .gjs-pn-btn.gjs-pn-active {
+          background-color: rgba(99, 102, 241, 0.2) !important;
+          color: #6366f1 !important;
+        }
+        
         /* Asegurar visibilidad del canvas e iframe */
-        .gjs-cv-canvas { min-height: 600px !important; height: 100% !important; }
-        .gjs-frame, iframe.gjs-frame { min-height: 600px !important; height: 100% !important; display: block !important; }
-        #gjs { min-height: 600px !important; height: calc(100vh - 56px) !important; }
+        .gjs-cv-canvas { 
+          height: 100% !important; 
+          background: #f8fafc !important;
+        }
+        .gjs-frame, iframe.gjs-frame { 
+          height: 100% !important; 
+          display: block !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+          border-radius: 8px !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+        #gjs { 
+          height: calc(100vh - 56px) !important; 
+        }
+        
+        /* Mejoras para el panel de estilos */
+        .gjs-sm-properties {
+          padding: 12px 8px !important;
+        }
+        .gjs-sm-property {
+          padding: 8px 0 !important;
+          margin-bottom: 4px !important;
+        }
+        .gjs-sm-label {
+          font-size: 13px !important;
+          margin-bottom: 4px !important;
+        }
+        
+        /* Mejoras para el panel de bloques */
+        .gjs-blocks-c {
+          padding: 15px !important;
+          justify-content: space-between !important;
+          gap: 8px !important;
+        }
+        .gjs-block-category {
+          margin-bottom: 18px !important;
+          padding-bottom: 10px !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        .gjs-title {
+          font-weight: 600 !important;
+          padding: 8px !important;
+          letter-spacing: 0.025em !important;
+          font-size: 14px !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
       `}</style>
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}
+      <div className="bg-white shadow-md px-4 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-[100]">
+        <div className="flex items-center space-x-3">
           <button
             onClick={() => navigate('/admin/dashboard')}
-            className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+            className="px-3 py-1.5 text-sm bg-gray-50 hover:bg-gray-100 rounded-md transition-colors flex items-center"
           >
-            ← Volver al Dashboard
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Dashboard
           </button>
-          <h1 className="text-lg font-semibold">
-            Editando: {pageData?.title}
+          <h1 className="text-base font-medium text-gray-700">
+            {pageData?.title || "Editor de Página"}
           </h1>
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           {/* Estado de guardado */}
           <div className="flex items-center space-x-2">
-            <span className={`text-sm ${statusDisplay.color}`}>
+            <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusDisplay.color === 'text-green-500' ? 'bg-green-50 text-green-600' : statusDisplay.color === 'text-yellow-500' ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
               {statusDisplay.text}
             </span>
             {lastSaved && (
@@ -1882,11 +3011,72 @@ const GrapesEditor: React.FC = () => {
               </span>
             )}
           </div>
+
+          {/* Info rápida del elemento seleccionado */}
+          {selectedInfo && (
+            <div className="hidden sm:flex items-center space-x-2 px-2 py-1 rounded-md bg-gray-50 text-gray-700">
+              <span className="text-xs">{selectedInfo.name || 'Elemento'}</span>
+              <span className="text-xs">{Math.round(selectedInfo.width)}×{Math.round(selectedInfo.height)} px</span>
+            </div>
+          )}
+
+          {/* Botón de pegar imagen desde portapapeles */}
+          <button
+            onClick={() => {
+              try {
+                const fn = (window as any).pasteFromClipboard;
+                if (typeof fn === 'function') fn();
+              } catch (e) { console.warn('No se pudo pegar desde el portapapeles', e); }
+            }}
+            className="px-3 py-1.5 text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md transition-colors"
+          >
+            Pegar imagen
+          </button>
+
+          {/* Acciones rápidas de alineación */}
+          <div className="hidden md:flex items-center space-x-1">
+            <button title="Alinear izquierda" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
+              try {
+                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
+                sel.addStyle({ 'margin-left': '0', 'margin-right': 'auto' });
+              } catch {}
+            }}>Izq</button>
+            <button title="Centrar" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
+              try {
+                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
+                sel.addStyle({ 'margin-left': 'auto', 'margin-right': 'auto' });
+              } catch {}
+            }}>Centro</button>
+            <button title="Alinear derecha" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
+              try {
+                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
+                sel.addStyle({ 'margin-left': 'auto', 'margin-right': '0' });
+              } catch {}
+            }}>Der</button>
+            <button title="Convertir en círculo" className="ml-2 px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
+              try {
+                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
+                const el = sel.getEl?.();
+                let size = 100;
+                if (el) {
+                  const rect = (el as HTMLElement).getBoundingClientRect();
+                  size = Math.round(Math.min(rect.width || 100, rect.height || 100));
+                } else {
+                  const st = sel.getStyle?.() || {};
+                  const w = parseFloat(String((st as any).width || 100));
+                  const h = parseFloat(String((st as any).height || 100));
+                  size = Math.round(Math.min(w || 100, h || 100));
+                }
+                if (!size || !isFinite(size)) size = 100;
+                sel.addStyle({ width: `${size}px`, height: `${size}px`, 'border-radius': '50%', overflow: 'hidden' });
+              } catch {}
+            }}>Círculo</button>
+          </div>
           
           <button
             onClick={() => handleSave(false)}
             disabled={saveStatus === 'saving' || saveStatus === 'auto-saving'}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-indigo-500 text-white text-sm rounded-md hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center"
           >
             {saveStatus === 'saving' ? 'Guardando...' : 'Guardar'}
           </button>
@@ -1909,10 +3099,10 @@ const GrapesEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Editor Container sin panel izquierdo */}
-      <div className="flex-1 flex">
+      {/* Editor Container nativo de GrapesJS */}
+      <div className="flex-1 fixed top-[85px] left-0 right-0 bottom-0 z-10">
         {/* Lienzo del editor con gating visual hasta que canvas esté listo */}
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative h-full">
           {!canvasReady && (
             <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
               <div className="text-center">
@@ -1924,103 +3114,9 @@ const GrapesEditor: React.FC = () => {
           <div
             ref={editorContainerRef}
             id="gjs"
-            style={{ minHeight: '600px', height: '100vh', overflow: 'visible', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
+            style={{ height: 'calc(100vh - 85px)', overflow: 'auto', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
             className="w-full"
           />
-        </div>
-
-        {/* Panel derecho personalizado con toggle */}
-        <div onMouseDown={onRightHandleMouseDown} className={`w-1 ${rightCollapsed ? 'hidden' : 'block'} bg-gray-800 cursor-col-resize`} />
-        <div className={`relative bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ease-in-out shadow-lg rounded-tl-lg rounded-bl-lg`}
-             style={{ width: rightCollapsed ? '3rem' : `${rightWidth}px`, minWidth: rightCollapsed ? '3rem' : '14rem' }}>
-          <button
-            className={`absolute -left-3 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-violet-600 text-white shadow-md hover:bg-violet-500 transition-colors`}
-            onClick={() => setRightCollapsed(v => !v)}
-            title={rightCollapsed ? 'Expandir panel derecho' : 'Colapsar panel derecho'}
-          >
-            {rightCollapsed ? '<' : '>'}
-          </button>
-          <div className={`flex border-b border-gray-800 ${rightCollapsed ? 'hidden' : 'flex'}`}>
-            <button className="flex-1 py-3 text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors" onClick={() => setShowBlocks(!showBlocks)}>Bloques</button>
-            <button className="flex-1 py-3 text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors" onClick={() => setShowStyles(!showStyles)}>Estilos</button>
-            <button className="flex-1 py-3 text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors" onClick={() => setShowLayers(!showLayers)}>Capas</button>
-            <button className="flex-1 py-3 text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors" onClick={() => setShowClasses(!showClasses)}>Clases</button>
-          </div>
-
-          <div className={`flex-1 overflow-y-auto p-2 space-y-2 ${rightCollapsed ? 'hidden' : 'block'}`}>
-            {showBlocks && <div id="blocks-panel" style={{ minHeight: '120px', background: '#111827', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></div>}
-            {showStyles && (
-              <div>
-                <div id="styles-panel" style={{ minHeight: '160px', background: '#1f2937', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></div>
-                <div className="mt-2 p-2 bg-gray-800 rounded">
-                  <div className="text-xs text-gray-300 mb-2">Preajustes de Tailwind</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => applyTailwindPreset('bg-primary')} className="px-2 py-1 text-xs rounded bg-violet-600 text-white hover:bg-violet-500">Fondo primario</button>
-                    <button onClick={() => applyTailwindPreset('text-secondary')} className="px-2 py-1 text-xs rounded bg-gray-700 text-white hover:bg-gray-600">Texto secundario</button>
-                    <button onClick={() => applyTailwindPreset('btn-primary')} className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-500">Botón primario</button>
-                    <button onClick={() => applyTailwindPreset('card')} className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Tarjeta</button>
-                  </div>
-                </div>
-                {/* Constructor de Gradientes */}
-                <div className="mt-2 p-3 bg-gray-800 rounded">
-                  <div className="text-xs text-gray-300 mb-2">Constructor de gradiente</div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                    <label className="text-xs text-gray-300">Ángulo (°)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={360}
-                      value={gradientAngle}
-                      onChange={(e) => setGradientAngle(Number(e.target.value) || 0)}
-                      className="md:col-span-2 px-2 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600"
-                    />
-
-                    <label className="text-xs text-gray-300">Número de colores</label>
-                    <input
-                      type="number"
-                      min={2}
-                      max={8}
-                      value={gradientStopCount}
-                      onChange={(e) => handleGradientStopCountChange(Number(e.target.value) || 2)}
-                      className="md:col-span-2 px-2 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600"
-                    />
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {Array.from({ length: gradientStopCount }).map((_, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="text-xs text-gray-300">Color {idx + 1}</span>
-                        <input
-                          type="color"
-                          value={gradientStops[idx] || '#ffffff'}
-                          onChange={(e) => updateGradientStopColor(idx, e.target.value)}
-                          className="w-10 h-6 p-0 border-0 bg-transparent"
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-3">
-                    <div
-                      className="w-full h-12 rounded border border-gray-700"
-                      style={{ backgroundImage: buildLinearGradient(gradientAngle, gradientStops.slice(0, gradientStopCount)) }}
-                    />
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={applyGradientToSelection}
-                      className="px-3 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-500"
-                    >
-                      Aplicar al seleccionado
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {showLayers && <div id="layers-container" style={{ minHeight: '240px', background: '#1f2937', color: 'white', padding: '8px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></div>}
-            {showClasses && <div id="classes-panel" style={{ minHeight: '160px', background: '#1f2937', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></div>}
-          </div>
         </div>
       </div>
     </div>
