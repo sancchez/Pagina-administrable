@@ -1191,4 +1191,45 @@ export class PageController {
       });
     }
   }
+
+  /**
+   * Publicar página (separado del guardado)
+   */
+  static async publishPage(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { grapesData } = req.body;
+
+      console.log('[PageController.publishPage] start', { id, hasGrapesData: !!grapesData });
+
+      // Primero guardar los datos si se proporcionan
+      if (grapesData) {
+        await PageService.saveGrapesData(id, grapesData);
+      }
+
+      // Obtener la página actualizada
+      const page = await PageService.getPageById(id);
+      if (!page) {
+        return res.status(404).json({
+          success: false,
+          message: 'Página no encontrada'
+        });
+      }
+
+      // Publicar usando el slug
+      const publishedPage = await PageService.publishPage(page.slug);
+
+      return res.json({
+        success: true,
+        message: 'Página publicada exitosamente',
+        data: publishedPage
+      });
+    } catch (error: any) {
+      console.error('[PageController.publishPage] error:', error);
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor al publicar la página'
+      });
+    }
+  }
 }

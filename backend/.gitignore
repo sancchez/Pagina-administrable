@@ -101,9 +101,7 @@ Thumbs.db
 # Uploads
 uploads/
 
-# Database
-*.db
-*.sqlite
+
 
 # Prisma
 prisma/migrations/

@@ -30,27 +30,57 @@ const logColors = {
 
 winston.addColors(logColors);
 
-// Formato para consola con más información
+// Formato mejorado para consola - más limpio y legible
 const consoleFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+  winston.format.timestamp({ format: 'HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.colorize({ all: true }),
   winston.format.printf((info) => {
-    const { timestamp, level, message, service, userId, requestId, duration, ...meta } = info;
+    const { timestamp, level, message, service, userId, requestId, duration, operation, table, ...meta } = info;
     
-    let logMessage = `${timestamp} [${level}]`;
+    // Crear el mensaje base con emojis para mejor visualización
+    let logMessage = `🕐 ${timestamp}`;
     
+    // Agregar nivel con emoji
+    const levelEmoji = {
+      error: '❌',
+      warn: '⚠️ ',
+      info: '✅',
+      http: '🌐',
+      debug: '🔧',
+      trace: '🔍'
+    };
+    
+    logMessage += ` ${levelEmoji[info.level as keyof typeof levelEmoji] || '📝'} [${level}]`;
+    
+    // Agregar servicio si existe
     if (service) logMessage += ` [${service}]`;
-    if (requestId) logMessage += ` [${requestId}]`;
-    if (userId) logMessage += ` [User:${userId}]`;
     
-    logMessage += `: ${message}`;
+    // Agregar mensaje principal
+    logMessage += ` ${message}`;
     
-    if (duration) logMessage += ` (${duration}ms)`;
+    // Agregar duración si existe
+    if (duration) logMessage += ` ⏱️ ${duration}ms`;
     
-    // Agregar metadata adicional si existe
-    if (Object.keys(meta).length > 0) {
-      logMessage += `\n  Meta: ${JSON.stringify(meta, null, 2)}`;
+    // Para operaciones de BD, mostrar de forma más compacta
+    if (operation && table) {
+      logMessage += ` 📊 ${operation}→${table}`;
+    }
+    
+    // Solo mostrar metadata importante de forma compacta
+    const importantMeta = Object.keys(meta).filter(key => 
+      !['includeBody', 'includeHeaders', 'database', 'connection', 'timeout', 'nodeVersion', 'pid'].includes(key)
+    );
+    
+    if (importantMeta.length > 0) {
+      const compactMeta = importantMeta.reduce((acc, key) => {
+        acc[key] = meta[key];
+        return acc;
+      }, {} as any);
+      
+      if (Object.keys(compactMeta).length > 0) {
+        logMessage += ` 📋 ${JSON.stringify(compactMeta)}`;
+      }
     }
     
     return logMessage;
@@ -77,7 +107,7 @@ const transports: winston.transport[] = [
   // Console transport
   new winston.transports.Console({
     format: consoleFormat,
-    level: config.nodeEnv === 'development' ? 'trace' : 'info',
+    level: config.nodeEnv === 'development' ? 'warn' : 'info',
   }),
   
   // Error log file (solo errores)
@@ -120,7 +150,7 @@ const transports: winston.transport[] = [
 
 // Crear el logger principal
 const logger = winston.createLogger({
-  level: config.nodeEnv === 'development' ? 'trace' : 'info',
+  level: config.nodeEnv === 'development' ? 'warn' : 'info',
   levels: logLevels,
   transports,
   // Manejar excepciones no capturadas

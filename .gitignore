@@ -15,11 +15,7 @@ build/
 .env.test.local
 .env.production.local
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-backend/prisma/dev.db
+
 
 # IDE
 .vscode/

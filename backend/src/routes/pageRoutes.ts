@@ -327,27 +327,17 @@ router.get('/public/:slug', async (req, res) => {
       });
     }
 
-    // CASCADA DE PRIORIDADES para HTML
-    const html = page.publishedHtml
-      || page.gjsHtml
-      || page.html
-      || page.content
-      || '';
-
-    // CASCADA DE PRIORIDADES para CSS
-    const css = page.publishedCss
-      || page.gjsCss
-      || page.css
-      || '';
+    // SOLO USAR CONTENIDO PUBLICADO - Sin fallbacks para separar guardar de publicar
+    const html = page.publishedHtml || '';
+    const css = page.publishedCss || '';
 
     // LOG para debugging
-    console.log(`📤 [${slug}] Enviando:`);
+    console.log(`📤 [${slug}] Enviando SOLO contenido publicado:`);
     console.log(`  publishedHtml: ${page.publishedHtml?.length || 0}`);
-    console.log(`  gjsHtml: ${page.gjsHtml?.length || 0}`);
-    console.log(`  html: ${page.html?.length || 0}`);
-    console.log(`  content: ${page.content?.length || 0}`);
-    console.log(`  → Usando HTML: ${html.length} chars`);
-    console.log(`  → Usando CSS: ${css.length} chars`);
+    console.log(`  publishedCss: ${page.publishedCss?.length || 0}`);
+    console.log(`  isPublished: ${page.isPublished}`);
+    console.log(`  → HTML final: ${html.length} chars`);
+    console.log(`  → CSS final: ${css.length} chars`);
 
     res.json({
       success: true,
@@ -870,5 +860,6 @@ router.post('/:id/backups', authenticate, authorize("ADMIN", "MANAGER"), general
  */
 router.post('/:id/restore/:backupId', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.restoreFromBackup);
 
+// Endpoint duplicado eliminado - usar solo el de arriba
 
 export default router;

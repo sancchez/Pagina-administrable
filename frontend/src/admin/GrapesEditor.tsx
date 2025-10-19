@@ -234,7 +234,7 @@ const GrapesEditor: React.FC = () => {
     }
   };
 
-  // Función para manejar guardado
+  // Función para manejar guardado (SOLO GUARDAR, NO PUBLICAR)
   const handleSave = useCallback(async (isAutoSave = false) => {
     const inst = editorInstanceRef.current;
     if (!inst || !pageData) return;
@@ -248,7 +248,7 @@ const GrapesEditor: React.FC = () => {
       const components = inst.getComponents();
       const styles = inst.getStyle();
 
-      console.log('💾 Guardando:', {
+      console.log('💾 Guardando cambios en el editor:', {
         htmlLen: html.length,
         cssLen: css.length
       });
@@ -279,40 +279,50 @@ const GrapesEditor: React.FC = () => {
       );
 
       if (resultJson?.success) {
-        console.log('✅ Guardado exitoso');
+        console.log('✅ Cambios guardados exitosamente (sin publicar)');
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
-        if (!isAutoSave) alert('💾 Cambios guardados');
+        if (!isAutoSave) alert('💾 Cambios guardados correctamente');
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } else {
         console.error('❌ Error al guardar', resultJson);
-        if (!isAutoSave) alert('❌ Error al guardar');
+        if (!isAutoSave) alert('❌ Error al guardar los cambios');
         setSaveStatus('error');
         setTimeout(() => setSaveStatus('idle'), 3000);
       }
     } catch (error) {
       console.error('Error:', error);
-      if (!isAutoSave) alert('Error de conexión');
+      if (!isAutoSave) alert('Error de conexión al guardar');
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
   }, [pageData, slug]);
 
-  // Publicar página (guardar si hay cambios y llamar endpoint de publish)
+  // Publicar página (enviar datos actuales al endpoint de publish)
   const handlePublish = useCallback(async () => {
-    if (!pageData?.id) return;
+    if (!pageData?.id || !editorInstanceRef.current) return;
     try {
       setIsPublishing(true);
       setPublishStatus('publishing');
 
-      // Guardar cambios antes de publicar
-      if (hasUnsavedChanges) {
-        await handleSave(false);
-      }
+      // Obtener datos actuales del editor
+      const grapesData = {
+        gjsHtml: editorInstanceRef.current.getHtml(),
+        gjsCss: editorInstanceRef.current.getCss(),
+        gjsComponents: editorInstanceRef.current.getComponents(),
+        gjsStyles: editorInstanceRef.current.getStyle().toString()
+      };
 
-      // Llamar endpoint de publicación con tipado
-      const result = await HttpClient.post<ApiResponse<any>>(`/pages/${pageData.id}/publish`, {});
+      console.log('🚀 [GrapesEditor.handlePublish] publishing with data', { 
+        pageId: pageData.id, 
+        hasGrapesData: !!grapesData 
+      });
+
+      // Llamar endpoint de publicación con los datos actuales
+      const result = await HttpClient.post<ApiResponse<any>>(`/pages/${pageData.id}/publish`, {
+        grapesData
+      });
       console.log('🚀 [GrapesEditor.handlePublish] response', result);
 
       // Verificar éxito explícitamente en el cuerpo JSON
@@ -488,261 +498,30 @@ const GrapesEditor: React.FC = () => {
             }
           }
         },
-        // Plugins como funciones; se envían opciones vía wrappers para ajustar tipos
+        // Plugins simplificados para evitar crashes
         plugins: [
-          (ed: Editor) => pluginBasic(ed, {
-            blocks: ['column1', 'column2', 'column3', 'text', 'link', 'image'],
-            flexGrid: 1
-          }),
-          (ed: Editor) => pluginFormsFn(ed, {
-            blocks: ['form', 'input', 'textarea', 'select', 'button', 'label']
-          }),
-          (ed: Editor) => pluginPreset(ed, {
-            blocks: ['link-block', 'quote', 'text-basic'],
-            modalImportTitle: 'Importar código',
-            modalImportContent: (editor: Editor) => editor.getHtml() + '<style>' + editor.getCss() + '</style>'
-          })
+          'gjs-blocks-basic'
         ],
-        // Gestores de estilo con grupos organizados
+        pluginsOpts: {
+          'gjs-blocks-basic': { flexGrid: true }
+        },
+        // Gestores de estilo simplificados
         styleManager: {
           sectors: [
             {
               name: '📐 Dimensiones',
               open: true,
-              buildProps: ['width', 'height', 'max-width', 'min-height', 'padding', 'margin']
-            },
-            {
-              name: '↔️ Alineación',
-              open: true,
-              properties: [
-                {
-                  id: 'horizontal-align',
-                  type: 'align',
-                  property: 'horizontal-align',
-                  name: 'Alineación horizontal'
-                },
-                {
-                  type: 'select',
-                  name: 'Alineación de texto',
-                  property: 'text-align',
-                  options: [
-                    { id: 'left', name: 'Izquierda' },
-                    { id: 'center', name: 'Centro' },
-                    { id: 'right', name: 'Derecha' },
-                    { id: 'justify', name: 'Justificar' }
-                  ]
-                }
-              ]
-            },
-            {
-              name: '🧱 General',
-              open: true,
-              properties: [
-                {
-                  type: 'select',
-                  name: 'display',
-                  property: 'display',
-                  options: [
-                    { id: 'block', name: 'Block' },
-                    { id: 'inline', name: 'Inline' },
-                    { id: 'inline-block', name: 'Inline-block' },
-                    { id: 'flex', name: 'Flex' },
-                    { id: 'grid', name: 'Grid' }
-                  ]
-                },
-                {
-                  type: 'select',
-                  name: 'float',
-                  property: 'float',
-                  options: [
-                    { id: 'none', name: 'Ninguno' },
-                    { id: 'left', name: 'Izquierda' },
-                    { id: 'right', name: 'Derecha' }
-                  ]
-                }
-                // 'margin' ya existe en 📐 Dimensiones
-              ]
-            },
-            {
-              name: '🧲 Flex/Grid',
-              open: true,
-              properties: [
-                {
-                  type: 'select',
-                  name: 'align-self',
-                  property: 'align-self',
-                  options: [
-                    { id: 'auto', name: 'Auto' },
-                    { id: 'flex-start', name: 'Inicio' },
-                    { id: 'center', name: 'Centro' },
-                    { id: 'flex-end', name: 'Fin' },
-                    { id: 'stretch', name: 'Extender' }
-                  ]
-                },
-                {
-                  type: 'select',
-                  name: 'justify-self',
-                  property: 'justify-self',
-                  options: [
-                    { id: 'auto', name: 'Auto' },
-                    { id: 'start', name: 'Inicio' },
-                    { id: 'center', name: 'Centro' },
-                    { id: 'end', name: 'Fin' },
-                    { id: 'stretch', name: 'Extender' }
-                  ]
-                }
-              ]
+              buildProps: ['width', 'height', 'padding', 'margin']
             },
             {
               name: '🎨 Apariencia',
               open: true,
-              buildProps: ['color', 'background-color', 'background', 'border', 'border-radius', 'box-shadow'],
-              properties: [
-                {
-                  type: 'color',
-                  name: 'color',
-                  property: 'color',
-                  defaults: '#000000',
-                },
-                {
-                  type: 'composite',
-                  name: 'border',
-                  property: 'border',
-                  properties: [
-                    { type: 'number', units: ['px'], name: 'border-width' },
-                    { type: 'select', name: 'border-style', options: [
-                      { id: 'none', name: 'Ninguno' },
-                      { id: 'solid', name: 'Sólido' },
-                      { id: 'dashed', name: 'Discontinuo' },
-                      { id: 'dotted', name: 'Punteado' },
-                      { id: 'double', name: 'Doble' },
-                    ]},
-                    { type: 'color', name: 'border-color' },
-                  ],
-                },
-                {
-                  type: 'composite',
-                  name: 'border-radius',
-                  property: 'border-radius',
-                  properties: [
-                    { type: 'number', units: ['px', '%'], name: 'border-top-left-radius' },
-                    { type: 'number', units: ['px', '%'], name: 'border-top-right-radius' },
-                    { type: 'number', units: ['px', '%'], name: 'border-bottom-right-radius' },
-                    { type: 'number', units: ['px', '%'], name: 'border-bottom-left-radius' },
-                  ],
-                },
-                {
-                  type: 'stack',
-                  name: 'box-shadow',
-                  property: 'box-shadow',
-                },
-              ]
+              buildProps: ['color', 'background-color', 'border', 'border-radius']
             },
             {
               name: '📝 Texto',
-              open: true,
-              buildProps: [
-                'font-size', 'font-family', 'font-weight', 'letter-spacing',
-                'color', 'line-height', 'text-align', 'text-decoration'
-              ]
-            },
-            {
-              name: '🖼️ Medios',
-              open: true,
-              properties: [
-                {
-                  type: 'select',
-                  name: 'Encaje (object-fit)',
-                  property: 'object-fit',
-                  options: [
-                    { id: 'fill', name: 'Rellenar' },
-                    { id: 'contain', name: 'Contener' },
-                    { id: 'cover', name: 'Cubrir' },
-                    { id: 'none', name: 'Ninguno' },
-                    { id: 'scale-down', name: 'Reducir' },
-                  ]
-                },
-                {
-                  type: 'select',
-                  name: 'Posición del objeto',
-                  property: 'object-position',
-                  options: [
-                    { id: 'left top', name: 'Izquierda arriba' },
-                    { id: 'center center', name: 'Centro' },
-                    { id: 'right bottom', name: 'Derecha abajo' },
-                    { id: 'left center', name: 'Izquierda centro' },
-                    { id: 'right center', name: 'Derecha centro' }
-                  ]
-                }
-              ]
-            },
-            {
-              name: '🖼️ Fondos',
               open: false,
-              buildProps: ['background-image', 'background-repeat', 'background-position', 'background-size', 'background-attachment'],
-              properties: [
-                {
-                  type: 'text',
-                  name: 'URL de imagen de fondo',
-                  property: 'background-image',
-                  defaults: '',
-                },
-                {
-                  type: 'select',
-                  name: 'background-repeat',
-                  property: 'background-repeat',
-                  options: [
-                    { id: 'repeat', name: 'Repetir' },
-                    { id: 'repeat-x', name: 'Repetir X' },
-                    { id: 'repeat-y', name: 'Repetir Y' },
-                    { id: 'no-repeat', name: 'No repetir' },
-                    { id: 'space', name: 'Espaciado' },
-                    { id: 'round', name: 'Redondear' },
-                  ],
-                },
-                {
-                  type: 'select',
-                  name: 'background-position',
-                  property: 'background-position',
-                  options: [
-                    { id: 'left top', name: 'Izquierda arriba' },
-                    { id: 'center top', name: 'Centro arriba' },
-                    { id: 'right top', name: 'Derecha arriba' },
-                    { id: 'left center', name: 'Izquierda centro' },
-                    { id: 'center center', name: 'Centro centro' },
-                    { id: 'right center', name: 'Derecha centro' },
-                    { id: 'left bottom', name: 'Izquierda abajo' },
-                    { id: 'center bottom', name: 'Centro abajo' },
-                    { id: 'right bottom', name: 'Derecha abajo' },
-                  ],
-                },
-                {
-                  type: 'select',
-                  name: 'background-size',
-                  property: 'background-size',
-                  options: [
-                    { id: 'auto', name: 'Auto' },
-                    { id: 'cover', name: 'Cubrir' },
-                    { id: 'contain', name: 'Contener' },
-                  ],
-                },
-                {
-                  type: 'select',
-                  name: 'background-attachment',
-                  property: 'background-attachment',
-                  options: [
-                    { id: 'scroll', name: 'Desplazable' },
-                    { id: 'fixed', name: 'Fijo' },
-                    { id: 'local', name: 'Local' },
-                  ],
-                },
-              ],
-            },
-            
-            {
-              name: '🔄 Efectos',
-              open: false,
-              buildProps: ['transition', 'opacity', 'transform']
+              buildProps: ['font-size', 'font-family', 'font-weight', 'text-align']
             }
           ]
         },

@@ -319,6 +319,7 @@ export class PageService {
       
       const updateData = {
         grapesData: grapesDataString, // Guardar los datos completos para el frontend
+        // SÍ actualizar gjsHtml/gjsCss al guardar para que persistan los cambios
         gjsHtml: htmlToSave,
         gjsCss: cssToSave,
         gjsComponents: gjsComponents ?? JSON.stringify(grapesData['gjs-components'] ?? grapesData.gjsComponents ?? []),
