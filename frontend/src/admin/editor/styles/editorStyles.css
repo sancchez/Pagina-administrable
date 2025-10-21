@@ -1,0 +1,155 @@
+/* Estilos base del editor */
+.gjs-one-bg { 
+  background-color: #0f172a !important; 
+}
+
+.gjs-two-color { 
+  color: #f8fafc !important; 
+}
+
+.gjs-three-bg { 
+  background-color: #1e293b !important; 
+}
+
+.gjs-four-color, 
+.gjs-four-color-h:hover { 
+  color: #cbd5e1 !important; 
+}
+
+/* Panel de bloques */
+.gjs-blocks-c { 
+  display: flex !important; 
+  flex-wrap: wrap !important; 
+  gap: 8px !important; 
+  padding: 16px !important; 
+}
+
+.gjs-block { 
+  width: calc(50% - 4px) !important; 
+  min-height: 60px !important; 
+  border: 1px solid #e5e7eb !important; 
+  border-radius: 6px !important; 
+  display: flex !important; 
+  flex-direction: column !important; 
+  align-items: center !important; 
+  justify-content: center !important; 
+  cursor: pointer !important; 
+  transition: all 0.2s !important; 
+  background: white !important; 
+}
+
+.gjs-block:hover { 
+  border-color: #3b82f6 !important; 
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15) !important; 
+}
+
+.gjs-block-label { 
+  font-size: 11px !important; 
+  color: #6b7280 !important; 
+  margin-top: 4px !important; 
+  text-align: center !important; 
+}
+
+/* Gestor de estilos */
+.gjs-sm-sectors { 
+  background: white !important; 
+}
+
+.gjs-sm-sector { 
+  border-bottom: 1px solid #e5e7eb !important; 
+  background: white !important; 
+}
+
+.gjs-sm-sector .gjs-sm-title { 
+  background: #f9fafb !important; 
+  color: #374151 !important; 
+  font-weight: 500 !important; 
+  padding: 12px 16px !important; 
+  border-bottom: 1px solid #e5e7eb !important; 
+}
+
+.gjs-sm-properties { 
+  padding: 16px !important; 
+  background: white !important; 
+}
+
+.gjs-sm-property { 
+  margin-bottom: 12px !important; 
+}
+
+.gjs-sm-label { 
+  color: #374151 !important; 
+  font-size: 12px !important; 
+  font-weight: 500 !important; 
+  margin-bottom: 4px !important; 
+}
+
+.gjs-field { 
+  border: 1px solid #d1d5db !important; 
+  border-radius: 4px !important; 
+  padding: 6px 8px !important; 
+  font-size: 12px !important; 
+}
+
+.gjs-field:focus { 
+  border-color: #3b82f6 !important; 
+  outline: none !important; 
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important; 
+}
+
+/* Gestor de capas */
+.gjs-lm-layers { 
+  background: white !important; 
+}
+
+.gjs-lm-layer { 
+  border-bottom: 1px solid #f3f4f6 !important; 
+  padding: 8px 12px !important; 
+}
+
+.gjs-lm-layer:hover { 
+  background: #f9fafb !important; 
+}
+
+.gjs-lm-name { 
+  color: #374151 !important; 
+  font-size: 12px !important; 
+}
+
+/* Gestor de propiedades */
+.gjs-trt-traits { 
+  background: white !important; 
+  padding: 16px !important; 
+}
+
+.gjs-trt-trait { 
+  margin-bottom: 12px !important; 
+}
+
+.gjs-trt-label { 
+  color: #374151 !important; 
+  font-size: 12px !important; 
+  font-weight: 500 !important; 
+  margin-bottom: 4px !important; 
+}
+
+/* Canvas */
+.gjs-cv-canvas { 
+  background: #f5f5f5 !important; 
+}
+
+.gjs-frame { 
+  border: 1px solid #e5e7eb !important; 
+  border-radius: 8px !important; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; 
+  margin: 20px !important; 
+  background: white !important; 
+}
+
+/* Paneles laterales */
+.panel__left, 
+.panel__right {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}

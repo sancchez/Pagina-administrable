@@ -1,3 +1,8 @@
+/*
+// ARCHIVO COMENTADO PARA EVITAR CONFLICTOS CON LA VERSIÓN MODULAR
+// Este es el editor original que funcionaba correctamente
+// Se mantiene comentado como referencia pero no se usa
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import grapesjs, { Editor } from 'grapesjs';
@@ -65,8 +70,8 @@ const GrapesEditor: React.FC = () => {
   const [showStyles, setShowStyles] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [showClasses, setShowClasses] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(true);
-  const [rightWidth, setRightWidth] = useState<number>(280);
+  const rightCollapsed = false;
+  const rightWidth = 320;
   const dragStateRef = useRef<{ side: 'left' | 'right' | null; startX: number; startW: number }>({ side: null, startX: 0, startW: 0 });
   // Constructor de gradiente (UI personalizada)
   const [gradientStopCount, setGradientStopCount] = useState<number>(2);
@@ -77,12 +82,10 @@ const GrapesEditor: React.FC = () => {
   // Panel izquierdo eliminado
 
   const onRightHandleMouseDown = (e: React.MouseEvent) => {
-    if (rightCollapsed) return;
-    dragStateRef.current = { side: 'right', startX: e.clientX, startW: rightWidth };
     const onMove = (ev: MouseEvent) => {
       const dx = dragStateRef.current.startX - ev.clientX;
       const newW = Math.max(180, Math.min(560, dragStateRef.current.startW + dx));
-      setRightWidth(newW);
+      // setRightWidth(newW); // Comentado para mantener ancho fijo
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
@@ -2223,25 +2226,69 @@ const GrapesEditor: React.FC = () => {
         // El iframe del canvas puede aún no estar listo; se usa 'canvas:frame:load'
       });
 
+      // Fallback agresivo: forzar canvasReady después de 10 segundos
+      const emergencyTimeout = setTimeout(() => {
+        if (!canvasReady) {
+          console.warn('🚨 FALLBACK EMERGENCIA: Forzando canvasReady después de 10s');
+          setCanvasReady(true);
+          try { 
+            console.log('🎨 Inyectando Tailwind (emergencia)...');
+            injectTailwindIntoCanvas(); 
+          } catch (e) { 
+            console.warn('⚠️ Error inyectando Tailwind (emergencia):', e);
+          }
+          try { 
+            console.log('🧩 Inyectando estilos de página (emergencia)...');
+            injectPageStyles(); 
+          } catch (e) { 
+            console.warn('⚠️ Error inyectando estilos de página (emergencia):', e);
+          }
+        }
+      }, 10000);
+
       // El frame del canvas está listo; validar ancho antes de marcar canvasReady
       gEditor.on('canvas:frame:load', () => {
         console.log('🖼️ Canvas frame listo');
+        // Limpiar el timeout de emergencia si el canvas se carga correctamente
+        clearTimeout(emergencyTimeout);
         const checkWidthAndReady = () => {
           try {
             const frame = gEditor.Canvas.getFrameEl();
             const width = frame?.offsetWidth || 0;
             const bodyWidth = (frame as any)?.contentDocument?.body?.offsetWidth || 0;
             const finalWidth = Math.max(width, bodyWidth);
+            
+            console.log('📏 Verificando dimensiones canvas:', {
+              frameWidth: width,
+              bodyWidth: bodyWidth,
+              finalWidth: finalWidth,
+              frameElement: !!frame,
+              contentDocument: !!(frame as any)?.contentDocument
+            });
+            
             if (finalWidth > 0) {
-              console.log('📏 Ancho del iframe del canvas:', finalWidth);
+              console.log('✅ Canvas listo con ancho:', finalWidth);
               try { perfStartRef.current = performance.now(); console.log('⏱️ t0 Canvas listo'); } catch {}
+              clearTimeout(emergencyTimeout); // Limpiar timeout de emergencia
               setCanvasReady(true);
               // Inyectar estilos globales cuando el canvas está listo
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { 
+                console.log('🎨 Inyectando Tailwind...');
+                injectTailwindIntoCanvas(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando Tailwind:', e);
+              }
+              try { 
+                console.log('🧩 Inyectando estilos de página...');
+                injectPageStyles(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando estilos de página:', e);
+              }
               return true;
             }
-          } catch {}
+          } catch (e) {
+            console.warn('⚠️ Error verificando dimensiones canvas:', e);
+          }
           return false;
         };
         if (!checkWidthAndReady()) {
@@ -2257,17 +2304,45 @@ const GrapesEditor: React.FC = () => {
                 try { clearInterval(readyIntervalRef.current); } catch {}
                 readyIntervalRef.current = null;
               }
+              clearTimeout(emergencyTimeout); // Limpiar timeout de emergencia
               // Asegurar inyección tras medir correctamente
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { 
+                console.log('🎨 Inyectando Tailwind (reintento)...');
+                injectTailwindIntoCanvas(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando Tailwind (reintento):', e);
+              }
+              try { 
+                console.log('🧩 Inyectando estilos de página (reintento)...');
+                injectPageStyles(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando estilos de página (reintento):', e);
+              }
               return;
             }
             const nowTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
             if (nowTs - startTs > 60000) {
-              console.warn('⏰ Timeout esperando canvas medible (>60s). Deteniendo reintentos.');
+              console.warn('⏰ TIMEOUT: Canvas no obtuvo ancho medible después de 60s');
+              console.warn('⚠️ FORZANDO canvasReady=true para evitar bloqueo indefinido');
               if (readyIntervalRef.current) {
                 try { clearInterval(readyIntervalRef.current); } catch {}
                 readyIntervalRef.current = null;
+              }
+              clearTimeout(emergencyTimeout); // Limpiar timeout de emergencia
+              // FORZAR canvasReady para evitar bloqueo
+              setCanvasReady(true);
+              // Intentar inyectar estilos de todas formas
+              try { 
+                console.log('🎨 Inyectando Tailwind (forzado)...');
+                injectTailwindIntoCanvas(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando Tailwind (forzado):', e);
+              }
+              try { 
+                console.log('🧩 Inyectando estilos de página (forzado)...');
+                injectPageStyles(); 
+              } catch (e) { 
+                console.warn('⚠️ Error inyectando estilos de página (forzado):', e);
               }
             }
           }, 100);
@@ -2934,17 +3009,18 @@ const GrapesEditor: React.FC = () => {
           color: #6366f1 !important;
         }
         
-        /* Asegurar visibilidad del canvas e iframe */
+        /* Asegurar visibilidad del canvas e iframe sin bordes */
         .gjs-cv-canvas { 
           height: 100% !important; 
-          background: #f8fafc !important;
+          background: #ffffff !important;
         }
         .gjs-frame, iframe.gjs-frame { 
           height: 100% !important; 
           display: block !important;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
-          border-radius: 8px !important;
-          border: 1px solid #e2e8f0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          border: none !important;
+          background: #ffffff !important;
         }
         #gjs { 
           height: calc(100vh - 56px) !important; 
@@ -2980,6 +3056,136 @@ const GrapesEditor: React.FC = () => {
           letter-spacing: 0.025em !important;
           font-size: 14px !important;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+
+        /* Canvas optimizado para pantalla completa sin barras blancas */
+        .gjs-cv-canvas {
+          width: 100% !important;
+          height: 100% !important;
+          background: #ffffff !important;
+          overflow: auto !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        .gjs-frame {
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 500px !important;
+          border: none !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          background: #ffffff !important;
+        }
+
+        /* Editor principal sin márgenes para usar toda la pantalla */
+        #gjs {
+          width: 100% !important;
+          height: 100% !important;
+          background: #ffffff !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* Responsive para pantallas pequeñas */
+        @media (max-width: 1024px) {
+          .panel__left, .panel__right {
+            width: 240px !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .panel__left, .panel__right {
+            width: 200px !important;
+          }
+        }
+
+        /* Para pantallas muy grandes */
+        @media (min-width: 1920px) {
+          .panel__left, .panel__right {
+            width: 320px !important;
+          }
+        }
+
+        /* Optimización de la barra de herramientas */
+        .gjs-toolbar {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 1000 !important;
+          background: #1e293b !important;
+          border-radius: 6px !important;
+          margin: 5px !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* Mejoras para dispositivos móviles */
+        @media (max-width: 640px) {
+          .gjs-toolbar {
+            flex-wrap: wrap !important;
+            gap: 2px !important;
+          }
+          
+          .gjs-toolbar-item {
+            min-width: 32px !important;
+            min-height: 32px !important;
+            font-size: 12px !important;
+          }
+          
+          .gjs-blocks-c {
+            padding: 10px !important;
+          }
+          
+          .gjs-block {
+            margin: 3px !important;
+            min-height: 40px !important;
+          }
+        }
+
+        /* Mejoras para pantallas ultrawide */
+        @media (min-width: 1920px) {
+          .panel__left, .panel__right {
+            width: 360px !important;
+          }
+          
+          .gjs-cv-canvas {
+            max-width: calc(100vw - 720px) !important;
+            margin: 0 auto !important;
+          }
+        }
+
+        /* Transiciones suaves para cambios de tamaño */
+        .panel__left, .panel__right, .panel__top, #gjs {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* Mejoras de accesibilidad y UX */
+        .gjs-selected {
+          outline: 2px solid #3b82f6 !important;
+          outline-offset: 2px !important;
+        }
+        
+        .gjs-hovered {
+          outline: 1px dashed #6366f1 !important;
+          outline-offset: 1px !important;
+        }
+
+        /* Optimización del scroll */
+        .gjs-cv-canvas::-webkit-scrollbar {
+          width: 8px !important;
+          height: 8px !important;
+        }
+        
+        .gjs-cv-canvas::-webkit-scrollbar-track {
+          background: #f1f5f9 !important;
+        }
+        
+        .gjs-cv-canvas::-webkit-scrollbar-thumb {
+          background: #cbd5e1 !important;
+          border-radius: 4px !important;
+        }
+        
+        .gjs-cv-canvas::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8 !important;
         }
       `}</style>
       {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}
@@ -3099,10 +3305,59 @@ const GrapesEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Editor Container nativo de GrapesJS */}
-      <div className="flex-1 fixed top-[85px] left-0 right-0 bottom-0 z-10">
+      {/* Editor Container nativo de GrapesJS - Pantalla completa */}
+      <div className="fixed inset-0 z-50 bg-gray-100">
+        {/* Panel izquierdo para bloques */}
+        <div 
+          className="panel__left absolute left-0 top-0 bottom-0 bg-white border-r border-gray-200 z-20 w-80"
+        >
+          <div className="h-full overflow-y-auto">
+            <div className="flex items-center justify-between p-2 border-b border-gray-200">
+              <span className="text-sm font-medium text-gray-700">Bloques</span>
+            </div>
+            <div id="blocks-panel" className="p-4"></div>
+          </div>
+        </div>
+
+        {/* Panel derecho para capas, estilos y propiedades */}
+        <div 
+          className="panel__right absolute right-0 top-0 bottom-0 bg-white border-l border-gray-200 z-20 w-80"
+        >
+          <div className="panel__switcher border-b border-gray-200 flex items-center justify-between p-2">
+            <div className="flex">
+              {/* Los botones se generarán automáticamente por GrapesJS */}
+            </div>
+          </div>
+          <div className="h-full overflow-y-auto">
+            <div id="layers-container" className="p-4"></div>
+            <div id="styles-panel" className="p-4"></div>
+            <div id="traits-container" className="p-4"></div>
+            <div id="classes-panel" className="p-4"></div>
+          </div>
+        </div>
+
+        {/* Panel superior para dispositivos */}
+        <div 
+          className="panel__top absolute top-0 h-12 bg-white border-b border-gray-200 z-20"
+          style={{ 
+            left: '320px',
+            right: '320px'
+          }}
+        >
+          <div className="panel__devices flex items-center justify-center h-full">
+            {/* Los botones de dispositivos se generarán automáticamente por GrapesJS */}
+          </div>
+        </div>
+
         {/* Lienzo del editor con gating visual hasta que canvas esté listo */}
-        <div className="flex-1 flex flex-col relative h-full">
+        <div 
+          className="absolute inset-0 flex flex-col" 
+          style={{ 
+            left: '320px',
+            right: '320px',
+            top: '48px'
+          }}
+        >
           {!canvasReady && (
             <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
               <div className="text-center">
@@ -3114,8 +3369,8 @@ const GrapesEditor: React.FC = () => {
           <div
             ref={editorContainerRef}
             id="gjs"
-            style={{ height: 'calc(100vh - 85px)', overflow: 'auto', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
-            className="w-full"
+            style={{ height: '100%', overflow: 'hidden', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
+            className="w-full flex-1"
           />
         </div>
       </div>
@@ -3124,3 +3379,4 @@ const GrapesEditor: React.FC = () => {
 };
 
 export default GrapesEditor;
+*/

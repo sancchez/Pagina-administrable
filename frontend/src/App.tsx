@@ -11,7 +11,7 @@ import UserManagement from './admin/UserManagement';
 import ReportsAnalytics from './admin/ReportsAnalytics';
 import PaymentsBilling from './admin/PaymentsBilling';
 import SystemSettings from './admin/SystemSettings';
-import GrapesEditor from './admin/GrapesEditor';
+import GrapesEditor from './admin/editor/GrapesEditor';
 import PageMigrator from './admin/PageMigrator';
 import PageMigration from './admin/PageMigration';
 import BackupManager from './admin/BackupManager';
