@@ -2,6 +2,7 @@ import app from './app';
 import { PrismaClient } from '@prisma/client';
 import enhancedLogger from './utils/enhancedLogger';
 import { config } from './config/env';
+import { Server } from 'http';
 
 console.log('Starting server initialization...');
 console.log('Config loaded, port:', config.port);
@@ -13,6 +14,9 @@ console.log('Prisma client created');
 
 // Logger con contexto del servidor
 const serverLogger = enhancedLogger.child({ service: 'Server' });
+
+// Referencia a la instancia del servidor para cierre controlado
+let httpServer: Server | null = null;
 
 // Función para conectar a la base de datos
 async function connectDatabase() {
@@ -44,6 +48,16 @@ async function gracefulShutdown() {
   serverLogger.info('Shutting down gracefully...');
   
   try {
+    if (httpServer) {
+      await new Promise<void>((resolve) => {
+        httpServer!.close(() => {
+          serverLogger.info('HTTP server closed');
+          resolve();
+        });
+      });
+      httpServer = null;
+    }
+
     await prisma.$disconnect();
     serverLogger.info('Database disconnected successfully');
     serverLogger.info('Server shutdown completed');
@@ -63,6 +77,23 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   serverLogger.info('Received SIGINT signal (Ctrl+C)');
   gracefulShutdown();
+});
+
+// Manejo específico para reinicio de nodemon
+process.once('SIGUSR2', () => {
+  serverLogger.info('Received SIGUSR2 (nodemon restart), closing server first');
+  if (httpServer) {
+    httpServer.close(() => {
+      serverLogger.info('HTTP server closed for restart');
+      prisma.$disconnect().finally(() => {
+        // Reemitir la señal para que nodemon reinicie
+        process.kill(process.pid, 'SIGUSR2');
+      });
+    });
+  } else {
+    // No hay servidor, solo reemitimos la señal
+    process.kill(process.pid, 'SIGUSR2');
+  }
 });
 
 // Manejo de errores no capturados
@@ -93,7 +124,7 @@ async function startServer() {
     console.log('Database connected successfully');
 
     // Iniciar el servidor
-    const server = app.listen(PORT, () => {
+    httpServer = app.listen(PORT, () => {
       const duration = Date.now() - startTime;
       
       serverLogger.info('Server started successfully', {
@@ -113,12 +144,23 @@ async function startServer() {
       serverLogger.performance('Server startup', duration, 5000);
     });
 
+    // Capturar errores del servidor (por ejemplo EADDRINUSE)
+    httpServer.on('error', (err: any) => {
+      if (err && err.code === 'EADDRINUSE') {
+        serverLogger.error('Port already in use', err, { port: PORT, code: 'EADDRINUSE' });
+        // Salida controlada para evitar crash loops
+        process.exit(1);
+      } else {
+        serverLogger.error('HTTP Server error', err);
+      }
+    });
+
     // Configurar timeout del servidor
-    server.timeout = 30000; // 30 segundos
+    httpServer.timeout = 30000; // 30 segundos
     
     serverLogger.debug('Server timeout configured', { timeout: 30000 });
 
-    return server;
+    return httpServer;
   } catch (error) {
     serverLogger.error('Failed to start server', error as Error, {
       duration: Date.now() - startTime,

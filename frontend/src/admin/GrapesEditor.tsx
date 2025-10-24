@@ -743,6 +743,195 @@ const GrapesEditor: React.FC = () => {
               name: '🔄 Efectos',
               open: false,
               buildProps: ['transition', 'opacity', 'transform']
+            },
+            {
+              name: '⚙️ Configuración',
+              id: 'button-config',
+              open: true,
+              visible: false, // Inicialmente oculta
+              properties: [
+                {
+                  id: 'action-type',
+                  type: 'select',
+                  name: 'Tipo de acción',
+                  property: 'data-action-type',
+                  options: [
+                    { id: 'none', name: 'Ninguna' },
+                    { id: 'payment', name: 'Pago' },
+                    { id: 'download', name: 'Descarga' },
+                    { id: 'redirect', name: 'Redirección' },
+                    { id: 'modal', name: 'Abrir modal' },
+                    { id: 'form-submit', name: 'Enviar formulario' },
+                    { id: 'scroll-to', name: 'Desplazar a sección' },
+                    { id: 'toggle', name: 'Alternar elemento' },
+                    { id: 'copy-text', name: 'Copiar texto' },
+                    { id: 'share', name: 'Compartir' },
+                    { id: 'print', name: 'Imprimir' },
+                    { id: 'email', name: 'Enviar email' },
+                    { id: 'phone', name: 'Llamar teléfono' },
+                    { id: 'whatsapp', name: 'WhatsApp' },
+                    { id: 'social-share', name: 'Compartir en redes' }
+                  ],
+                  defaults: 'none'
+                },
+                {
+                  id: 'file-url',
+                  type: 'text',
+                  name: 'URL del archivo',
+                  property: 'data-file-url',
+                  placeholder: 'https://ejemplo.com/archivo.pdf'
+                },
+                {
+                  id: 'transaction-id',
+                  type: 'text',
+                  name: 'ID de transacción',
+                  property: 'data-transaction-id',
+                  placeholder: 'Ingrese ID de transacción'
+                },
+                {
+                  id: 'amount',
+                  type: 'number',
+                  name: 'Monto',
+                  property: 'data-amount',
+                  placeholder: '0.00',
+                  min: 0,
+                  step: 0.01
+                },
+                {
+                  id: 'open-new-tab',
+                  type: 'checkbox',
+                  name: 'Abrir en nueva pestaña',
+                  property: 'data-target',
+                  valueOnChecked: '_blank',
+                  valueOnUnchecked: '_self'
+                },
+                {
+                  id: 'redirect-url',
+                  type: 'text',
+                  name: 'URL de redirección',
+                  property: 'data-redirect-url',
+                  placeholder: 'https://ejemplo.com/destino'
+                },
+                {
+                  id: 'modal-target',
+                  type: 'text',
+                  name: 'ID del modal',
+                  property: 'data-modal-target',
+                  placeholder: '#miModal'
+                },
+                {
+                  id: 'form-target',
+                  type: 'text',
+                  name: 'ID del formulario',
+                  property: 'data-form-target',
+                  placeholder: '#miFormulario'
+                },
+                {
+                  id: 'scroll-target',
+                  type: 'text',
+                  name: 'ID de la sección',
+                  property: 'data-scroll-target',
+                  placeholder: '#seccion'
+                },
+                {
+                  id: 'toggle-target',
+                  type: 'text',
+                  name: 'ID del elemento a alternar',
+                  property: 'data-toggle-target',
+                  placeholder: '#elemento'
+                },
+                {
+                  id: 'copy-text-content',
+                  type: 'text',
+                  name: 'Texto a copiar',
+                  property: 'data-copy-text',
+                  placeholder: 'Texto que se copiará al portapapeles'
+                },
+                {
+                  id: 'share-url',
+                  type: 'text',
+                  name: 'URL para compartir',
+                  property: 'data-share-url',
+                  placeholder: 'https://ejemplo.com'
+                },
+                {
+                  id: 'share-title',
+                  type: 'text',
+                  name: 'Título para compartir',
+                  property: 'data-share-title',
+                  placeholder: 'Título del contenido'
+                },
+                {
+                  id: 'email-to',
+                  type: 'text',
+                  name: 'Email destinatario',
+                  property: 'data-email-to',
+                  placeholder: 'contacto@ejemplo.com'
+                },
+                {
+                  id: 'email-subject',
+                  type: 'text',
+                  name: 'Asunto del email',
+                  property: 'data-email-subject',
+                  placeholder: 'Asunto del mensaje'
+                },
+                {
+                  id: 'email-body',
+                  type: 'textarea',
+                  name: 'Cuerpo del email',
+                  property: 'data-email-body',
+                  placeholder: 'Mensaje del email'
+                },
+                {
+                  id: 'phone-number',
+                  type: 'text',
+                  name: 'Número de teléfono',
+                  property: 'data-phone-number',
+                  placeholder: '+1234567890'
+                },
+                {
+                  id: 'whatsapp-number',
+                  type: 'text',
+                  name: 'Número de WhatsApp',
+                  property: 'data-whatsapp-number',
+                  placeholder: '+1234567890'
+                },
+                {
+                  id: 'whatsapp-message',
+                  type: 'textarea',
+                  name: 'Mensaje de WhatsApp',
+                  property: 'data-whatsapp-message',
+                  placeholder: 'Hola, me interesa...'
+                },
+                {
+                  id: 'social-platform',
+                  type: 'select',
+                  name: 'Red social',
+                  property: 'data-social-platform',
+                  options: [
+                    { id: 'facebook', name: 'Facebook' },
+                    { id: 'twitter', name: 'Twitter/X' },
+                    { id: 'linkedin', name: 'LinkedIn' },
+                    { id: 'instagram', name: 'Instagram' },
+                    { id: 'telegram', name: 'Telegram' },
+                    { id: 'pinterest', name: 'Pinterest' }
+                  ]
+                },
+                {
+                  id: 'custom-class',
+                  type: 'text',
+                  name: 'Clase CSS personalizada',
+                  property: 'data-custom-class',
+                  placeholder: 'mi-clase-personalizada'
+                },
+                {
+                  id: 'custom-data',
+                  type: 'textarea',
+                  name: 'Datos personalizados (JSON)',
+                  property: 'data-custom-data',
+                  placeholder: '{"key": "value"}'
+                }
+              ]
             }
           ]
         },
@@ -785,6 +974,333 @@ const GrapesEditor: React.FC = () => {
       editorInstanceRef.current = gEditor;
       try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; console.log("🪄 Editor expuesto en window"); } catch(e) { console.warn("No se pudo exponer editor en window", e); }
       // Sin estado: editorInstanceRef mantiene la instancia
+
+      // Traits personalizados para botones y enlaces
+      try {
+        const dc: any = (gEditor as any).DomComponents;
+        if (dc && dc.addType) {
+          
+          // =================== BOTÓN ===================
+          dc.addType('button', {
+            isComponent: (el: any) => {
+              if (!el || !el.tagName) return false;
+              const tagName = el.tagName.toLowerCase();
+              return tagName === 'button' ||
+                     (tagName === 'a' && (
+                       el.style?.display?.includes('block') ||
+                       el.style?.padding ||
+                       el.className?.includes('btn') ||
+                       el.className?.includes('button')
+                     ));
+            },
+            extend: 'button',
+            model: {
+              defaults: {
+                tagName: 'button',
+                draggable: true,
+                droppable: false,
+                editable: true,
+                
+                traits: [
+                  // Trait para cambiar el texto
+                  {
+                    type: 'text',
+                    label: 'Texto del botón',
+                    name: 'text',
+                    changeProp: 1,
+                  },
+                  {
+                    type: 'text',
+                    label: 'ID',
+                    name: 'id',
+                  },
+                  {
+                    type: 'text',
+                    label: 'Clase CSS',
+                    name: 'class',
+                  },
+                  {
+                    type: 'select',
+                    label: 'Tipo de acción',
+                    name: 'data-action-type',
+                    options: [
+                      { id: 'none', name: 'Sin acción' },
+                      { id: 'link', name: 'Enlace' },
+                      { id: 'open_pdf', name: 'Abrir PDF' },
+                      { id: 'download', name: 'Descargar' },
+                      { id: 'go_to_payment', name: 'Ir a pago' },
+                    ],
+                  },
+                  {
+                    type: 'text',
+                    label: 'URL del archivo',
+                    name: 'data-file-url',
+                    placeholder: 'https://ejemplo.com/archivo.pdf',
+                  },
+                  {
+                    type: 'text',
+                    label: 'ID de transacción',
+                    name: 'data-transaction-id',
+                    placeholder: 'Para pagos',
+                  },
+                  {
+                    type: 'number',
+                    label: 'Monto',
+                    name: 'data-amount',
+                    placeholder: '50000',
+                  },
+                  {
+                    type: 'checkbox',
+                    label: 'Abrir en nueva pestaña',
+                    name: 'data-new-tab',
+                    valueTrue: 'true',
+                    valueFalse: 'false',
+                  },
+                ],
+                
+                script: function() {
+                  const el = this;
+                  function doAction(e: Event) {
+                    try {
+                      const act = (el.getAttribute('data-action-type') || 'none');
+                      if (act === 'none') return;
+                      
+                      const url = el.getAttribute('data-file-url') || el.getAttribute('href');
+                      const newTabAttr = el.getAttribute('data-new-tab');
+                      const newTab = (newTabAttr === 'true' || newTabAttr === '1');
+                      
+                      if (act === 'link' && url) {
+                        newTab ? window.open(url, '_blank') : (window.location.href = url);
+                      } else if (act === 'open_pdf' && url) {
+                        window.open(url, '_blank');
+                      } else if (act === 'download' && url) {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = url.split('/').pop() || 'archivo';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else if (act === 'go_to_payment') {
+                        const tx = el.getAttribute('data-transaction-id') || '';
+                        const amount = el.getAttribute('data-amount') || '';
+                        const payUrl = url || '/pago';
+                        const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
+                          'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
+                        newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
+                      }
+                      
+                      if (e && e.preventDefault) e.preventDefault();
+                    } catch(err) {
+                      console.warn('button action error', err);
+                    }
+                  }
+                  
+                  (el as HTMLElement).addEventListener('click', doAction);
+                  return {
+                    destroy: function() {
+                      (el as HTMLElement).removeEventListener('click', doAction);
+                    }
+                  };
+                },
+                
+                // ⚠️ IMPORTANTE: Sin guiones
+                scriptProps: [
+                  'data-action-type',
+                  'data-file-url',
+                  'data-transaction-id',
+                  'data-amount',
+                  'data-new-tab'
+                ],
+              },
+            },
+          });
+
+          // =================== ENLACE ===================
+          dc.addType('link', {
+            isComponent: (el: any) => {
+              if (!el || !el.tagName) return false;
+              return el.tagName.toLowerCase() === 'a';
+            },
+            extend: 'link',
+            model: {
+              defaults: {
+                tagName: 'a',
+                draggable: true,
+                droppable: true,
+                editable: true,
+                
+                traits: [
+                  {
+                    type: 'text',
+                    label: 'Texto del enlace',
+                    name: 'text',
+                    changeProp: 1,
+                  },
+                  {
+                    type: 'text',
+                    label: 'URL',
+                    name: 'href',
+                    placeholder: 'https://ejemplo.com',
+                  },
+                  {
+                    type: 'select',
+                    label: 'Target',
+                    name: 'target',
+                    options: [
+                      { id: '', name: 'Misma ventana' },
+                      { id: '_blank', name: 'Nueva ventana' }
+                    ],
+                  },
+                  {
+                    type: 'text',
+                    label: 'ID',
+                    name: 'id',
+                  },
+                  {
+                    type: 'text',
+                    label: 'Clase CSS',
+                    name: 'class',
+                  },
+                  {
+                    type: 'select',
+                    label: 'Tipo de acción',
+                    name: 'data-action-type',
+                    options: [
+                      { id: 'link', name: 'Enlace' },
+                      { id: 'open_pdf', name: 'Abrir PDF' },
+                      { id: 'download', name: 'Descargar' },
+                      { id: 'go_to_payment', name: 'Ir a pago' },
+                    ],
+                  },
+                  {
+                    type: 'text',
+                    label: 'ID de transacción',
+                    name: 'data-transaction-id',
+                  },
+                  {
+                    type: 'number',
+                    label: 'Monto',
+                    name: 'data-amount',
+                  },
+                ],
+                
+                script: function() {
+                  const el = this;
+                  function onClick(e: Event) {
+                    try {
+                      const act = (el.getAttribute('data-action-type') || 'link');
+                      const url = el.getAttribute('href') || el.getAttribute('data-file-url');
+                      const targetAttr = el.getAttribute('target');
+                      const newTab = targetAttr === '_blank';
+                      
+                      if (act === 'link' && url) {
+                        newTab ? window.open(url, '_blank') : (window.location.href = url);
+                      } else if (act === 'open_pdf' && url) {
+                        window.open(url, '_blank');
+                      } else if (act === 'download' && url) {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = url.split('/').pop() || 'archivo';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else if (act === 'go_to_payment') {
+                        const tx = el.getAttribute('data-transaction-id') || '';
+                        const amount = el.getAttribute('data-amount') || '';
+                        const payUrl = url || '/pago';
+                        const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
+                          'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
+                        newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
+                      }
+                      
+                      if (e && e.preventDefault) e.preventDefault();
+                    } catch(err) {
+                      console.warn('link action error', err);
+                    }
+                  }
+                  
+                  (el as HTMLElement).addEventListener('click', onClick);
+                  return {
+                    destroy: function() {
+                      (el as HTMLElement).removeEventListener('click', onClick);
+                    }
+                  };
+                },
+                
+                scriptProps: [
+                  'data-action-type',
+                  'href',
+                  'data-file-url',
+                  'data-transaction-id',
+                  'data-amount',
+                  'target'
+                ],
+              },
+            },
+          });
+          
+          console.log('✅ Traits personalizados registrados para button y link');
+        }
+      } catch (e) {
+        console.warn('No se pudieron registrar traits personalizados de button/link', e);
+      }
+
+      // =================== AUTO-ABRIR PANEL DE TRAITS ===================
+      // ESTO VA DESPUÉS DEL BLOQUE TRY-CATCH DE LOS TRAITS
+      gEditor.on('component:selected', (component: any) => {
+        const type = component.get('type');
+        
+        console.log('🎯 Componente seleccionado:', type);
+        
+        // Obtener el Style Manager
+        const sm = gEditor.StyleManager;
+        
+        if (type === 'button') {
+          console.log(`🎯 ${type} seleccionado, mostrando sección de configuración...`);
+          
+          // Mostrar la sección de configuración para botones
+          try {
+            const sectors = sm.getSectors();
+            const configSector = sectors.find((s: any) => {
+              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
+              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
+            });
+            
+            if (configSector) {
+              // Hacer visible y abrir la sección
+              configSector.set('visible', true);
+              configSector.set('open', true);
+              console.log('✅ Sección de configuración mostrada');
+              
+              // Forzar re-renderizado del Style Manager
+              sm.render();
+            } else {
+              console.warn('⚠️ Sección de configuración no encontrada');
+            }
+          } catch (e) {
+            console.warn('Error al mostrar sección de configuración:', e);
+          }
+        } else {
+          // Ocultar la sección de configuración para otros componentes
+          try {
+            const sectors = sm.getSectors();
+            const configSector = sectors.find((s: any) => {
+              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
+              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
+            });
+            
+            if (configSector) {
+              configSector.set('visible', false);
+              configSector.set('open', false);
+              
+              // Forzar re-renderizado del Style Manager
+              sm.render();
+            }
+          } catch (e) {
+            console.warn('Error al ocultar sección de configuración:', e);
+          }
+        }
+      });
 
       // Definir un dispositivo ancho para activar breakpoints md de Tailwind
       try {
