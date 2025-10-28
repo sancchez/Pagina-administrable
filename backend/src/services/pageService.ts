@@ -401,7 +401,7 @@ export class PageService {
     }
 
     // CASCADA: Usar gjsHtml primero, sino html legacy y luego content
-    const htmlToPublish = page.gjsHtml || page.html || page.content || '';
+    let htmlToPublish = page.gjsHtml || page.html || page.content || '';
     const cssToPublish = page.gjsCss || page.css || '';
 
     console.log('🚀 Publicando:', slug);
@@ -410,6 +410,28 @@ export class PageService {
 
     if (!htmlToPublish) {
       throw new Error('No hay contenido para publicar');
+    }
+
+    // Limpiar solo los scripts inline de GrapesJS que contienen handleClick
+    // pero preservar los atributos data-action-type de los elementos HTML
+    htmlToPublish = htmlToPublish.replace(/<script[^>]*>\s*[\s\S]*?function\s+handleClick[\s\S]*?<\/script>/g, '');
+    console.log('🧹 Scripts inline de GrapesJS removidos');
+
+    // Inyectar script de botones si la página contiene botones con data-action-type
+    if (htmlToPublish.includes('data-action-type')) {
+      console.log('🔘 Página contiene botones, inyectando script de acciones');
+      const buttonScript = '<script src="/button-actions.js" defer></script>';
+      
+      // Buscar la etiqueta </body> o </html> para insertar el script
+      if (htmlToPublish.includes('</body>')) {
+        htmlToPublish = htmlToPublish.replace('</body>', `${buttonScript}\n</body>`);
+      } else if (htmlToPublish.includes('</html>')) {
+        htmlToPublish = htmlToPublish.replace('</html>', `${buttonScript}\n</html>`);
+      } else {
+        // Si no hay etiquetas de cierre, agregar al final
+        htmlToPublish += `\n${buttonScript}`;
+      }
+      console.log('✅ Script de botones inyectado');
     }
 
     const published = await prisma.page.update({

@@ -15,6 +15,7 @@ export class VersionService {
     const version = await prisma.pageVersion.create({
       data: {
         pageId: page.id,
+        title: page.title, // Agregar título requerido
         // Snapshot completo de estado de edición (GrapesJS)
         gjsHtml: page.gjsHtml || null,
         gjsCss: page.gjsCss || null,

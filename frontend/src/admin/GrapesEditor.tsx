@@ -33,6 +33,65 @@ interface PageData {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'auto-saving';
 
+// -------------------- Función segura para limpiar traits inválidos --------------------
+const cleanProjectTraits = (projectData: any) => {
+  if (!projectData) return projectData;
+
+  try {
+    const cleanedData = JSON.parse(JSON.stringify(projectData)); // deep clone
+
+    // Función recursiva para limpiar componentes
+    const cleanComponents = (components: any[]) => {
+      if (!Array.isArray(components)) return components;
+
+      return components.map((component) => {
+        if (!component || typeof component !== 'object') return component;
+
+        if (Array.isArray(component.traits)) {
+          component.traits = component.traits.filter((trait: any) => {
+            if (!trait || typeof trait !== 'object') return false;
+            if (!trait.name) return false;
+            if (typeof trait.name !== 'string') return false;
+            if (trait.name.trim() === '') return false;
+            if (trait.name === 'undefined') return false;
+            return true;
+          });
+        }
+
+        // Recursión para hijos
+        if (Array.isArray(component.components)) {
+          component.components = cleanComponents(component.components).filter(Boolean);
+        }
+
+        return component;
+      });
+    };
+
+    // Limpiar páginas / frames
+    if (Array.isArray(cleanedData.pages)) {
+      cleanedData.pages.forEach((page: any) => {
+        if (!page || !Array.isArray(page.frames)) return;
+        page.frames.forEach((frame: any) => {
+          if (frame && frame.component && Array.isArray(frame.component.components)) {
+            frame.component.components = cleanComponents(frame.component.components);
+          }
+        });
+      });
+    }
+
+    // Limpiar root components si existen
+    if (Array.isArray(cleanedData.components)) {
+      cleanedData.components = cleanComponents(cleanedData.components);
+    }
+
+    console.log('✅ Traits limpiados correctamente');
+    return cleanedData;
+  } catch (error) {
+    console.error('Error al limpiar traits:', error);
+    return projectData;
+  }
+};
+
 const GrapesEditor: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -108,7 +167,7 @@ const GrapesEditor: React.FC = () => {
       const doc = frame?.contentDocument || ed?.Canvas.getDocument();
       if (!doc) {
         if (maxRetries > 0) setTimeout(() => injectTailwindIntoCanvas(maxRetries - 1), 120);
-        else console.warn('⚠️ Documento del canvas no disponible para estilos');
+        else console.warn('Documento del canvas no disponible para estilos');
         return;
       }
       const href = '/tailwind.css';
@@ -117,7 +176,7 @@ const GrapesEditor: React.FC = () => {
         link.rel = 'stylesheet';
         link.href = href;
         doc.head.appendChild(link);
-        console.log('🎨 Tailwind CSS inyectado en canvas');
+        console.log('Tailwind CSS inyectado en canvas');
       }
     } catch (e) {
       console.warn('No se pudo inyectar Tailwind en canvas:', e);
@@ -131,7 +190,7 @@ const GrapesEditor: React.FC = () => {
       const doc = frame?.contentDocument || ed?.Canvas.getDocument();
       if (!doc) {
         if (maxRetries > 0) setTimeout(() => injectPageStyles(maxRetries - 1), 120);
-        else console.warn('⚠️ Documento del canvas no disponible para estilos externos');
+        else console.warn('Documento del canvas no disponible para estilos externos');
         return;
       }
       const html = latestHtmlRef.current || '';
@@ -146,7 +205,7 @@ const GrapesEditor: React.FC = () => {
           link.rel = 'stylesheet';
           link.href = href;
           doc.head.appendChild(link);
-          console.log('🧩 Estilo externo cargado en canvas:', href);
+          console.log('Estilo externo cargado en canvas:', href);
         }
       });
     } catch (e) {
@@ -198,7 +257,7 @@ const GrapesEditor: React.FC = () => {
     if (!pageData) return;
 
     try {
-      console.log('📝 [GrapesEditor.savePageData] start', {
+      console.log('[GrapesEditor.savePageData] start', {
         id: pageData.id,
         slug: pageData.slug,
         htmlLen: (html || '').length,
@@ -216,7 +275,7 @@ const GrapesEditor: React.FC = () => {
       };
 
       await HttpClient.post(`/pages/${pageData.id}/grapes-data`, payload);
-      console.log('✅ [GrapesEditor.savePageData] posted', { len: JSON.stringify(payload).length });
+      console.log('[GrapesEditor.savePageData] posted', { len: JSON.stringify(payload).length });
       
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
@@ -226,9 +285,9 @@ const GrapesEditor: React.FC = () => {
         setTimeout(() => setSaveStatus('idle'), 2000);
       }
       
-      console.log('✅ Datos guardados exitosamente');
+      console.log('Datos guardados exitosamente');
     } catch (error) {
-      console.error('❌ Error guardando datos:', error);
+        console.error('Error guardando datos:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
@@ -243,12 +302,41 @@ const GrapesEditor: React.FC = () => {
       setSaveStatus(isAutoSave ? 'auto-saving' : 'saving');
 
       const grapesData = inst.store ? inst.store() : inst.getProjectData?.();
-      const html = inst.getHtml() || '';
+      // Sincronizar explícitamente props data-* hacia atributos HTML en componentes botón/enlace
+      try {
+        const wrapper: any = inst.getWrapper();
+        const comps: any[] = wrapper?.find?.('button, a') || [];
+        const propsToSync = ['data-action-type', 'data-url', 'data-target', 'data-transaction-id', 'data-amount'];
+        comps.forEach((comp: any) => {
+          try {
+            const attrs = comp.getAttributes?.() || {};
+            propsToSync.forEach((name) => {
+              const propVal = comp.get?.(name);
+              const attrVal = attrs?.[name];
+              const val = propVal ?? attrVal;
+              if (val !== undefined && val !== null && val !== '') {
+                comp.addAttributes?.({ [name]: val });
+              }
+            });
+          } catch (e) { console.warn('sync comp attrs error', e); }
+        });
+      } catch (e) { console.warn('sync data-* to attributes error', e); }
+      // Preferir HTML del DOM del canvas para preservar atributos data-*
+      let html = inst.getHtml() || '';
+      try {
+        const bodyEl = (inst.Canvas as any)?.getBody?.() || (inst.Canvas as any)?.getDocument?.()?.body || null;
+        const domHtml = bodyEl?.innerHTML || '';
+        if (domHtml && domHtml.length >= html.length) {
+          html = domHtml;
+        }
+      } catch (e) {
+          console.warn('No se pudo obtener HTML del canvas DOM', e);
+      }
       const css = inst.getCss() || '';
       const components = inst.getComponents();
       const styles = inst.getStyle();
 
-      console.log('💾 Guardando:', {
+      console.log('Guardando:', {
         htmlLen: html.length,
         cssLen: css.length
       });
@@ -279,14 +367,14 @@ const GrapesEditor: React.FC = () => {
       );
 
       if (resultJson?.success) {
-        console.log('✅ Guardado exitoso');
+        console.log('Guardado exitoso');
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
         if (!isAutoSave) alert('💾 Cambios guardados');
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } else {
-        console.error('❌ Error al guardar', resultJson);
+          console.error('Error al guardar', resultJson);
         if (!isAutoSave) alert('❌ Error al guardar');
         setSaveStatus('error');
         setTimeout(() => setSaveStatus('idle'), 3000);
@@ -313,7 +401,7 @@ const GrapesEditor: React.FC = () => {
 
       // Llamar endpoint de publicación con tipado
       const result = await HttpClient.post<ApiResponse<any>>(`/pages/${pageData.id}/publish`, {});
-      console.log('🚀 [GrapesEditor.handlePublish] response', result);
+      console.log('[GrapesEditor.handlePublish] response', result);
 
       // Verificar éxito explícitamente en el cuerpo JSON
       if (!result?.success) {
@@ -335,12 +423,12 @@ const GrapesEditor: React.FC = () => {
         // Redirigir con timestamp para evitar caché
         setTimeout(() => {
           const target = `/${pageData.slug}?t=${Date.now()}`;
-          console.log('🔄 [GrapesEditor.handlePublish] redirecting to', target);
+          console.log('[GrapesEditor.handlePublish] redirecting to', target);
           window.location.href = target;
         }, 1500);
       }
     } catch (error) {
-      console.error('❌ Error al publicar página:', error);
+        console.error('Error al publicar página:', error);
       setPublishStatus('error');
     } finally {
       setIsPublishing(false);
@@ -357,7 +445,7 @@ const GrapesEditor: React.FC = () => {
     
     autoSaveTimeoutRef.current = setTimeout(() => {
       if (hasUnsavedChanges && editorInstanceRef.current) {
-        console.log('🔄 Auto-guardado activado');
+        console.log('Auto-guardado activado');
         handleSave(true);
       }
     }, 5000); // Auto-guardar cada 5 segundos
@@ -366,14 +454,14 @@ const GrapesEditor: React.FC = () => {
   // PASO 4: Cargar datos por slug (solo una vez por slug)
   const loadPageData = useCallback(async () => {
     if (!slug) return;
-    console.log('🔄 useEffect [slug] -> loadPageData');
+    console.log('useEffect [slug] -> loadPageData');
     try {
       setLoading(true);
-      console.log('📡 Cargando datos de la página:', slug);
+      console.log('Cargando datos de la página:', slug);
       const response = await HttpClient.get<ApiResponse<{ page: PageData }>>(`/pages/slug/${slug}`);
       const dataAny: any = response.data as any;
       const page: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
-      console.log('📥 Página cargada para editar:', page.slug);
+      console.log('Página cargada para editar:', page.slug);
       setPageData(page);
     } catch (error) {
       console.error('Error:', error);
@@ -385,14 +473,14 @@ const GrapesEditor: React.FC = () => {
 
   // Cargar datos de la página: depende SOLO de slug
   useEffect(() => {
-    console.log('🔄 useEffect [slug]');
+    console.log('useEffect [slug]');
     loadPageData();
   }, [slug]);
 
   // Función para inicializar el editor
   const initializeEditor = useCallback(() => {
     if (!editorContainerRef.current) {
-      console.log('⚠️ Container no está listo aún');
+      console.log('Container no está listo aún');
       return false;
     }
     
@@ -400,7 +488,7 @@ const GrapesEditor: React.FC = () => {
       return true; // Ya inicializado o en proceso
     }
 
-    console.log('🚀 Inicializando GrapesJS...');
+    console.log('Inicializando GrapesJS...');
     initializationAttempted.current = true;
     lastInitSlugRef.current = slug || null;
     
@@ -410,7 +498,7 @@ const GrapesEditor: React.FC = () => {
       const pluginPreset = (presetWebpage as any)?.default ?? presetWebpage;
       const pluginFormsFn = (pluginForms as any)?.default ?? pluginForms;
       try {
-        console.log('🔌 Plugins typeof:', {
+        console.log('Plugins typeof:', {
           basic: typeof pluginBasic,
           preset: typeof pluginPreset,
           forms: typeof pluginFormsFn,
@@ -491,11 +579,11 @@ const GrapesEditor: React.FC = () => {
         // Plugins como funciones; se envían opciones vía wrappers para ajustar tipos
         plugins: [
           (ed: Editor) => pluginBasic(ed, {
-            blocks: ['column1', 'column2', 'column3', 'text', 'link', 'image'],
+            blocks: ['column1', 'column2', 'column3', 'text', 'link', 'image'], // Removido 'button' para evitar conflictos
             flexGrid: 1
           }),
           (ed: Editor) => pluginFormsFn(ed, {
-            blocks: ['form', 'input', 'textarea', 'select', 'button', 'label']
+            blocks: ['form', 'input', 'textarea', 'select', 'label'] // Removido 'button' para evitar conflictos
           }),
           (ed: Editor) => pluginPreset(ed, {
             blocks: ['link-block', 'quote', 'text-basic'],
@@ -745,9 +833,9 @@ const GrapesEditor: React.FC = () => {
               buildProps: ['transition', 'opacity', 'transform']
             },
             {
-              name: '⚙️ Configuración',
-              id: 'button-config',
-              open: true,
+              name: '⚙️ Acciones del Botón',
+              id: 'button-actions',
+              open: false,
               visible: false, // Inicialmente oculta
               properties: [
                 {
@@ -756,186 +844,44 @@ const GrapesEditor: React.FC = () => {
                   name: 'Tipo de acción',
                   property: 'data-action-type',
                   options: [
-                    { id: 'none', name: 'Ninguna' },
-                    { id: 'payment', name: 'Pago' },
-                    { id: 'download', name: 'Descarga' },
-                    { id: 'redirect', name: 'Redirección' },
-                    { id: 'modal', name: 'Abrir modal' },
-                    { id: 'form-submit', name: 'Enviar formulario' },
-                    { id: 'scroll-to', name: 'Desplazar a sección' },
-                    { id: 'toggle', name: 'Alternar elemento' },
-                    { id: 'copy-text', name: 'Copiar texto' },
-                    { id: 'share', name: 'Compartir' },
-                    { id: 'print', name: 'Imprimir' },
-                    { id: 'email', name: 'Enviar email' },
-                    { id: 'phone', name: 'Llamar teléfono' },
-                    { id: 'whatsapp', name: 'WhatsApp' },
-                    { id: 'social-share', name: 'Compartir en redes' }
+                    { id: 'none', name: '-- Sin acción --' },
+                    { id: 'link', name: '🔗 Ir a página' },
+                    { id: 'pdf', name: '📄 Abrir PDF' },
+                    { id: 'download', name: '⬇️ Descargar archivo' }
                   ],
                   defaults: 'none'
                 },
                 {
-                  id: 'file-url',
+                  id: 'url',
                   type: 'text',
-                  name: 'URL del archivo',
-                  property: 'data-file-url',
-                  placeholder: 'https://ejemplo.com/archivo.pdf'
+                  name: '🔗 URL',
+                  property: 'data-url',
+                  visible: false
                 },
                 {
-                  id: 'transaction-id',
-                  type: 'text',
-                  name: 'ID de transacción',
-                  property: 'data-transaction-id',
-                  placeholder: 'Ingrese ID de transacción'
-                },
-                {
-                  id: 'amount',
-                  type: 'number',
-                  name: 'Monto',
-                  property: 'data-amount',
-                  placeholder: '0.00',
-                  min: 0,
-                  step: 0.01
-                },
-                {
-                  id: 'open-new-tab',
-                  type: 'checkbox',
-                  name: 'Abrir en nueva pestaña',
+                  id: 'new-tab',
+                  type: 'radio',
+                  name: 'Abrir en',
                   property: 'data-target',
-                  valueOnChecked: '_blank',
-                  valueOnUnchecked: '_self'
-                },
-                {
-                  id: 'redirect-url',
-                  type: 'text',
-                  name: 'URL de redirección',
-                  property: 'data-redirect-url',
-                  placeholder: 'https://ejemplo.com/destino'
-                },
-                {
-                  id: 'modal-target',
-                  type: 'text',
-                  name: 'ID del modal',
-                  property: 'data-modal-target',
-                  placeholder: '#miModal'
-                },
-                {
-                  id: 'form-target',
-                  type: 'text',
-                  name: 'ID del formulario',
-                  property: 'data-form-target',
-                  placeholder: '#miFormulario'
-                },
-                {
-                  id: 'scroll-target',
-                  type: 'text',
-                  name: 'ID de la sección',
-                  property: 'data-scroll-target',
-                  placeholder: '#seccion'
-                },
-                {
-                  id: 'toggle-target',
-                  type: 'text',
-                  name: 'ID del elemento a alternar',
-                  property: 'data-toggle-target',
-                  placeholder: '#elemento'
-                },
-                {
-                  id: 'copy-text-content',
-                  type: 'text',
-                  name: 'Texto a copiar',
-                  property: 'data-copy-text',
-                  placeholder: 'Texto que se copiará al portapapeles'
-                },
-                {
-                  id: 'share-url',
-                  type: 'text',
-                  name: 'URL para compartir',
-                  property: 'data-share-url',
-                  placeholder: 'https://ejemplo.com'
-                },
-                {
-                  id: 'share-title',
-                  type: 'text',
-                  name: 'Título para compartir',
-                  property: 'data-share-title',
-                  placeholder: 'Título del contenido'
-                },
-                {
-                  id: 'email-to',
-                  type: 'text',
-                  name: 'Email destinatario',
-                  property: 'data-email-to',
-                  placeholder: 'contacto@ejemplo.com'
-                },
-                {
-                  id: 'email-subject',
-                  type: 'text',
-                  name: 'Asunto del email',
-                  property: 'data-email-subject',
-                  placeholder: 'Asunto del mensaje'
-                },
-                {
-                  id: 'email-body',
-                  type: 'textarea',
-                  name: 'Cuerpo del email',
-                  property: 'data-email-body',
-                  placeholder: 'Mensaje del email'
-                },
-                {
-                  id: 'phone-number',
-                  type: 'text',
-                  name: 'Número de teléfono',
-                  property: 'data-phone-number',
-                  placeholder: '+1234567890'
-                },
-                {
-                  id: 'whatsapp-number',
-                  type: 'text',
-                  name: 'Número de WhatsApp',
-                  property: 'data-whatsapp-number',
-                  placeholder: '+1234567890'
-                },
-                {
-                  id: 'whatsapp-message',
-                  type: 'textarea',
-                  name: 'Mensaje de WhatsApp',
-                  property: 'data-whatsapp-message',
-                  placeholder: 'Hola, me interesa...'
-                },
-                {
-                  id: 'social-platform',
-                  type: 'select',
-                  name: 'Red social',
-                  property: 'data-social-platform',
                   options: [
-                    { id: 'facebook', name: 'Facebook' },
-                    { id: 'twitter', name: 'Twitter/X' },
-                    { id: 'linkedin', name: 'LinkedIn' },
-                    { id: 'instagram', name: 'Instagram' },
-                    { id: 'telegram', name: 'Telegram' },
-                    { id: 'pinterest', name: 'Pinterest' }
-                  ]
-                },
-                {
-                  id: 'custom-class',
-                  type: 'text',
-                  name: 'Clase CSS personalizada',
-                  property: 'data-custom-class',
-                  placeholder: 'mi-clase-personalizada'
-                },
-                {
-                  id: 'custom-data',
-                  type: 'textarea',
-                  name: 'Datos personalizados (JSON)',
-                  property: 'data-custom-data',
-                  placeholder: '{"key": "value"}'
+                    { id: '_self', name: 'Misma pestaña' },
+                    { id: '_blank', name: 'Nueva pestaña' }
+                  ],
+                  defaults: '_self',
+                  visible: false
                 }
               ]
             }
           ]
         },
-        traitManager: {},
+        traitManager: {
+          // Configurar para que los traits se apliquen como atributos HTML
+          optionsTarget: [
+            { value: '', name: 'Sin objetivo' },
+            { value: '_self', name: 'Misma ventana' },
+            { value: '_blank', name: 'Nueva ventana' }
+          ]
+        },
         layerManager: {
           showWrapper: true,
           sortable: true,
@@ -977,140 +923,74 @@ const GrapesEditor: React.FC = () => {
 
       // Traits personalizados para botones y enlaces
       try {
+        // =================== EVENTOS GLOBALES PARA SINCRONIZACIÓN DE TRAITS ===================
+
+
         const dc: any = (gEditor as any).DomComponents;
         if (dc && dc.addType) {
           
           // =================== BOTÓN ===================
           dc.addType('button', {
-            isComponent: (el: any) => {
-              if (!el || !el.tagName) return false;
-              const tagName = el.tagName.toLowerCase();
-              return tagName === 'button' ||
-                     (tagName === 'a' && (
-                       el.style?.display?.includes('block') ||
-                       el.style?.padding ||
-                       el.className?.includes('btn') ||
-                       el.className?.includes('button')
-                     ));
-            },
-            extend: 'button',
+            isComponent: (el: HTMLElement) => el.tagName === 'BUTTON',
             model: {
-              defaults: {
-                tagName: 'button',
-                draggable: true,
-                droppable: false,
-                editable: true,
-                
-                traits: [
-                  // Trait para cambiar el texto
-                  {
-                    type: 'text',
-                    label: 'Texto del botón',
-                    name: 'text',
-                    changeProp: 1,
+              defaults() {
+                return {
+                  tagName: 'button',
+                  attributes: {
+                    class: 'btn btn-primary',
+                    'data-action-type': 'none',
+                    'data-url': '',
+                    'data-target': '_self'
                   },
-                  {
-                    type: 'text',
-                    label: 'ID',
-                    name: 'id',
-                  },
-                  {
-                    type: 'text',
-                    label: 'Clase CSS',
-                    name: 'class',
-                  },
-                  {
-                    type: 'select',
-                    label: 'Tipo de acción',
-                    name: 'data-action-type',
-                    options: [
-                      { id: 'none', name: 'Sin acción' },
-                      { id: 'link', name: 'Enlace' },
-                      { id: 'open_pdf', name: 'Abrir PDF' },
-                      { id: 'download', name: 'Descargar' },
-                      { id: 'go_to_payment', name: 'Ir a pago' },
-                    ],
-                  },
-                  {
-                    type: 'text',
-                    label: 'URL del archivo',
-                    name: 'data-file-url',
-                    placeholder: 'https://ejemplo.com/archivo.pdf',
-                  },
-                  {
-                    type: 'text',
-                    label: 'ID de transacción',
-                    name: 'data-transaction-id',
-                    placeholder: 'Para pagos',
-                  },
-                  {
-                    type: 'number',
-                    label: 'Monto',
-                    name: 'data-amount',
-                    placeholder: '50000',
-                  },
-                  {
-                    type: 'checkbox',
-                    label: 'Abrir en nueva pestaña',
-                    name: 'data-new-tab',
-                    valueTrue: 'true',
-                    valueFalse: 'false',
-                  },
-                ],
-                
-                script: function() {
-                  const el = this;
-                  function doAction(e: Event) {
-                    try {
-                      const act = (el.getAttribute('data-action-type') || 'none');
-                      if (act === 'none') return;
-                      
-                      const url = el.getAttribute('data-file-url') || el.getAttribute('href');
-                      const newTabAttr = el.getAttribute('data-new-tab');
-                      const newTab = (newTabAttr === 'true' || newTabAttr === '1');
-                      
-                      if (act === 'link' && url) {
-                        newTab ? window.open(url, '_blank') : (window.location.href = url);
-                      } else if (act === 'open_pdf' && url) {
-                        window.open(url, '_blank');
-                      } else if (act === 'download' && url) {
+                  content: 'Botón',
+                  traits: [
+                    {
+                      type: 'select',
+                      label: 'Acción',
+                      name: 'data-action-type',
+                      changeProp: 1,
+                      options: [
+                        { id: 'none', name: 'Ninguna' },
+                        { id: 'link', name: 'Abrir enlace' },
+                        { id: 'download', name: 'Descargar archivo' },
+                      ],
+                    },
+                    {
+                      type: 'text',
+                      label: 'URL o archivo',
+                      name: 'data-url',
+                      changeProp: 1,
+                      placeholder: 'https://...',
+                    },
+                    {
+                      type: 'select',
+                      label: 'Abrir en',
+                      name: 'data-target',
+                      changeProp: 1,
+                      options: [
+                        { id: '_self', name: 'Misma pestaña' },
+                        { id: '_blank', name: 'Nueva pestaña' },
+                      ],
+                    },
+                  ],
+                  script() {
+                    const el = this.getEl();
+                    el.addEventListener('click', () => {
+                      const action = el.getAttribute('data-action-type');
+                      const url = el.getAttribute('data-url');
+                      const target = el.getAttribute('data-target') || '_self';
+
+                      if (action === 'link' && url) {
+                        window.open(url, target);
+                      } else if (action === 'download' && url) {
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = url.split('/').pop() || 'archivo';
-                        document.body.appendChild(a);
+                        a.download = '';
                         a.click();
-                        document.body.removeChild(a);
-                      } else if (act === 'go_to_payment') {
-                        const tx = el.getAttribute('data-transaction-id') || '';
-                        const amount = el.getAttribute('data-amount') || '';
-                        const payUrl = url || '/pago';
-                        const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
-                          'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
-                        newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
                       }
-                      
-                      if (e && e.preventDefault) e.preventDefault();
-                    } catch(err) {
-                      console.warn('button action error', err);
-                    }
-                  }
-                  
-                  (el as HTMLElement).addEventListener('click', doAction);
-                  return {
-                    destroy: function() {
-                      (el as HTMLElement).removeEventListener('click', doAction);
-                    }
-                  };
-                },
-                
-                // ⚠️ IMPORTANTE: Sin guiones
-                scriptProps: [
-                  'data-action-type',
-                  'data-file-url',
-                  'data-transaction-id',
-                  'data-amount',
-                  'data-new-tab'
-                ],
+                    });
+                  },
+                };
               },
             },
           });
@@ -1185,7 +1065,7 @@ const GrapesEditor: React.FC = () => {
                 ],
                 
                 script: function() {
-                  const el = this;
+                  const el = this.getEl();
                   function onClick(e: Event) {
                     try {
                       const act = (el.getAttribute('data-action-type') || 'link');
@@ -1219,10 +1099,10 @@ const GrapesEditor: React.FC = () => {
                     }
                   }
                   
-                  (el as HTMLElement).addEventListener('click', onClick);
+                  el.addEventListener('click', onClick);
                   return {
                     destroy: function() {
-                      (el as HTMLElement).removeEventListener('click', onClick);
+                      el.removeEventListener('click', onClick);
                     }
                   };
                 },
@@ -1239,7 +1119,7 @@ const GrapesEditor: React.FC = () => {
             },
           });
           
-          console.log('✅ Traits personalizados registrados para button y link');
+          console.log('Traits personalizados registrados para button y link');
         }
       } catch (e) {
         console.warn('No se pudieron registrar traits personalizados de button/link', e);
@@ -1247,68 +1127,261 @@ const GrapesEditor: React.FC = () => {
 
       // =================== AUTO-ABRIR PANEL DE TRAITS ===================
       // ESTO VA DESPUÉS DEL BLOQUE TRY-CATCH DE LOS TRAITS
-      gEditor.on('component:selected', (component: any) => {
-        const type = component.get('type');
+      
+      // Función para mostrar/ocultar campos según el tipo de acción
+      const updateVisibleFields = (actionType: string) => {
+        const sector = gEditor.StyleManager.getSector('button-actions');
+        if (!sector) return;
         
-        console.log('🎯 Componente seleccionado:', type);
+        const urlProp = sector.getProperty('url');
+        const tabProp = sector.getProperty('new-tab');
         
-        // Obtener el Style Manager
-        const sm = gEditor.StyleManager;
-        
-        if (type === 'button') {
-          console.log(`🎯 ${type} seleccionado, mostrando sección de configuración...`);
-          
-          // Mostrar la sección de configuración para botones
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-            
-            if (configSector) {
-              // Hacer visible y abrir la sección
-              configSector.set('visible', true);
-              configSector.set('open', true);
-              console.log('✅ Sección de configuración mostrada');
-              
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            } else {
-              console.warn('⚠️ Sección de configuración no encontrada');
-            }
-          } catch (e) {
-            console.warn('Error al mostrar sección de configuración:', e);
-          }
+        // Mostrar campos solo si NO es 'none'
+        if (actionType === 'none') {
+          urlProp?.set('visible', false);
+          tabProp?.set('visible', false);
         } else {
-          // Ocultar la sección de configuración para otros componentes
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-            
-            if (configSector) {
-              configSector.set('visible', false);
-              configSector.set('open', false);
-              
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            }
-          } catch (e) {
-            console.warn('Error al ocultar sección de configuración:', e);
+          urlProp?.set('visible', true);
+          
+          // Nueva pestaña solo para 'link' y 'pdf'
+          if (actionType === 'link' || actionType === 'pdf') {
+            tabProp?.set('visible', true);
+          } else {
+            tabProp?.set('visible', false);
           }
         }
+        
+        gEditor.StyleManager.render();
+      };
+
+      // 🛡️ PASO 2: PROTECCIÓN ROBUSTA AL SELECCIONAR COMPONENTES (CONSOLIDADO)
+      gEditor.on('component:selected', (comp: any) => {
+        try {
+          if (!comp) {
+          console.warn('Componente seleccionado nulo');
+            return;
+          }
+
+          const type = comp.get('type');
+          console.log(`Componente seleccionado: ${type}`);
+
+          // Evita componentes sin estructura válida
+          if (typeof comp.get !== 'function' || !comp.attributes) {
+            console.warn('Componente inválido detectado');
+            return;
+          }
+
+          // Obtener el Style Manager
+          const sm = gEditor.StyleManager;
+          
+          if (type === 'button' || type === 'link') {
+            console.log(`${type} seleccionado — mostrando acciones`);
+            
+            const actionType = comp.get('attributes')['data-action-type'] || 'none';
+            updateVisibleFields(actionType);
+            
+            // Mostrar la sección de acciones para botones
+            try {
+              const sectors = sm.getSectors();
+              const configSector = sectors.find((s: any) => {
+                const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
+                return id === 'button-actions' || s.get('name') === '⚙️ Acciones del Botón';
+              });
+              
+              if (configSector) {
+                // Hacer visible y abrir la sección
+                configSector.set('visible', true);
+                configSector.set('open', true);
+                console.log('Sección de acciones mostrada');
+                
+                // Forzar re-renderizado del Style Manager
+                sm.render();
+              }
+            } catch (error) {
+          console.error('Error mostrando sección de acciones:', error);
+            }
+
+            // Sincronizar atributos con el Style Manager (protegido)
+            const attrs = comp.getAttributes() || {};
+            ['data-action-type', 'data-url', 'data-target', 'data-transaction-id', 'data-amount'].forEach((attr) => {
+              try {
+                const prop = sm?.getProperty?.('button-actions', attr);
+                if (prop && typeof prop.setValue === 'function') {
+                  prop.setValue(attrs[attr] || '');
+                }
+              } catch (error) {
+                console.error(`Error sincronizando ${attr}:`, error);
+              }
+            });
+          }
+
+          // Actualizar información del componente seleccionado
+          try {
+            const view = comp.getView();
+            if (view && view.el) {
+              const rect = view.el.getBoundingClientRect();
+              setSelectedInfo({
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                name: comp.get('tagName') || comp.get('type') || 'Element'
+              });
+            }
+          } catch (error) {
+            console.error('Error actualizando información del componente:', error);
+          }
+
+        } catch (err) {
+          console.error('Error manejando selección:', err);
+        }
+      // Al cambiar el tipo de acción
+      gEditor.on('component:update:data-action-type', (component: any) => {
+        const actionType = component.get('attributes')['data-action-type'];
+        updateVisibleFields(actionType);
+      });
+
+      // =================== PROTECCIÓN GLOBAL CONTRA ERRORES ===================
+      
+      // Función de validación de componentes
+      const isValidComponent = (component: any): boolean => {
+        try {
+          return component && 
+                 typeof component.get === 'function' && 
+                 typeof component.getId === 'function' &&
+                 component.get('type');
+        } catch {
+          return false;
+        }
+      };
+
+      // Función de validación de traits
+      const isValidTrait = (trait: any): boolean => {
+        try {
+          return trait && 
+                 typeof trait.get === 'function' && 
+                 trait.get('name') && 
+                 trait.get('name').trim() !== '' &&
+                 trait.get('name') !== 'undefined';
+        } catch {
+          return false;
+        }
+      };
+
+      // Manejo global de errores del editor
+      const handleEditorError = (context: string, error: any, ...args: any[]) => {
+        console.error(`[${context}] Error capturado:`, error);
+        console.log('Argumentos:', args);
+        // No propagar el error para evitar crashes
+      };
+
+      // 🚀 PASO 4 — Manejo global de errores del editor
+      window.addEventListener('error', (e) => {
+        console.error('Error global capturado:', e.error || e.message);
+      });
+
+      window.addEventListener('unhandledrejection', (e) => {
+        console.error('Promesa no manejada:', e.reason);
+      });
+
+      // =================== EVENT LISTENERS ROBUSTOS ===================
+      
+      // Espera a que el editor esté completamente listo
+      gEditor.on('load', () => {
+        console.log('Editor completamente cargado - Configurando listeners robustos');
+
+        // 🛡️ LISTENER 1: Style Manager Updates (con protección completa)
+        gEditor.on('style:property:update', (prop: any, value: any, opts?: any) => {
+          if (!prop || typeof prop !== 'string') {
+              console.warn('Ignorando propiedad inválida en style:update', prop);
+            return;
+          }
+
+          try {
+            const name = prop.get('name');
+            const target = opts?.target;
+            console.log(`style:update ${name} = ${value}`, { target });
+
+            const selected = gEditor.getSelected();
+            if (!isValidComponent(selected)) return;
+
+            const sectorId = prop?.get?.('sector');
+            const propName = prop?.get?.('property');
+
+            if (sectorId !== 'button-actions' || selected.get('type') !== 'button') return;
+
+            console.log(`[SAFE: style:property:update] ${propName} = ${value}`);
+            
+            selected.addAttributes({ [propName]: value });
+            selected.trigger('change:attributes');
+            
+          } catch (error) {
+            console.error('Error en style:update', error);
+            handleEditorError('style:property:update', error, prop, value);
+          }
+        });
+
+        // 🛡️ LISTENER 2: Trait Updates (con validación robusta)
+        gEditor.on('trait:update', (trait: any, value: any) => {
+          if (!trait || typeof trait.get !== 'function') {
+            console.warn('Ignorando trait inválido', trait);
+            return;
+          }
+
+          try {
+            const name = trait.get('name');
+            const comp = trait.target;
+            console.log(`trait:update ${name} = ${value}`, { comp });
+
+            if (!isValidTrait(trait) || !isValidComponent(comp)) return;
+            if (comp.get('type') !== 'button') return;
+
+            const traitName = trait.get('name');
+            const traitValue = trait.get('value');
+
+            console.log(`[SAFE: trait:update] ${traitName} = ${traitValue}`);
+
+            const sm = gEditor.StyleManager;
+            const prop = sm?.getProperty?.('button-actions', traitName);
+            if (prop && typeof prop.setValue === 'function') {
+              prop.setValue(traitValue);
+            }
+            
+          } catch (error) {
+            console.error('Error en trait:update', error);
+            handleEditorError('trait:update', error, trait, value);
+          }
+        });
+
+        // 🛡️ LISTENER 4: Component Updates (simplificado)
+        gEditor.on('component:update:attributes', (component: any) => {
+          try {
+            if (!isValidComponent(component) || component.get('type') !== 'button') return;
+            console.log(`[SAFE: component:update:attributes] ${component.getId()}`);
+          } catch (error) {
+            handleEditorError('component:update:attributes', error, component);
+          }
+        });
+
+        // 🛡️ PROTECCIÓN ADICIONAL: Component Remove
+        gEditor.on('component:remove', (component: any) => {
+          try {
+            if (isValidComponent(component)) {
+              console.log(`[SAFE: component:remove] ${component.getId()}`);
+            }
+          } catch (error) {
+            handleEditorError('component:remove', error, component);
+          }
+        });
+
+        console.log('Todos los listeners configurados con protección robusta');
       });
 
       // Definir un dispositivo ancho para activar breakpoints md de Tailwind
       try {
         gEditor.setDevice("Wide");
-        console.log('📐 Dispositivo del canvas configurado: Wide (1024px)');
+        console.log('Dispositivo del canvas configurado: Wide (1024px)');
       } catch (e) {
-        console.warn('⚠️ No se pudo configurar dispositivo Wide:', e);
-      }
+          console.warn('No se pudo configurar dispositivo Wide:', e);
+        }
 
       // Registrar tipo SVG como estilable para alineación
       try {
@@ -1390,17 +1463,15 @@ const GrapesEditor: React.FC = () => {
               }
             }
           });
-          console.log('✅ Tipo SVG registrado como estilable para alineación');
+          console.log('Tipo SVG registrado como estilable para alineación');
         }
       } catch (e) {
         console.warn('Registro de tipo SVG falló', e);
       }
 
-      // Eventos desactivados temporalmente para diagnóstico de performance
-      try {
-        gEditor.on('load', () => console.log('🎯 Editor load'));
-        gEditor.on('component:selected', () => {});
-      } catch {}
+      // =================== LISTENERS ÚNICOS Y OPTIMIZADOS ===================
+      // Removiendo duplicados y conflictos para estabilizar el editor
+      console.log('Todos los listeners configurados con protección robusta');
 
       // Contadores simples desactivados: los helpers globales manejan reintentos
 
@@ -1425,9 +1496,9 @@ const GrapesEditor: React.FC = () => {
                 <input type="number" min="0" max="100" value="${pos !== null ? pos : ''}" class="gjs-grad-pos" placeholder="%" />
               </div>
               <div class="gjs-grad-actions">
-                <button class="gjs-grad-up">↑</button>
-                <button class="gjs-grad-down">↓</button>
-                <button class="gjs-grad-del">×</button>
+                <button class="gjs-grad-up">&uarr;</button>
+                <button class="gjs-grad-down">&darr;</button>
+                <button class="gjs-grad-del">&times;</button>
               </div>
             `;
             list.appendChild(row);
@@ -1807,7 +1878,7 @@ const GrapesEditor: React.FC = () => {
             }
             try { aparienciaSector?.set('open', true); } catch {}
           } else {
-            console.warn('No se encontró sector "🎨 Apariencia"');
+            console.warn('No se encontró sector "Apariencia"');
           }
           // Asegurar propiedad de gradiente para texto
           if (textoId) {
@@ -1818,7 +1889,7 @@ const GrapesEditor: React.FC = () => {
             }
             try { textoSector?.set('open', true); } catch {}
           } else {
-            console.warn('No se encontró sector "📝 Texto"');
+            console.warn('No se encontró sector "Texto"');
           }
         } catch (e) {
           console.warn('addProperty gradient error', e);
@@ -2191,26 +2262,7 @@ const GrapesEditor: React.FC = () => {
       };
       try { (window as any).pasteFromClipboard = pasteFromClipboard; } catch {}
 
-      // Habilitar resizable en selección de imágenes, videos y SVG
-      try {
-        gEditor.on('component:selected', (comp: any) => {
-          try { comp?.set?.({ resizable: true }); } catch {}
-          try {
-            const sm: any = gEditor.StyleManager;
-            const sectors = sm.getSectors?.() || [];
-            const name = comp?.get?.('type') || comp?.getName?.() || comp?.getTag?.() || '';
-            const isText = comp?.is?.('text') || /^(p|h1|h2|h3|h4|h5|h6|span|label)$/i.test(comp?.getTag?.() || '');
-            const isSection = comp?.is?.('section') || /^(section|div)$/i.test(comp?.getTag?.() || '');
-            sectors.forEach((s: any) => {
-              const sname = s.getName?.() || s.get('name');
-              if (isText && (sname === '📝 Texto' || sname === '🎨 Apariencia')) s.set('open', true);
-              else if (isSection && (sname === '🖼️ Fondos' || sname === '🎨 Apariencia')) s.set('open', true);
-              else s.set('open', false);
-            });
-          } catch (e) { /* noop */ }
-        });
-      } catch (e) { console.warn('No se pudo habilitar resizable', e); }
-
+      // Habilitar resizable en selección de imágenes, videos y SVG (ELIMINADO - ya incluido en el listener consolidado)
       // helper: inyectar scripts externos e inline desde el último HTML
       const injectPageScripts = (maxRetries: number = 20) => {
         try {
@@ -2220,7 +2272,7 @@ const GrapesEditor: React.FC = () => {
             if (maxRetries > 0) {
               setTimeout(() => injectPageScripts(maxRetries - 1), 120);
             } else {
-              console.warn('⚠️ Documento del canvas no disponible para scripts');
+              console.warn('Documento del canvas no disponible para scripts');
             }
             return;
           }
@@ -2245,7 +2297,7 @@ const GrapesEditor: React.FC = () => {
               s.src = src;
               s.defer = true;
               doc.body.appendChild(s);
-              console.log('⚙️ Script externo cargado:', src);
+              console.log('Script externo cargado:', src);
             }
           });
 
@@ -2254,8 +2306,9 @@ const GrapesEditor: React.FC = () => {
             const content = oldScript.textContent || '';
             if (content.trim().length === 0) return;
             const newScript = doc.createElement('script');
-            if (oldScript.getAttribute('type')) {
-              newScript.setAttribute('type', oldScript.getAttribute('type')!);
+            const scriptType = oldScript.getAttribute('type');
+            if (scriptType) {
+              newScript.setAttribute('type', scriptType);
             }
             newScript.textContent = content;
             doc.body.appendChild(newScript);
@@ -2268,7 +2321,7 @@ const GrapesEditor: React.FC = () => {
 
       // Esperar al evento 'load' antes de cargar contenido
       gEditor.on('load', () => {
-        console.log('✅ GrapesJS: evento load disparado');
+        console.log('GrapesJS: evento load disparado');
         setEditorReady(true);
 
         // Renombrar etiquetas de bloques de plugins a español
@@ -2299,30 +2352,7 @@ const GrapesEditor: React.FC = () => {
           console.warn('No se pudo renombrar bloques a español:', e);
         }
 
-        // Forzar población del Style Manager al seleccionar componentes
-        const updateSelectedInfo = () => {
-          try {
-            const sel = gEditor.getSelected();
-            if (!sel) { setSelectedInfo(null); return; }
-            const doc = gEditor.Canvas.getDocument();
-            const el = sel.getEl ? sel.getEl() : null;
-            let w = 0, h = 0;
-            if (el && doc) {
-              const rect = (el as HTMLElement).getBoundingClientRect();
-              w = rect.width; h = rect.height;
-            } else {
-              const style = sel.getStyle ? sel.getStyle() : {};
-              const sw = Number(parseFloat(String((style as any).width || 0)) || 0);
-              const sh = Number(parseFloat(String((style as any).height || 0)) || 0);
-              w = sw; h = sh;
-            }
-            const name = sel.getName ? sel.getName() : sel.getId?.() || undefined;
-            setSelectedInfo({ width: w, height: h, name });
-          } catch (e) { console.warn('No se pudo calcular tamaño seleccionado', e); }
-        };
-        gEditor.on('component:selected', updateSelectedInfo);
-        gEditor.on('style:change', updateSelectedInfo);
-
+        // Forzar población del Style Manager al seleccionar componentes (ELIMINADO - ya incluido en el listener consolidado)
         // Renderizado de managers bajo demanda via toggles
 
         // Bloques personalizados
@@ -2338,7 +2368,14 @@ const GrapesEditor: React.FC = () => {
         bm.add('button-link', {
           label: '🔘 Botón',
           category: '📌 Básico',
-          content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">Botón</a>'
+          content: {
+            type: 'button',
+            content: 'Botón',
+            attributes: {
+              type: 'button',
+              class: 'btn btn-primary'
+            }
+          }
         });
 
         bm.add('image-block', {
@@ -2351,7 +2388,14 @@ const GrapesEditor: React.FC = () => {
         bm.add('cta-button', {
           label: '🔔 Botón CTA',
           category: '🧩 Elementos',
-          content: '<a class="px-4 py-2 rounded bg-blue-600 text-white inline-block" href="#">Llamada a la acción</a>'
+          content: {
+            type: 'button',
+            content: 'Llamada a la acción',
+            attributes: {
+              type: 'button',
+              class: 'px-4 py-2 rounded bg-blue-600 text-white inline-block'
+            }
+          }
         });
 
         bm.add('card-simple', {
@@ -2707,13 +2751,29 @@ const GrapesEditor: React.FC = () => {
         bm.add('button-primary', {
           label: 'Botón Primario',
           category: 'Componentes',
-          content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: 600;">Botón</a>'
+          content: {
+            type: 'button',
+            content: 'Botón',
+            attributes: {
+              type: 'button',
+              class: 'btn btn-primary',
+              style: 'display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: 600;'
+            }
+          }
         });
 
         bm.add('button-secondary', {
           label: 'Botón Secundario',
           category: 'Componentes',
-          content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: transparent; color: #3b82f6; border: 2px solid #3b82f6; border-radius: 8px; text-decoration: none; font-weight: 600;">Botón</a>'
+          content: {
+            type: 'button',
+            content: 'Botón',
+            attributes: {
+              type: 'button',
+              class: 'btn btn-secondary',
+              style: 'display: inline-block; padding: 12px 24px; background: transparent; color: #3b82f6; border: 2px solid #3b82f6; border-radius: 8px; text-decoration: none; font-weight: 600;'
+            }
+          }
         });
 
         // Texto con Gradiente
@@ -2737,11 +2797,10 @@ const GrapesEditor: React.FC = () => {
         });
 
         // El iframe del canvas puede aún no estar listo; se usa 'canvas:frame:load'
-      });
-
-      // El frame del canvas está listo; validar ancho antes de marcar canvasReady
+      try {
+        // El frame del canvas está listo; validar ancho antes de marcar canvasReady
       gEditor.on('canvas:frame:load', () => {
-        console.log('🖼️ Canvas frame listo');
+        console.log('Canvas frame listo');
         const checkWidthAndReady = () => {
           try {
             const frame = gEditor.Canvas.getFrameEl();
@@ -2749,64 +2808,65 @@ const GrapesEditor: React.FC = () => {
             const bodyWidth = (frame as any)?.contentDocument?.body?.offsetWidth || 0;
             const finalWidth = Math.max(width, bodyWidth);
             if (finalWidth > 0) {
-              console.log('📏 Ancho del iframe del canvas:', finalWidth);
-              try { perfStartRef.current = performance.now(); console.log('⏱️ t0 Canvas listo'); } catch {}
+              console.log('Ancho del iframe del canvas:', finalWidth);
+              try { perfStartRef.current = performance.now(); console.log('t0 Canvas listo'); } catch (e) {}
               setCanvasReady(true);
               // Inyectar estilos globales cuando el canvas está listo
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { injectTailwindIntoCanvas(); } catch (e) {}
+              try { injectPageStyles(); } catch (e) {}
               return true;
             }
-          } catch {}
+          } catch (e) {}
           return false;
         };
         if (!checkWidthAndReady()) {
-          console.warn('⏳ Canvas sin ancho medible aún; iniciando reintentos cada 100ms');
+          console.warn('Canvas sin ancho medible aún; iniciando reintentos cada 100ms');
           if (readyIntervalRef.current) {
-            try { clearInterval(readyIntervalRef.current); } catch {}
+            try { clearInterval(readyIntervalRef.current); } catch (e) {}
             readyIntervalRef.current = null;
           }
           const startTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           readyIntervalRef.current = setInterval(() => {
             if (checkWidthAndReady()) {
               if (readyIntervalRef.current) {
-                try { clearInterval(readyIntervalRef.current); } catch {}
+                try { clearInterval(readyIntervalRef.current); } catch (e) {}
                 readyIntervalRef.current = null;
               }
               // Asegurar inyección tras medir correctamente
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { injectTailwindIntoCanvas(); } catch (e) {}
+              try { injectPageStyles(); } catch (e) {}
               return;
             }
             const nowTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
             if (nowTs - startTs > 60000) {
-              console.warn('⏰ Timeout esperando canvas medible (>60s). Deteniendo reintentos.');
+              console.warn('Timeout esperando canvas medible (>60s). Deteniendo reintentos.');
               if (readyIntervalRef.current) {
-                try { clearInterval(readyIntervalRef.current); } catch {}
+                try { clearInterval(readyIntervalRef.current); } catch (e) {}
                 readyIntervalRef.current = null;
               }
             }
           }, 100);
         }
-      });
-
-      return true;
-    } catch (error) {
-      console.error('❌ Error inicializando editor:', error);
-      initializationAttempted.current = false;
-      return false;
-    }
-  }, [scheduleAutoSave]);
+      }); // cierra gEditor.on('canvas:frame:load')
+    
+    return true;
+    
+  } catch (error) {
+    console.error('Error en inicialización del editor:', error);
+    initializationAttempted.current = false;
+    return false;
+  }
+  }, []);
 
   // Inicializar editor: depende SOLO de slug y no reinicia si ya existe
   useEffect(() => {
-    console.log('🔄 useEffect [init editor][slug]');
+    console.log('useEffect [init editor][slug]');
     if (!slug) return;
     if (editorInstanceRef.current) {
       if (lastInitSlugRef.current === slug) {
-        console.log('⏭️ Editor ya inicializado para este slug; no se reinicia');
+        console.log('Editor ya inicializado para este slug; no se reinicia');
       } else {
-        console.log('ℹ️ Slug cambió pero el editor persiste; se actualizará contenido sin reiniciar');
+        console.log('Slug cambió pero el editor persiste; se actualizará contenido sin reiniciar');
       }
       return;
     }
@@ -2820,7 +2880,7 @@ const GrapesEditor: React.FC = () => {
         if (ed) {
           ed.destroy();
           editorInstanceRef.current = null;
-          console.log('🧹 Editor destruido en cleanup de init useEffect');
+          console.log('Editor destruido en cleanup de init useEffect');
         }
       } catch (e) {
         console.warn('No se pudo destruir editor en cleanup:', e);
@@ -2830,7 +2890,7 @@ const GrapesEditor: React.FC = () => {
 
   // Cleanup al desmontar
   useEffect(() => {
-    console.log('🔄 useEffect [cleanup][]');
+    console.log('useEffect [cleanup][]');
     return () => {
       try {
         if (saveTimeoutRef.current) {
@@ -2845,18 +2905,20 @@ const GrapesEditor: React.FC = () => {
         }
         // Destruir editor solo en desmontaje real del componente
         if (editorInstanceRef.current) {
-          try { editorInstanceRef.current.destroy(); } catch {}
+          try { editorInstanceRef.current.destroy(); } catch (e) {}
           editorInstanceRef.current = null;
         }
       } catch (e) {
         console.warn('Error destruyendo editor:', e);
       }
     };
-  }, []);
+  }, [slug]);
+
+  // Esta función ahora está definida fuera del componente
 
   // Reset de flags al cambiar de slug
   useEffect(() => {
-    console.log('🔄 useEffect [slug reset]');
+    console.log('useEffect [slug reset]');
     // No destruir ni reinicializar el editor aquí.
     // Solo marcamos el contenido como no cargado para permitir recarga controlada.
     setContentLoaded(false);
@@ -2869,26 +2931,113 @@ const GrapesEditor: React.FC = () => {
       return;
     }
 
+    // 🧩 PASO 5 — Reinicio seguro del editor
+    try {
+      const editor = editorInstanceRef.current;
+      if (editor && typeof editor.destroy === 'function') {
+        console.warn('Reiniciando GrapesJS limpio');
+        // No destruir completamente, solo limpiar el contenido
+        editor.DomComponents.clear();
+        editor.CssComposer.clear();
+        console.log('Editor limpiado para nueva carga');
+      }
+    } catch (e) {
+      console.warn('No se pudo limpiar el editor antes de cargar:', e);
+    }
+
     // Bloquear carga si el iframe del canvas aún no es medible
     try {
-      const frame = editorInstanceRef.current.Canvas.getFrameEl();
+      const editor = editorInstanceRef.current;
+      if (!editor || !editor.Canvas) return;
+      const frame = editor.Canvas.getFrameEl();
       const width = frame?.offsetWidth || 0;
       if (!frame?.contentWindow || width === 0) {
         console.warn('⏳ Esperando al canvas (iframe no medible o sin contentWindow)');
         return;
       }
     } catch (e) {
-      console.warn('⚠️ No se pudo verificar el iframe del canvas antes de cargar contenido:', e);
+      console.warn('No se pudo verificar el iframe del canvas antes de cargar contenido:', e);
       return;
     }
 
-    console.log('🔄 Cargando contenido en editor...');
-    console.log('🔍 pageData recibido:', pageData);
+    console.log('Cargando contenido en editor...');
+    console.log('pageData recibido:', pageData);
 
     try {
+      // PRIORIDAD 0: Usar grapesData completo con loadProjectData (preserva traits)
+      if (pageData.grapesData) {
+        try {
+          const grapesDataParsed = typeof pageData.grapesData === 'string'
+            ? JSON.parse(pageData.grapesData)
+            : pageData.grapesData;
+          
+          // PASO 1: LIMPIEZA COMPLETA DE DATOS ANTES DE CARGAR
+          console.group('Limpieza de datos antes de cargar');
+          if (grapesDataParsed?.pages) {
+            grapesDataParsed.pages.forEach((page: any, pIdx: number) => {
+              page.frames?.forEach((frame: any, fIdx: number) => {
+                const cleanComp = (comp: any): any => {
+                  if (!comp) return null;
+
+                  // Limpiar traits inválidos
+                  if (Array.isArray(comp.traits)) {
+                    comp.traits = comp.traits.filter(
+                      (t: any) => t && typeof t === 'object' && t.name && typeof t.name === 'string'
+                    );
+                  }
+
+                  // Recursivo
+                  if (Array.isArray(comp.components)) {
+                    comp.components = comp.components
+                      .map((c: any) => cleanComp(c))
+                      .filter(Boolean);
+                  }
+
+                  return comp;
+                };
+
+                if (frame?.component) {
+                  frame.component = cleanComp(frame.component);
+                }
+
+                console.log(`Página ${pIdx} / Frame ${fIdx} limpiado`);
+              });
+            });
+          }
+          console.groupEnd();
+          
+          // LIMPIEZA DE TRAITS ANTES DE CARGAR (función existente)
+          console.log('Limpieza adicional de traits inválidos...');
+          const cleanedData = cleanProjectTraits(grapesDataParsed);
+          
+          console.log('Cargando datos completos de GrapesJS con loadProjectData');
+          editorInstanceRef.current.loadProjectData(cleanedData);
+          console.log('Datos completos de GrapesJS cargados (incluye traits)');
+          
+          // Actualizar referencias
+          latestHtmlRef.current = cleanedData['gjs-html'] || '';
+          latestCssRef.current = cleanedData['gjs-css'] || '';
+          
+          // Cierre del ciclo de carga
+          setContentLoaded(true);
+          console.log('Editor completamente cargado con grapesData');
+          
+          // Seleccionar primer componente
+          try {
+            const root = editorInstanceRef.current.getComponents();
+            const first = root?.at ? root.at(0) : (Array.isArray(root) ? root[0] : null);
+            if (first) editorInstanceRef.current.select(first);
+          } catch(e) { console.warn("No se pudo seleccionar componente inicial", e); }
+          
+          return;
+        } catch (e) {
+          console.warn('Error al cargar grapesData completo, usando método alternativo:', e);
+        }
+      }
+
       // PRIORIDAD 1: Usar gjsHtml con carga correcta en GrapesJS
       if (pageData.gjsHtml) {
-        console.log('✅ Cargando desde gjsHtml con método correcto');
+        console.log('Cargando desde gjsHtml con método correcto');
 
         // Limpiar tags de React
         let cleanHtml = pageData.gjsHtml;
@@ -2901,7 +3050,7 @@ const GrapesEditor: React.FC = () => {
             const inner = parsed?.body?.innerHTML || '';
             if (inner.trim().length > 0) {
               cleanHtml = inner;
-              console.log('🧹 Removida etiqueta <body>, contenido interno preservado');
+              console.log('Removida etiqueta <body>, contenido interno preservado');
             }
           }
         } catch (e) {
@@ -2909,10 +3058,10 @@ const GrapesEditor: React.FC = () => {
         }
 
         // Logs de verificación
-        console.log('🧪 TEST: ¿Editor existe?', !!editorInstanceRef.current);
-        console.log('🧪 TEST: ¿Tiene setComponents?', typeof editorInstanceRef.current?.setComponents);
-        console.log('🧪 TEST: ¿HTML tiene contenido?', cleanHtml?.length > 0);
-        console.log('📝 HTML limpio:', cleanHtml.substring(0, 100));
+        console.log('TEST: ¿Editor existe?', !!editorInstanceRef.current);
+         console.log('TEST: ¿Tiene setComponents?', typeof editorInstanceRef.current?.setComponents);
+         console.log('TEST: ¿HTML tiene contenido?', cleanHtml?.length > 0);
+        console.log('HTML limpio:', cleanHtml.substring(0, 100));
 
         try {
           // Limpiar editor primero
@@ -2923,12 +3072,12 @@ const GrapesEditor: React.FC = () => {
           // Espera de Tailwind desactivada temporalmente
           // Cargar HTML
           editorInstanceRef.current.setComponents(cleanHtml);
-          console.log('✅ Componentes establecidos');
+          console.log('Componentes establecidos');
           // Cargar CSS si existe
           if (pageData.gjsCss) {
             editorInstanceRef.current.setStyle(pageData.gjsCss);
             latestCssRef.current = pageData.gjsCss;
-            console.log('✅ Estilos establecidos');
+            console.log('Estilos establecidos');
           }
           latestHtmlRef.current = cleanHtml;
           // Cierre del ciclo de carga
@@ -2937,12 +3086,12 @@ const GrapesEditor: React.FC = () => {
           const t0 = perfStartRef.current;
           const t1 = performance.now();
           if (t0) {
-            console.log(`✅ Editor completamente cargado (Δ ${(t1 - t0).toFixed(0)} ms)`);
+            console.log(`Editor completamente cargado (Δ ${(t1 - t0).toFixed(0)} ms)`);
           } else {
-            console.log('✅ Editor completamente cargado');
+            console.log('Editor completamente cargado');
           }
         } catch {
-          console.log('✅ Editor completamente cargado');
+          console.log('Editor completamente cargado');
         }
           try {
             const root = editorInstanceRef.current.getComponents();
@@ -2971,14 +3120,15 @@ const GrapesEditor: React.FC = () => {
                       s.src = src;
                       s.defer = true;
                       d.body.appendChild(s);
-                      console.log('⚙️ Script externo cargado (post-load):', src);
+                      console.log('Script externo cargado (post-load):', src);
                     }
                   });
                   parsed.querySelectorAll('script:not([src])').forEach((oldScript) => {
                     const content = oldScript.textContent || '';
                     if (content.trim().length === 0) return;
                     const newScript = d.createElement('script');
-                    if (oldScript.getAttribute('type')) newScript.setAttribute('type', oldScript.getAttribute('type')!);
+                    const scriptType = oldScript.getAttribute('type');
+                    if (scriptType) newScript.setAttribute('type', scriptType);
                     newScript.textContent = content;
                     d.body.appendChild(newScript);
                     console.log('🧠 Script inline reinyectado (post-load)');
@@ -2991,16 +3141,16 @@ const GrapesEditor: React.FC = () => {
               console.warn('No se pudo leer body del iframe del canvas:', e);
             }
           }, 500);
-          console.log('✅ Editor renderizado');
+          console.log('Editor renderizado');
         } catch (err) {
-          console.error('❌ Error al cargar contenido:', err);
+          console.error('Error al cargar contenido:', err);
         }
         return;
       }
 
       // PRIORIDAD 2: Usar HTML/CSS simple
       if (pageData.html && pageData.css) {
-        console.log('✅ Cargando desde HTML/CSS simple');
+        console.log('Cargando desde HTML/CSS simple');
         
         const parser = new DOMParser();
         const doc = parser.parseFromString(pageData.html, 'text/html');
@@ -3013,13 +3163,13 @@ const GrapesEditor: React.FC = () => {
         
         // Cierre del ciclo de carga
         setContentLoaded(true);
-        console.log('✅ Contenido HTML/CSS cargado exitosamente');
+        console.log('Contenido HTML/CSS cargado exitosamente');
         return;
       }
 
       // PRIORIDAD 3: Fallback a gjsComponents/gjsStyles
       if (pageData.gjsComponents && pageData.gjsStyles) {
-        console.log('🎯 Usando gjsComponents/gjsStyles como fallback');
+        console.log('Usando gjsComponents/gjsStyles como fallback');
         
         let components = pageData.gjsComponents;
         let styles = pageData.gjsStyles;
@@ -3041,20 +3191,20 @@ const GrapesEditor: React.FC = () => {
         } catch {}
         // Cierre del ciclo de carga
         setContentLoaded(true);
-        console.log('✅ gjsComponents/gjsStyles cargados exitosamente');
+        console.log('gjsComponents/gjsStyles cargados exitosamente');
         return;
       }
 
-      console.warn('⚠️ No se encontró contenido válido para cargar');
+      console.warn('No se encontró contenido válido para cargar');
       
     } catch (error) {
-      console.error('❌ Error al cargar contenido:', error);
+          console.error('Error al cargar contenido:', error);
     }
   };
 
   // Cargar contenido una sola vez por slug cuando editor esté listo
   useEffect(() => {
-    console.log('🔄 useEffect [load content]', { ready: editorReady, canvasReady, hasPage: !!pageData, loaded: contentLoaded });
+    console.log('useEffect [load content]', { ready: editorReady, canvasReady, hasPage: !!pageData, loaded: contentLoaded });
     const ed = editorInstanceRef.current;
     if (!ed || !pageData || contentLoaded) return;
 
@@ -3063,7 +3213,7 @@ const GrapesEditor: React.FC = () => {
       const frame = ed.Canvas.getFrameEl();
       const width = frame?.offsetWidth || 0;
       if (frame?.contentWindow && width > 0) {
-        console.log('📏 Iframe ya medible, cargando contenido...');
+        console.log('Iframe ya medible, cargando contenido...');
         loadContentIntoEditor(pageData);
         return;
       }
@@ -3084,7 +3234,7 @@ const GrapesEditor: React.FC = () => {
         const bw = (frame2 as any)?.contentDocument?.body?.offsetWidth || 0;
         const fw = Math.max(w, bw);
         if (frame2?.contentWindow && fw > 0) {
-          console.log('📏 Iframe medible en reintento, cargando contenido...');
+          console.log('Iframe medible en reintento, cargando contenido...');
           clearInterval(interval);
           loadContentIntoEditor(pageData);
           return;
@@ -3340,61 +3490,51 @@ const GrapesEditor: React.FC = () => {
   const statusDisplay = getSaveStatusDisplay();
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Overrides visuales para unificar paleta y estilo GrapesJS */}
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <style>{`
-        /* Colores base modernos y minimalistas */
-        .gjs-one-bg { background-color: #0f172a !important; }
-        .gjs-two-bg { background-color: #1e293b !important; }
-        .gjs-three-bg { background-color: #0f172a !important; }
-        .gjs-four-bg { background-color: #0b1220 !important; }
-        .gjs-two-color { color: #f1f5f9 !important; }
-        
-        /* Colores de acento y primarios más modernos */
-        .gjs-link, .gjs-color-warn { color: #6366f1 !important; }
-        .gjs-primary-color { color: #6366f1 !important; }
-        .gjs-primary-bg { background-color: #6366f1 !important; }
-        
-        /* Paneles y contenedores con estilo más limpio */
-        .gjs-blocks, .gjs-layers, .gjs-sm-sectors { 
-          background: #0f172a !important; 
-          border-radius: 12px !important; 
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-          border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        }
-        
-        /* Bloques con diseño más moderno */
-        .gjs-block { 
-          border-radius: 8px !important; 
+        /* Panel de bloques más compacto y moderno */
+        .gjs-block {
+          min-height: 60px !important;
+          padding: 8px !important;
+          border-radius: 8px !important;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid rgba(255, 255, 255, 0.05) !important;
-          background-color: #1e293b !important;
-          margin: 5px !important;
+          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          margin: 4px !important;
         }
         .gjs-block:hover {
           transform: translateY(-3px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
-          background-color: #2d3748 !important;
+          box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3) !important;
+          border-color: #6366f1 !important;
+          background: rgba(99, 102, 241, 0.15) !important;
+        }
+        
+        /* Paneles laterales con tema oscuro elegante */
+        .gjs-pn-panel, .gjs-blocks-c, .gjs-sm-sectors, .gjs-layers {
+          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+          color: #f1f5f9 !important;
+          border-radius: 12px !important;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
         }
         
         /* Sectores y propiedades con mejor organización */
         .gjs-sm-sector, .gjs-sm-property { background: transparent !important; }
-        .gjs-sm-sector { 
+        .gjs-sm-sector {
           border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
           margin-bottom: 12px !important;
           padding-bottom: 12px !important;
         }
-        .gjs-sm-label, .gjs-layer-title { 
-          color: #f1f5f9 !important; 
+        .gjs-sm-label, .gjs-layer-title {
+          color: #f1f5f9 !important;
           font-weight: 500 !important;
           letter-spacing: 0.025em !important;
         }
         
         /* Botones y controles más elegantes */
-        .gjs-btn-prim { 
-          background: #6366f1 !important; 
-          color: #fff !important; 
-          border-radius: 8px !important; 
+        .gjs-btn-prim {
+          background: #6366f1 !important;
+          color: #fff !important;
+          border-radius: 8px !important;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           border: none !important;
           padding: 10px 18px !important;
@@ -3408,9 +3548,9 @@ const GrapesEditor: React.FC = () => {
         }
         
         /* Campos de entrada más modernos */
-        .gjs-field { 
-          background: #1e293b !important; 
-          border-color: #334155 !important; 
+        .gjs-field {
+          background: #1e293b !important;
+          border-color: #334155 !important;
           color: #f1f5f9 !important;
           border-radius: 8px !important;
           transition: all 0.3s ease;
@@ -3451,54 +3591,23 @@ const GrapesEditor: React.FC = () => {
         }
         
         /* Asegurar visibilidad del canvas e iframe */
-        .gjs-cv-canvas { 
-          height: 100% !important; 
+        .gjs-cv-canvas {
+          height: 100% !important;
           background: #f8fafc !important;
         }
-        .gjs-frame, iframe.gjs-frame { 
-          height: 100% !important; 
+        .gjs-frame, iframe.gjs-frame {
+          height: 100% !important;
           display: block !important;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
           border-radius: 8px !important;
           border: 1px solid #e2e8f0 !important;
         }
-        #gjs { 
-          height: calc(100vh - 56px) !important; 
-        }
-        
-        /* Mejoras para el panel de estilos */
-        .gjs-sm-properties {
-          padding: 12px 8px !important;
-        }
-        .gjs-sm-property {
-          padding: 8px 0 !important;
-          margin-bottom: 4px !important;
-        }
-        .gjs-sm-label {
-          font-size: 13px !important;
-          margin-bottom: 4px !important;
-        }
-        
-        /* Mejoras para el panel de bloques */
-        .gjs-blocks-c {
-          padding: 15px !important;
-          justify-content: space-between !important;
-          gap: 8px !important;
-        }
-        .gjs-block-category {
-          margin-bottom: 18px !important;
-          padding-bottom: 10px !important;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-        }
-        .gjs-title {
-          font-weight: 600 !important;
-          padding: 8px !important;
-          letter-spacing: 0.025em !important;
-          font-size: 14px !important;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        #gjs {
+          height: calc(100vh - 56px) !important;
         }
       `}</style>
-      {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}
+
+      {/* Header */}
       <div className="bg-white shadow-md px-4 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-[100]">
         <div className="flex items-center space-x-3">
           <button
@@ -3514,129 +3623,202 @@ const GrapesEditor: React.FC = () => {
             {pageData?.title || "Editor de Página"}
           </h1>
         </div>
-        
+
         <div className="flex items-center space-x-3">
-          {/* Estado de guardado */}
           <div className="flex items-center space-x-2">
-            <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusDisplay.color === 'text-green-500' ? 'bg-green-50 text-green-600' : statusDisplay.color === 'text-yellow-500' ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
-              {statusDisplay.text}
-            </span>
-            {lastSaved && (
-              <span className="text-xs text-gray-400">
-                {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
+            <span className={ 
+               "text-xs font-medium px-2 py-1 rounded-full " + 
+               (saveStatus === 'saved' 
+                 ? "bg-green-100 text-green-800" 
+                 : saveStatus === 'saving' || saveStatus === 'auto-saving'
+                 ? "bg-blue-100 text-blue-800" 
+                 : saveStatus === 'error'
+                 ? "bg-red-100 text-red-800"
+                 : "bg-gray-100 text-gray-800")
+             }>
+               {saveStatus === 'saved' && '✓ Guardado'}
+               {saveStatus === 'saving' && '⏳ Guardando...'}
+               {saveStatus === 'auto-saving' && '⏳ Auto-guardando...'}
+               {saveStatus === 'error' && '❌ Error'}
+               {saveStatus === 'idle' && '📝 Sin cambios'}
+             </span>
+             {lastSaved && (
+               <span className="text-xs text-gray-500">
+                 {lastSaved.toLocaleTimeString()}
+               </span>
+             )}
+           </div>
+ 
+           <div className="flex items-center space-x-2">
+             <button
+               onClick={handleSave}
+               disabled={!hasUnsavedChanges || saveStatus === 'saving'}
+               className={
+                 "px-3 py-1.5 text-sm rounded-md transition-colors " +
+                 (hasUnsavedChanges && saveStatus !== 'saving'
+                   ? "bg-blue-600 hover:bg-blue-700 text-white"
+                   : "bg-gray-100 text-gray-400 cursor-not-allowed")
+               }
+             >
+               {saveStatus === 'saving' ? 'Guardando...' : 'Guardar'}
+             </button>
+             
+             <button
+               onClick={handlePublish}
+               disabled={isPublishing || hasUnsavedChanges}
+               className={
+                 "px-3 py-1.5 text-sm rounded-md transition-colors " +
+                 (!hasUnsavedChanges && !isPublishing
+                   ? "bg-green-600 hover:bg-green-700 text-white"
+                   : "bg-gray-100 text-gray-400 cursor-not-allowed")
+               }
+             >
+               {isPublishing ? 'Publicando...' : 'Publicar'}
+             </button>
+           </div>
+         </div>
+       </div>
+ 
+       {/* Status Bar */}
+       <div className="flex items-center justify-between space-x-4 p-2 bg-gray-50 border-t mt-14">
+         {/* Estado de guardado */}
+         <div className="flex items-center space-x-2">
+           <span className={
+             "text-xs font-medium px-2 py-1 rounded-full " +
+             (statusDisplay.color === 'text-green-500'
+               ? 'bg-green-50 text-green-600'
+               : statusDisplay.color === 'text-yellow-500'
+               ? 'bg-yellow-50 text-yellow-600'
+               : 'bg-blue-50 text-blue-600')
+           }>
+             {statusDisplay.text}
+           </span>
+           {lastSaved && (
+             <span className="text-xs text-gray-400">
+               {lastSaved.toLocaleTimeString()}
+             </span>
+           )}
+         </div>
 
-          {/* Info rápida del elemento seleccionado */}
-          {selectedInfo && (
-            <div className="hidden sm:flex items-center space-x-2 px-2 py-1 rounded-md bg-gray-50 text-gray-700">
-              <span className="text-xs">{selectedInfo.name || 'Elemento'}</span>
-              <span className="text-xs">{Math.round(selectedInfo.width)}×{Math.round(selectedInfo.height)} px</span>
-            </div>
-          )}
+         {/* Info del elemento seleccionado */}
+         {selectedInfo && (
+           <div className="hidden sm:flex items-center space-x-2 px-2 py-1 rounded-md bg-gray-50 text-gray-700">
+             <span className="text-xs">{selectedInfo.name || 'Elemento'}</span>
+             <span className="text-xs">{Math.round(selectedInfo.width)}×{Math.round(selectedInfo.height)} px</span>
+           </div>
+         )}
 
-          {/* Botón de pegar imagen desde portapapeles */}
-          <button
-            onClick={() => {
-              try {
-                const fn = (window as any).pasteFromClipboard;
-                if (typeof fn === 'function') fn();
-              } catch (e) { console.warn('No se pudo pegar desde el portapapeles', e); }
-            }}
-            className="px-3 py-1.5 text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md transition-colors"
-          >
-            Pegar imagen
-          </button>
+         {/* Botones de acción */}
+         <button
+           onClick={() => handleSave(false)}
+           disabled={saveStatus === 'saving' || saveStatus === 'auto-saving'}
+           className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-md transition-colors"
+         >
+           {saveStatus === 'saving' ? 'Guardando...' : 'Guardar'}
+         </button>
 
-          {/* Acciones rápidas de alineación */}
-          <div className="hidden md:flex items-center space-x-1">
-            <button title="Alinear izquierda" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
-              try {
-                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
-                sel.addStyle({ 'margin-left': '0', 'margin-right': 'auto' });
-              } catch {}
-            }}>Izq</button>
-            <button title="Centrar" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
-              try {
-                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
-                sel.addStyle({ 'margin-left': 'auto', 'margin-right': 'auto' });
-              } catch {}
-            }}>Centro</button>
-            <button title="Alinear derecha" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
-              try {
-                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
-                sel.addStyle({ 'margin-left': 'auto', 'margin-right': '0' });
-              } catch {}
-            }}>Der</button>
-            <button title="Convertir en círculo" className="ml-2 px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
-              try {
-                const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
-                const el = sel.getEl?.();
-                let size = 100;
-                if (el) {
-                  const rect = (el as HTMLElement).getBoundingClientRect();
-                  size = Math.round(Math.min(rect.width || 100, rect.height || 100));
-                } else {
-                  const st = sel.getStyle?.() || {};
-                  const w = parseFloat(String((st as any).width || 100));
-                  const h = parseFloat(String((st as any).height || 100));
-                  size = Math.round(Math.min(w || 100, h || 100));
-                }
-                if (!size || !isFinite(size)) size = 100;
-                sel.addStyle({ width: `${size}px`, height: `${size}px`, 'border-radius': '50%', overflow: 'hidden' });
-              } catch {}
-            }}>Círculo</button>
-          </div>
-          
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saveStatus === 'saving' || saveStatus === 'auto-saving'}
-            className="px-3 py-1.5 bg-indigo-500 text-white text-sm rounded-md hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center"
-          >
-            {saveStatus === 'saving' ? 'Guardando...' : 'Guardar'}
-          </button>
-          
-          <button
-            onClick={handlePreview}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
-            Vista Previa
-          </button>
+         <button
+           onClick={handlePublish}
+           disabled={isPublishing}
+           className="px-3 py-1.5 text-sm bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-md transition-colors"
+         >
+           {isPublishing ? 'Publicando...' : 'Publicar'}
+         </button>
 
-
-          <button
-            onClick={handlePublish}
-            disabled={isPublishing}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isPublishing ? 'Publicando...' : 'Publicar'}
-          </button>
-        </div>
-      </div>
-
-      {/* Editor Container nativo de GrapesJS */}
-      <div className="flex-1 fixed top-[85px] left-0 right-0 bottom-0 z-10">
-        {/* Lienzo del editor con gating visual hasta que canvas esté listo */}
-        <div className="flex-1 flex flex-col relative h-full">
-          {!canvasReady && (
-            <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
-                <div className="text-gray-600 text-sm">Preparando estilos del canvas…</div>
-              </div>
-            </div>
-          )}
-          <div
-            ref={editorContainerRef}
-            id="gjs"
-            style={{ height: 'calc(100vh - 85px)', overflow: 'auto', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
-            className="w-full"
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
+         <button
+           onClick={handlePreview}
+           className="px-3 py-1.5 text-sm bg-purple-500 hover:bg-purple-600 text-white rounded-md transition-colors"
+         >
+           Vista Previa
+         </button>
+       </div>
+ 
+       {/* Main Content */}
+       <div className="flex-1 flex">
+         {/* Left Panel */}
+         <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${showBlocks || showStyles || showLayers || showClasses ? 'w-80' : 'w-12'}`}>
+           {/* Panel Toggle Buttons */}
+           <div className="flex flex-col p-2 space-y-1">
+             <button
+               onClick={() => {
+                 setShowBlocks(!showBlocks);
+                 setShowStyles(false);
+                 setShowLayers(false);
+                 setShowClasses(false);
+               }}
+               className={`p-2 rounded-md text-sm transition-colors ${showBlocks ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+               title="Bloques"
+             >
+               🧱
+             </button>
+             <button
+               onClick={() => {
+                 setShowStyles(!showStyles);
+                 setShowBlocks(false);
+                 setShowLayers(false);
+                 setShowClasses(false);
+               }}
+               className={`p-2 rounded-md text-sm transition-colors ${showStyles ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+               title="Estilos"
+             >
+               🎨
+             </button>
+             <button
+               onClick={() => {
+                 setShowLayers(!showLayers);
+                 setShowBlocks(false);
+                 setShowStyles(false);
+                 setShowClasses(false);
+               }}
+               className={`p-2 rounded-md text-sm transition-colors ${showLayers ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+               title="Capas"
+             >
+               📋
+             </button>
+           </div>
+ 
+           {/* Panel Content */}
+           {(showBlocks || showStyles || showLayers || showClasses) && (
+             <div className="flex-1 p-4">
+               {showBlocks && (
+                 <div>
+                   <h3 className="text-sm font-medium text-gray-700 mb-3">Bloques</h3>
+                   <div id="blocks-container"></div>
+                 </div>
+               )}
+               {showStyles && (
+                 <div>
+                   <h3 className="text-sm font-medium text-gray-700 mb-3">Estilos</h3>
+                   <div id="styles-container"></div>
+                 </div>
+               )}
+               {showLayers && (
+                 <div>
+                   <h3 className="text-sm font-medium text-gray-700 mb-3">Capas</h3>
+                   <div id="layers-container"></div>
+                 </div>
+               )}
+             </div>
+           )}
+         </div>
+ 
+         {/* Main Editor Area */}
+         <div className="flex-1 relative">
+           <div 
+             ref={editorContainerRef}
+             className="w-full h-full"
+           />
+           {loading && (
+             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+               <div className="text-center">
+                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                 <p className="text-sm text-gray-600">Cargando editor...</p>
+               </div>
+             </div>
+           )}
+         </div>
+       </div>
+     </div>
+   )
 
 export default GrapesEditor;

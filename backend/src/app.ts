@@ -110,6 +110,15 @@ try {
   appLogger.warn('No se pudo montar estáticos de uploads', { error: (e as any)?.message });
 }
 
+// Servir archivos estáticos del frontend (para button-actions.js)
+try {
+  const frontendPublicDir = path.join(process.cwd(), '..', 'frontend', 'public');
+  app.use(express.static(frontendPublicDir));
+  appLogger.info('Archivos estáticos del frontend montados', { path: frontendPublicDir });
+} catch (e) {
+  appLogger.warn('No se pudo montar estáticos del frontend', { error: (e as any)?.message });
+}
+
 // API Info endpoint
 app.get('/api', (req, res) => {
   res.status(200).json({
