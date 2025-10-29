@@ -743,70 +743,6 @@ const GrapesEditor: React.FC = () => {
               name: '🔄 Efectos',
               open: false,
               buildProps: ['transition', 'opacity', 'transform']
-            },
-            {
-              name: '⚙️ Configuración',
-              id: 'button-config',
-              open: false, // Colapsado por defecto
-              visible: false, // Inicialmente oculta
-              properties: [
-                {
-                  id: 'action-type',
-                  type: 'select',
-                  name: 'Acción del botón',
-                  property: 'data-action-type',
-                  options: [
-                    { id: 'none', name: 'Ninguna' },
-                    { id: 'go-to-page', name: 'Ir a página' },
-                    { id: 'download-file', name: 'Descargar archivo' },
-                    { id: 'execute-function', name: 'Ejecutar función' }
-                  ],
-                  defaults: 'none'
-                },
-                // Campos para "Ir a página"
-                {
-                  id: 'page-url',
-                  type: 'text',
-                  name: 'URL',
-                  property: 'data-page-url',
-                  visible: false
-                },
-                {
-                  id: 'open-in',
-                  type: 'select',
-                  name: 'Abrir en',
-                  property: 'data-target',
-                  options: [
-                    { id: '_self', name: 'Misma ventana' },
-                    { id: '_blank', name: 'Nueva ventana' }
-                  ],
-                  defaults: '_self',
-                  visible: false
-                },
-                // Campos para "Descargar archivo"
-                {
-                  id: 'file-url',
-                  type: 'text',
-                  name: 'URL del archivo',
-                  property: 'data-file-url',
-                  visible: false
-                },
-                {
-                  id: 'file-name',
-                  type: 'text',
-                  name: 'Nombre de archivo (opcional)',
-                  property: 'data-file-name',
-                  visible: false
-                },
-                // Campo para "Ejecutar función"
-                {
-                  id: 'custom-function',
-                  type: 'textarea',
-                  name: 'Código JavaScript',
-                  property: 'data-custom-function',
-                  visible: false
-                }
-              ]
             }
           ]
         },
@@ -1088,6 +1024,31 @@ const GrapesEditor: React.FC = () => {
                   const el = this as unknown as HTMLElement;
                   function onClick(e: Event) {
                     try {
+                      // Detectar si estamos dentro del editor de GrapesJS - SOLUCIÓN INFALIBLE
+                      const isInEditor = 
+                        (window.frameElement && window.frameElement.id === 'gjs-frame') || // dentro del iframe del editor
+                        (window.parent && window.parent.document?.querySelector('#gjs') !== null) || // desde el iframe, existe el contenedor del editor
+                        document.body.classList.contains('gjs-dashed') || // el canvas editable
+                        document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null; // estructura del editor
+                      
+                      if (isInEditor) {
+                        // En el editor → solo prevenir acciones de navegación, permitir selección
+                        const act = (el.getAttribute('data-action-type') || 'link');
+                        const url = el.getAttribute('href') || el.getAttribute('data-file-url');
+                        
+                        // Solo bloquear si hay una acción que ejecutar (tiene URL o acción específica)
+                        if (url || act !== 'link') {
+                          if (e && e.preventDefault) e.preventDefault();
+                          console.log('🔧 Modo editor: acción de navegación bloqueada, selección permitida');
+                        }
+                        // No usar stopPropagation para permitir que GrapesJS maneje la selección
+                        return;
+                      }
+                      
+                      // Aquí solo se ejecuta en la página publicada
+                      console.log('🌐 Modo página pública: ejecutando acción real.');
+                      
+                      // Solo ejecutar acciones en la página real (no en el editor)
                       const act = (el.getAttribute('data-action-type') || 'link');
                       const url = el.getAttribute('href') || el.getAttribute('data-file-url');
                       const targetAttr = el.getAttribute('target');
@@ -1118,11 +1079,57 @@ const GrapesEditor: React.FC = () => {
                       console.warn('link action error', err);
                     }
                   }
+
+                  function onDoubleClick(e: Event) {
+                    try {
+                      // Detectar si estamos dentro del editor de GrapesJS
+                      const isInEditor = 
+                        (window.frameElement && window.frameElement.id === 'gjs-frame') || 
+                        (window.parent && window.parent.document?.querySelector('#gjs') !== null) || 
+                        document.body.classList.contains('gjs-dashed') || 
+                        document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null;
+                      
+                      if (isInEditor) {
+                        // En el editor → doble click ejecuta la acción para "probar"
+                        if (e && e.preventDefault) e.preventDefault();
+                        console.log('🧪 Modo editor: probando botón con doble click');
+                        
+                        const act = (el.getAttribute('data-action-type') || 'link');
+                        const url = el.getAttribute('href') || el.getAttribute('data-file-url');
+                        const targetAttr = el.getAttribute('target');
+                        const newTab = targetAttr === '_blank';
+                        
+                        if (act === 'link' && url) {
+                          newTab ? window.open(url, '_blank') : window.open(url, '_self');
+                        } else if (act === 'open_pdf' && url) {
+                          window.open(url, '_blank');
+                        } else if (act === 'download' && url) {
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = url.split('/').pop() || 'archivo';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        } else if (act === 'go_to_payment') {
+                          const tx = el.getAttribute('data-transaction-id') || '';
+                          const amount = el.getAttribute('data-amount') || '';
+                          const payUrl = url || '/pago';
+                          const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
+                            'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
+                          window.open(finalUrl, '_blank');
+                        }
+                      }
+                    } catch(err) {
+                      console.warn('double click action error', err);
+                    }
+                  }
                   
                   el.addEventListener('click', onClick);
+                  el.addEventListener('dblclick', onDoubleClick);
                   return {
                     destroy: function() {
                       el.removeEventListener('click', onClick);
+                      el.removeEventListener('dblclick', onDoubleClick);
                     }
                   };
                 },
@@ -1154,97 +1161,7 @@ const GrapesEditor: React.FC = () => {
         
         // Obtener el Style Manager
         const sm = gEditor.StyleManager;
-        
-        if (type === 'button' || type === 'link') {
-          console.log(`🎯 ${type} seleccionado, mostrando sección de configuración...`);
-          
-          // Mostrar la sección de configuración para botones y enlaces
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-            
-            if (configSector) {
-              // Hacer visible la sección pero mantenerla colapsada hasta que el usuario haga clic
-              configSector.set('visible', true);
-              configSector.set('open', false); // Colapsada por defecto
-              console.log('✅ Sección de configuración mostrada (colapsada)');
-              
-              // Sincronizar los valores de los traits con las propiedades del Style Manager
-              (gEditor as any).syncTraitsWithStyleManager(component, sm, type);
-              
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            } else {
-              console.warn('⚠️ Sección de configuración no encontrada');
-            }
-          } catch (e) {
-            console.warn('Error al mostrar sección de configuración:', e);
-          }
-        } else {
-          // Ocultar la sección de configuración para otros componentes
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-            
-            if (configSector) {
-              configSector.set('visible', false);
-              configSector.set('open', false);
-              
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            }
-          } catch (e) {
-            console.warn('Error al ocultar sección de configuración:', e);
-          }
-        }
       });
-
-      // Función para sincronizar traits con Style Manager
-      (gEditor as any).syncTraitsWithStyleManager = (component: any, sm: any, type: string) => {
-        try {
-          const sectors = sm.getSectors();
-          const configSector = sectors.find((s: any) => {
-            const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-            return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-          });
-          
-          if (configSector) {
-            const properties = configSector.get('properties');
-            
-            // Obtener los traits del componente
-            const traits = component.get('traits');
-            
-            // Sincronizar cada propiedad
-            traits.forEach((trait: any) => {
-              const traitName = trait.get('name');
-              const traitValue = trait.get('value') || component.get(traitName);
-              
-              // Buscar la propiedad correspondiente en el Style Manager
-              const property = properties.find((p: any) => 
-                p.property === traitName || 
-                p.property === `data-${traitName}` ||
-                p.id === `${type}-${traitName}`
-              );
-              
-              if (property && traitValue) {
-                // Aplicar el valor al Style Manager
-                sm.addProperty(configSector.get('id'), {
-                  ...property,
-                  value: traitValue
-                });
-              }
-            });
-          }
-        } catch (e) {
-          console.warn('Error sincronizando traits con Style Manager:', e);
-        }
-      };
 
       // Definir un dispositivo ancho para activar breakpoints md de Tailwind
       try {
@@ -1353,51 +1270,7 @@ const GrapesEditor: React.FC = () => {
             const propertyName = property.get('property');
             const propertyValue = property.get('value');
             
-            // Lógica para campos dependientes en la configuración de botones
-            if (propertyName === 'data-action-type') {
-              const sm = gEditor.StyleManager;
-              const sectors = sm.getSectors();
-              const configSector = sectors.find((s: any) => {
-                const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-                return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-              });
-              
-              if (configSector) {
-                const properties = configSector.get('properties');
-                
-                // Ocultar todos los campos dependientes primero
-                properties.forEach((prop: any) => {
-                  if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes(prop.get('id'))) {
-                    prop.set('visible', false);
-                  }
-                });
-                
-                // Mostrar campos según la acción seleccionada
-                if (propertyValue === 'go-to-page') {
-                  // Mostrar URL y selector "Abrir en"
-                  const pageUrlProp = properties.find((p: any) => p.get('id') === 'page-url');
-                  const openInProp = properties.find((p: any) => p.get('id') === 'open-in');
-                  if (pageUrlProp) pageUrlProp.set('visible', true);
-                  if (openInProp) openInProp.set('visible', true);
-                } else if (propertyValue === 'download-file') {
-                  // Mostrar URL del archivo y nombre de archivo
-                  const fileUrlProp = properties.find((p: any) => p.get('id') === 'file-url');
-                  const fileNameProp = properties.find((p: any) => p.get('id') === 'file-name');
-                  if (fileUrlProp) fileUrlProp.set('visible', true);
-                  if (fileNameProp) fileNameProp.set('visible', true);
-                } else if (propertyValue === 'execute-function') {
-                  // Mostrar textarea para código JavaScript
-                  const customFunctionProp = properties.find((p: any) => p.get('id') === 'custom-function');
-                  if (customFunctionProp) customFunctionProp.set('visible', true);
-                }
-                
-                // Forzar re-renderizado del Style Manager
-                sm.render();
-                console.log(`✅ Campos dependientes actualizados para acción: ${propertyValue}`);
-              }
-            }
-            
-            // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
+            // Si la propiedad pertenece a un trait, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {
               const traitName = propertyName.replace('data-', '');
               const trait = selected.get('traits').find((t: any) => t.get('name') === traitName);
@@ -1460,32 +1333,22 @@ const GrapesEditor: React.FC = () => {
          gEditor.on('component:update:traits', (component: any) => {
            try {
             const sm = gEditor.StyleManager;
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
+            
+            // Sincronización básica de traits con Style Manager
+            const traits = component.get('traits');
+            
+            traits.forEach((trait: any) => {
+              const traitName = trait.get('name');
+              const traitValue = trait.get('value');
+              
+              // Actualizar propiedades del componente
+              if (traitValue !== undefined) {
+                const propertyName = traitName.startsWith('data-') ? traitName : `data-${traitName}`;
+                component.set(propertyName, traitValue);
+                console.log(`✅ Propiedad ${propertyName} actualizada desde trait:`, traitValue);
+              }
             });
             
-            if (configSector && configSector.get('visible')) {
-              const traits = component.get('traits');
-              
-              traits.forEach((trait: any) => {
-                const traitName = trait.get('name');
-                const traitValue = trait.get('value');
-                
-                // Actualizar la propiedad correspondiente en el Style Manager
-                const propertyName = traitName.startsWith('data-') ? traitName : `data-${traitName}`;
-                const property = configSector.get('properties').find((p: any) => p.get('property') === propertyName);
-                
-                if (property && traitValue !== undefined) {
-                  property.set('value', traitValue);
-                  console.log(`✅ Style Manager actualizado desde trait ${traitName}:`, traitValue);
-                }
-              });
-              
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            }
           } catch (e) {
             console.warn('Error sincronizando traits con Style Manager:', e);
           }
@@ -2368,6 +2231,12 @@ const GrapesEditor: React.FC = () => {
         model: {
           defaults: {
             tagName: 'a',
+            draggable: true,
+            droppable: false,
+            editable: true,
+            selectable: true,
+            highlightable: true,
+            hoverable: true,
             attributes: { href: '#', type: 'button' },
             traits: [
               {
@@ -2418,72 +2287,92 @@ const GrapesEditor: React.FC = () => {
                 placeholder: 'console.log("Hola mundo");',
               }
             ],
-            script() {
-               const action = this.getAttribute('data-action');
-               const url = this.getAttribute('data-url');
-               const target = this.getAttribute('data-target') || '_self';
-               const transactionId = this.getAttribute('data-transaction-id');
-               const amount = this.getAttribute('data-amount');
-               const customFunction = this.getAttribute('data-custom-function');
+            // ✅ Script desactivado en el editor
+            script: function() {
+              const el = this;
 
-               // Si no hay acción pero hay URL, asumir que es un enlace
-               const finalAction = action || (url ? 'link' : null);
+              // Evita interferencia en el editor
+              const isInEditor = 
+                document.body.classList.contains('gjs-dashed') ||
+                window.parent?.document?.querySelector('#gjs') !== null;
 
-               if (!finalAction) return;
+              if (isInEditor) {
+                el.style.pointerEvents = 'none';
+                return;
+              }
 
-               this.addEventListener('click', (e: Event) => {
-                 e.preventDefault();
-                 
-                 switch (finalAction) {
-                   case 'link':
-                     if (url) {
-                       // Limpiar la URL de backticks si los tiene
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, target);
-                     }
-                     break;
-                   case 'download':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       const a = document.createElement('a');
-                       a.href = cleanUrl;
-                       a.download = cleanUrl.split('/').pop() || 'download';
-                       a.click();
-                     }
-                     break;
-                   case 'open_pdf':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, '_blank');
-                     }
-                     break;
-                   case 'go_to_payment':
-                     if (transactionId && amount) {
-                       console.log('Procesando pago:', { transactionId, amount });
-                       // Aquí iría la lógica de pago
-                     }
-                     break;
-                   case 'execute-function':
-                     if (customFunction) {
-                       try {
-                         new Function(customFunction)();
-                       } catch (error) {
-                         console.error('Error ejecutando función personalizada:', error);
-                       }
-                     }
-                     break;
-                 }
-               });
-             },
+              // Solo funciona fuera del editor
+              el.addEventListener('click', (e) => {
+                const action = el.getAttribute('data-action');
+                const url = el.getAttribute('data-url');
+                const target = el.getAttribute('data-target') || '_self';
+                const transactionId = el.getAttribute('data-transaction-id');
+                const amount = el.getAttribute('data-amount');
+                const customFunction = el.getAttribute('data-custom-function');
+
+                // Si no hay acción pero hay URL, asumir que es un enlace
+                const finalAction = action || (url ? 'link' : null);
+
+                if (!finalAction) return;
+
+                e.preventDefault();
+
+                switch (finalAction) {
+                  case 'link':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      window.open(cleanUrl, target);
+                    }
+                    break;
+                  case 'download':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      const a = document.createElement('a');
+                      a.href = cleanUrl;
+                      a.download = cleanUrl.split('/').pop() || 'download';
+                      a.click();
+                    }
+                    break;
+                  case 'open_pdf':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      window.open(cleanUrl, '_blank');
+                    }
+                    break;
+                  case 'go_to_payment':
+                    if (transactionId && amount) {
+                      console.log('Procesando pago:', { transactionId, amount });
+                      // Aquí iría la lógica de pago
+                    }
+                    break;
+                  case 'execute-function':
+                    if (customFunction) {
+                      try {
+                        new Function(customFunction)();
+                      } catch (error) {
+                        console.error('Error ejecutando función personalizada:', error);
+                      }
+                    }
+                    break;
+                }
+              });
+            },
           },
         },
-      });
+        view: {
+          events: {
+            // 🔹 Permite seleccionar el botón normalmente en el editor
+            mousedown(e) {
+              const isInEditor = 
+                document.body.classList.contains('gjs-dashed') ||
+                window.parent?.document?.querySelector('#gjs') !== null;
 
-      // Agregar sector de configuración al Style Manager
-      gEditor.StyleManager.addSector('configuracion', {
-        name: '⚙️ Configuración',
-        open: true,
-        buildProps: ['data-action', 'data-url', 'data-target', 'data-transaction-id', 'data-amount', 'data-custom-function'],
+              if (isInEditor) {
+                e.stopPropagation(); // Permite selección sin activar acción
+              }
+            },
+          },
+        },
       });
 
       // Esperar al evento 'load' antes de cargar contenido
@@ -2509,7 +2398,52 @@ const GrapesEditor: React.FC = () => {
               const newBtn = element.cloneNode(true) as HTMLElement;
               element.parentNode?.replaceChild(newBtn, element);
               
+              // --- CORRECCIÓN DE SELECCIÓN EN EL EDITOR ---
+              // Asegura que los clics dentro del editor permitan seleccionar el botón sin disparar acciones
+              newBtn.style.pointerEvents = 'auto';
+              newBtn.style.position = 'relative';
+              newBtn.style.zIndex = '10';
+
+              newBtn.addEventListener('mousedown', (e: Event) => {
+                const isInEditorMousedown = 
+                  (window.frameElement && window.frameElement.id === 'gjs-frame') ||
+                  (window.parent && window.parent.document?.querySelector('#gjs') !== null) ||
+                  document.body.classList.contains('gjs-dashed');
+
+                if (isInEditorMousedown) {
+                  // Permite seleccionar el elemento en el editor sin ejecutar acción
+                  e.stopPropagation(); // evita que el click se propague
+                  e.preventDefault(); // evita navegación
+                  return false;
+                }
+              });
+              
               newBtn.addEventListener('click', (e: Event) => {
+                // Detectar si estamos dentro del editor de GrapesJS - SOLUCIÓN INFALIBLE
+                const isInEditor = 
+                  (window.frameElement && window.frameElement.id === 'gjs-frame') || // dentro del iframe del editor
+                  (window.parent && window.parent.document?.querySelector('#gjs') !== null) || // desde el iframe, existe el contenedor del editor
+                  document.body.classList.contains('gjs-dashed') || // el canvas editable
+                  document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null; // estructura del editor
+                
+                if (isInEditor) {
+                  // En el editor → solo prevenir acciones de navegación, permitir selección
+                  const url = newBtn.getAttribute('data-url');
+                  const action = newBtn.getAttribute('data-action') || 'link';
+                  
+                  // Solo bloquear si hay una acción que ejecutar
+                  if (url || action !== 'link') {
+                    e.preventDefault();
+                    console.log('🔧 Modo editor: acción de navegación bloqueada, selección permitida');
+                  }
+                  // No usar stopPropagation para permitir selección de GrapesJS
+                  return;
+                }
+                
+                // Aquí solo se ejecuta en la página publicada
+                console.log('🌐 Modo página pública: ejecutando acción real.');
+                
+                // Solo ejecutar en la página real
                 e.preventDefault();
                 const url = newBtn.getAttribute('data-url');
                 const target = newBtn.getAttribute('data-target') || '_self';
@@ -2526,6 +2460,40 @@ const GrapesEditor: React.FC = () => {
                   a.href = cleanUrl;
                   a.download = cleanUrl.split('/').pop() || 'download';
                   a.click();
+                }
+              });
+
+              // Agregar event listener para doble clic (solo en el editor)
+              newBtn.addEventListener('dblclick', (e: Event) => {
+                // Detectar si estamos dentro del editor de GrapesJS
+                const isInEditor = 
+                  (window.frameElement && window.frameElement.id === 'gjs-frame') || 
+                  (window.parent && window.parent.document?.querySelector('#gjs') !== null) || 
+                  document.body.classList.contains('gjs-dashed') || 
+                  document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null;
+                
+                if (isInEditor) {
+                  e.preventDefault();
+                  e?.stopPropagation?.();
+                  console.log('🧪 Modo editor: probando botón con doble click');
+                  
+                  // Ejecutar acción para prueba
+                  const url = newBtn.getAttribute('data-url');
+                  const target = newBtn.getAttribute('data-target') || '_self';
+                  const action = newBtn.getAttribute('data-action') || 'link';
+
+                  if (!url) return;
+
+                  const cleanUrl = url.replace(/`/g, '').trim();
+
+                  if (action === 'link') {
+                    window.open(cleanUrl, target);
+                  } else if (action === 'download') {
+                    const a = document.createElement('a');
+                    a.href = cleanUrl;
+                    a.download = cleanUrl.split('/').pop() || 'download';
+                    a.click();
+                  }
                 }
               });
             });
@@ -2546,25 +2514,104 @@ const GrapesEditor: React.FC = () => {
                    const newElement = element.cloneNode(true) as HTMLElement;
                    element.parentNode?.replaceChild(newElement, element);
                    
-                   newElement.addEventListener('click', (e: Event) => {
-                     e.preventDefault();
-                     const url = newElement.getAttribute('data-url');
-                     const target = newElement.getAttribute('data-target') || '_self';
-                     const action = newElement.getAttribute('data-action') || 'link';
+                   // --- CORRECCIÓN DE SELECCIÓN EN EL EDITOR ---
+                   // Asegura que los clics dentro del editor permitan seleccionar el botón sin disparar acciones
+                   newElement.style.pointerEvents = 'auto';
+                   newElement.style.position = 'relative';
+                   newElement.style.zIndex = '10';
 
-                     if (!url) return;
+                   newElement.addEventListener('mousedown', (e: Event) => {
+                     const isInEditorMousedown = 
+                       (window.frameElement && window.frameElement.id === 'gjs-frame') ||
+                       (window.parent && window.parent.document?.querySelector('#gjs') !== null) ||
+                       document.body.classList.contains('gjs-dashed');
 
-                     const cleanUrl = url.replace(/`/g, '').trim();
-
-                     if (action === 'link') {
-                       window.open(cleanUrl, target);
-                     } else if (action === 'download') {
-                       const a = document.createElement('a');
-                       a.href = cleanUrl;
-                       a.download = cleanUrl.split('/').pop() || 'download';
-                       a.click();
+                     if (isInEditorMousedown) {
+                       // Permite seleccionar el elemento en el editor sin ejecutar acción
+                       e.stopPropagation(); // evita que el click se propague
+                       e.preventDefault(); // evita navegación
+                       return false;
                      }
                    });
+                   
+                   newElement.addEventListener('click', (e: Event) => {
+                      // Detectar si estamos dentro del editor de GrapesJS - SOLUCIÓN INFALIBLE
+                      const isInEditor = 
+                        (window.frameElement && window.frameElement.id === 'gjs-frame') || // dentro del iframe del editor
+                        (window.parent && window.parent.document?.querySelector('#gjs') !== null) || // desde el iframe, existe el contenedor del editor
+                        document.body.classList.contains('gjs-dashed') || // el canvas editable
+                        document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null; // estructura del editor
+                      
+                      if (isInEditor) {
+                        // En el editor → solo prevenir acciones de navegación, permitir selección
+                        const url = newElement.getAttribute('data-url');
+                        const action = newElement.getAttribute('data-action') || 'link';
+                        
+                        // Solo bloquear si hay una acción que ejecutar
+                        if (url || action !== 'link') {
+                          e.preventDefault();
+                          console.log('🔧 Modo editor: acción de navegación bloqueada, selección permitida');
+                        }
+                        // No usar stopPropagation para permitir selección de GrapesJS
+                        return;
+                      }
+                      
+                      // Aquí solo se ejecuta en la página publicada
+                      console.log('🌐 Modo página pública: ejecutando acción real.');
+                      
+                      // Solo ejecutar en la página real
+                      e.preventDefault();
+                      const url = newElement.getAttribute('data-url');
+                      const target = newElement.getAttribute('data-target') || '_self';
+                      const action = newElement.getAttribute('data-action') || 'link';
+
+                      if (!url) return;
+
+                      const cleanUrl = url.replace(/`/g, '').trim();
+
+                      if (action === 'link') {
+                        window.open(cleanUrl, target);
+                      } else if (action === 'download') {
+                        const a = document.createElement('a');
+                        a.href = cleanUrl;
+                        a.download = cleanUrl.split('/').pop() || 'download';
+                        a.click();
+                      }
+                    });
+
+                    // Agregar event listener para doble clic (solo en el editor)
+                    newElement.addEventListener('dblclick', (e: Event) => {
+                      // Detectar si estamos dentro del editor de GrapesJS
+                      const isInEditor = 
+                        (window.frameElement && window.frameElement.id === 'gjs-frame') || 
+                        (window.parent && window.parent.document?.querySelector('#gjs') !== null) || 
+                        document.body.classList.contains('gjs-dashed') || 
+                        document.querySelector('.gjs-editor, .gjs-cv-canvas') !== null;
+                      
+                      if (isInEditor) {
+                        e.preventDefault();
+                        e?.stopPropagation?.();
+                        console.log('🧪 Modo editor: probando botón con doble click');
+                        
+                        // Ejecutar acción para prueba
+                        const url = newElement.getAttribute('data-url');
+                        const target = newElement.getAttribute('data-target') || '_self';
+                        const action = newElement.getAttribute('data-action') || 'link';
+
+                        if (!url) return;
+
+                        const cleanUrl = url.replace(/`/g, '').trim();
+
+                        if (action === 'link') {
+                          window.open(cleanUrl, target);
+                        } else if (action === 'download') {
+                          const a = document.createElement('a');
+                          a.href = cleanUrl;
+                          a.download = cleanUrl.split('/').pop() || 'download';
+                          a.click();
+                        }
+                      }
+                    });
                  }
                }
              }, 100);
@@ -3852,6 +3899,63 @@ const GrapesEditor: React.FC = () => {
               <span className="text-xs">{selectedInfo.name || 'Elemento'}</span>
               <span className="text-xs">{Math.round(selectedInfo.width)}×{Math.round(selectedInfo.height)} px</span>
             </div>
+          )}
+
+          {/* Botón para probar acción del elemento seleccionado */}
+          {selectedInfo && selectedInfo.type === 'action-button' && (
+            <button
+              onClick={() => {
+                try {
+                  const editor = editorInstanceRef.current;
+                  const selected = editor?.getSelected();
+                  if (!selected) return;
+                  
+                  const actionType = selected.get('attributes')['data-action-type'] || 'none';
+                  const url = selected.get('attributes')['href'] || selected.get('attributes')['data-file-url'] || '';
+                  const target = selected.get('attributes')['target'] || '_self';
+                  
+                  if (actionType === 'none' || !url) {
+                    alert('Este botón no tiene una acción configurada');
+                    return;
+                  }
+                  
+                  // Ejecutar la acción según el tipo
+                  if (actionType === 'link' || actionType === 'go-to-page') {
+                    if (target === '_blank') {
+                      window.open(url, '_blank');
+                    } else {
+                      window.location.href = url;
+                    }
+                  } else if (actionType === 'download' || actionType === 'download-file') {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = url.split('/').pop() || 'archivo';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  } else if (actionType === 'open_pdf') {
+                    window.open(url, '_blank');
+                  } else if (actionType === 'go_to_payment') {
+                    const tx = selected.get('attributes')['data-transaction-id'] || '';
+                    const amount = selected.get('attributes')['data-amount'] || '';
+                    const finalUrl = url + (url.indexOf('?') === -1 ? '?' : '&') +
+                      'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
+                    if (target === '_blank') {
+                      window.open(finalUrl, '_blank');
+                    } else {
+                      window.location.href = finalUrl;
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Error al probar acción:', e);
+                  alert('Error al ejecutar la acción del botón');
+                }
+              }}
+              className="px-3 py-1.5 text-sm bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-md transition-colors flex items-center"
+              title="Probar acción del botón seleccionado"
+            >
+              🧪 Probar Acción
+            </button>
           )}
 
           {/* Botón de pegar imagen desde portapapeles */}
