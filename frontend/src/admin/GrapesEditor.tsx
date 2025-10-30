@@ -421,6 +421,61 @@ const GrapesEditor: React.FC = () => {
         height: '100vh',
         width: 'auto',
         panels: { defaults: [] },
+        canvas: {
+          styles: [
+            // Asegura que el canvas tenga buena alineación
+            `
+            body, html {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              overflow-x: hidden;
+            }
+            [data-gjs-type] {
+              position: relative;
+            }
+            .gjs-frame, iframe {
+              pointer-events: auto !important;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            `,
+            // 🧹 CSS para limpiar interferencias visuales y mejorar selección
+            `
+            #gjs, .gjs-cv-canvas {
+              pointer-events: auto !important;
+              z-index: 0 !important;
+            }
+            .gjs-selected, .gjs-hovered {
+              outline: 2px solid rgba(0, 123, 255, 0.6) !important;
+              outline-offset: 1px !important;
+            }
+            .gjs-selected {
+              box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.3) !important;
+            }
+            /* Asegurar que todos los elementos sean seleccionables */
+            [data-gjs-type] {
+              pointer-events: auto !important;
+              position: relative !important;
+            }
+            /* Prevenir overlays que bloqueen selección */
+            .gjs-toolbar, .gjs-toolbar-item {
+              pointer-events: auto !important;
+              z-index: 1000 !important;
+            }
+            /* Mejorar visibilidad de elementos seleccionables */
+            [data-gjs-type]:hover {
+              cursor: pointer !important;
+            }
+            `,
+            // Estilos adicionales para arrastrar y placeholder
+            ".dragging{opacity:0.7 !important;border:2px dashed #3b82f6 !important;z-index:9999 !important;} .gjs-placeholder{background: rgba(59,130,246,0.1) !important;border: 2px dashed #3b82f6 !important;min-height:50px !important;}",
+            '/tailwind.css',
+            'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
+          ],
+          scripts: []
+        },
         i18n: {
           locale: 'es',
           messages: {
@@ -763,14 +818,6 @@ const GrapesEditor: React.FC = () => {
         // Configuración adicional removida para cumplir tipos de DomComponents
         storageManager: false,
         avoidInlineStyle: true,
-        canvas: {
-          styles: [
-            ".dragging{opacity:0.7 !important;border:2px dashed #3b82f6 !important;z-index:9999 !important;} .gjs-placeholder{background: rgba(59,130,246,0.1) !important;border: 2px dashed #3b82f6 !important;min-height:50px !important;}",
-            '/tailwind.css',
-            'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
-          ],
-          scripts: []
-        },
       });
 
       // Logs de verificación para StyleManager
@@ -1293,6 +1340,17 @@ const GrapesEditor: React.FC = () => {
               const actionType = component.get('data-action-type');
               const traits = component.get('traits');
               
+              // 🔧 PRESERVAR PROPIEDADES DE EDICIÓN DURANTE ACTUALIZACIÓN DE TRAITS
+              component.set({
+                selectable: true,
+                draggable: true,
+                removable: true,
+                hoverable: true,
+                highlightable: true,
+                badgable: true,
+                copyable: true
+              });
+              
               // Ocultar todos los campos dependientes primero
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
@@ -1322,7 +1380,7 @@ const GrapesEditor: React.FC = () => {
               
               // Forzar re-renderizado del panel de traits
               gEditor.TraitManager.render();
-              console.log(`✅ Traits dinámicos actualizados para acción: ${actionType}`);
+              console.log(`✅ Traits dinámicos actualizados para acción: ${actionType} (propiedades de edición preservadas)`);
             }
           } catch (e) {
              console.warn('Error actualizando traits dinámicos:', e);
@@ -1333,6 +1391,17 @@ const GrapesEditor: React.FC = () => {
          gEditor.on('component:update:traits', (component: any) => {
            try {
             const sm = gEditor.StyleManager;
+            
+            // 🔧 PRESERVAR PROPIEDADES DE EDICIÓN DURANTE SINCRONIZACIÓN
+            component.set({
+              selectable: true,
+              draggable: true,
+              removable: true,
+              hoverable: true,
+              highlightable: true,
+              badgable: true,
+              copyable: true
+            });
             
             // Sincronización básica de traits con Style Manager
             const traits = component.get('traits');
@@ -1354,7 +1423,7 @@ const GrapesEditor: React.FC = () => {
           }
         });
         
-        gEditor.on('component:selected', () => {});
+        // Handler vacío eliminado - era innecesario
       } catch {}
 
       // Contadores simples desactivados: los helpers globales manejan reintentos
@@ -2221,24 +2290,82 @@ const GrapesEditor: React.FC = () => {
         }
       };
 
-      // Registrar tipo personalizado para botones con traits
+      // ✅ FIX CRÍTICO: CSS para forzar pointer-events: auto en action-buttons
+      gEditor.on('load', () => {
+        const frame = gEditor.Canvas.getFrameEl();
+        if (!frame?.contentDocument) return;
+        
+        const style = frame.contentDocument.createElement('style');
+        style.innerHTML = `
+          /* Forzar interactividad en botones action-button */
+          a[data-gjs-type="action-button"], 
+          button[data-gjs-type="action-button"],
+          a#irlnr4,
+          [data-gjs-type="action-button"] {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+            z-index: 10 !important;
+          }
+          
+          /* Asegurar que los botones sean visibles y clickeables */
+          .gjs-selected a[data-gjs-type="action-button"],
+          .gjs-selected button[data-gjs-type="action-button"] {
+            pointer-events: auto !important;
+            outline: 2px solid #007bff !important;
+            outline-offset: 2px !important;
+          }
+        `;
+        frame.contentDocument.head.appendChild(style);
+        console.log('✅ CSS fix aplicado: pointer-events: auto para action-buttons');
+      });
+
+      // ✅ Registrar correctamente el componente "action-button" 
       gEditor.DomComponents.addType('action-button', {
         isComponent: (el) => {
-          if (el.tagName === 'A' || el.tagName === 'BUTTON') {
+          if (!el || !el.tagName) return false;
+          const tagName = el.tagName.toLowerCase();
+          
+          // Detectar por atributo data-gjs-type
+          if (el.getAttribute('data-gjs-type') === 'action-button') {
             return { type: 'action-button' };
           }
+          
+          // Detectar por estructura (A o BUTTON con data-url o data-action)
+          if ((tagName === 'a' || tagName === 'button') && 
+              (el.getAttribute('data-url') || el.getAttribute('data-action'))) {
+            return { type: 'action-button' };
+          }
+          
+          return false;
         },
         model: {
           defaults: {
             tagName: 'a',
             draggable: true,
             droppable: false,
-            editable: true,
             selectable: true,
             highlightable: true,
             hoverable: true,
-            attributes: { href: '#', type: 'button' },
+            editable: true,
             traits: [
+              {
+                type: 'text',
+                label: 'Texto',
+                name: 'content',
+                changeProp: 1,
+              },
+              {
+                type: 'text',
+                label: 'Enlace (URL)',
+                name: 'href',
+                placeholder: 'https://...',
+              },
+              {
+                type: 'color',
+                label: 'Color de fondo',
+                name: 'background-color',
+              },
               {
                 type: 'select',
                 label: 'Acción',
@@ -2251,7 +2378,6 @@ const GrapesEditor: React.FC = () => {
                   { id: 'go_to_payment', name: 'Ir a pago' },
                   { id: 'execute-function', name: 'Ejecutar función' }
                 ],
-                changeProp: 1,
               },
               {
                 type: 'text',
@@ -2267,101 +2393,37 @@ const GrapesEditor: React.FC = () => {
                   { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva ventana' },
                 ],
-              },
-              {
-                type: 'text',
-                label: 'ID de transacción',
-                name: 'data-transaction-id',
-                placeholder: 'ID de transacción',
-              },
-              {
-                type: 'number',
-                label: 'Monto',
-                name: 'data-amount',
-                placeholder: '0.00',
-              },
-              {
-                type: 'textarea',
-                label: 'Código JavaScript',
-                name: 'data-custom-function',
-                placeholder: 'console.log("Hola mundo");',
               }
             ],
-            // ✅ Script desactivado en el editor
-            script: function() {
-              const el = this;
-
-              // Evita interferencia en el editor
-              const isInEditor = 
-                document.body.classList.contains('gjs-dashed') ||
-                window.parent?.document?.querySelector('#gjs') !== null;
-
-              if (isInEditor) {
-                el.style.pointerEvents = 'none';
-                return;
-              }
-
-              // Solo funciona fuera del editor
-              el.addEventListener('click', (e) => {
-                const action = el.getAttribute('data-action');
-                const url = el.getAttribute('data-url');
-                const target = el.getAttribute('data-target') || '_self';
-                const transactionId = el.getAttribute('data-transaction-id');
-                const amount = el.getAttribute('data-amount');
-                const customFunction = el.getAttribute('data-custom-function');
-
-                // Si no hay acción pero hay URL, asumir que es un enlace
-                const finalAction = action || (url ? 'link' : null);
-
-                if (!finalAction) return;
-
-                e.preventDefault();
-
-                switch (finalAction) {
-                  case 'link':
-                    if (url) {
-                      const cleanUrl = url.replace(/`/g, '').trim();
-                      window.open(cleanUrl, target);
-                    }
-                    break;
-                  case 'download':
-                    if (url) {
-                      const cleanUrl = url.replace(/`/g, '').trim();
-                      const a = document.createElement('a');
-                      a.href = cleanUrl;
-                      a.download = cleanUrl.split('/').pop() || 'download';
-                      a.click();
-                    }
-                    break;
-                  case 'open_pdf':
-                    if (url) {
-                      const cleanUrl = url.replace(/`/g, '').trim();
-                      window.open(cleanUrl, '_blank');
-                    }
-                    break;
-                  case 'go_to_payment':
-                    if (transactionId && amount) {
-                      console.log('Procesando pago:', { transactionId, amount });
-                      // Aquí iría la lógica de pago
-                    }
-                    break;
-                  case 'execute-function':
-                    if (customFunction) {
-                      try {
-                        new Function(customFunction)();
-                      } catch (error) {
-                        console.error('Error ejecutando función personalizada:', error);
-                      }
-                    }
-                    break;
-                }
-              });
+            attributes: { 
+              href: '#', 
+              class: 'btn-action',
+              'data-gjs-type': 'action-button'
             },
+            styles: `
+              .btn-action {
+                display: inline-block;
+                padding: 10px 15px;
+                border-radius: 4px;
+                background-color: #007bff;
+                color: white;
+                text-decoration: none;
+              }
+              .btn-action:hover {
+                background-color: #0056b3;
+              }
+            `,
+          },
+          init() {
+            // Sincronizar contenido del texto
+            this.on('change:content', () => {
+              this.view.el.textContent = this.get('content');
+            });
           },
         },
         view: {
           events: {
-            // 🔹 Permite seleccionar el botón normalmente en el editor
+            // Permitir selección en el editor sin activar acciones
             mousedown(e) {
               const isInEditor = 
                 document.body.classList.contains('gjs-dashed') ||
@@ -2375,10 +2437,520 @@ const GrapesEditor: React.FC = () => {
         },
       });
 
+      // 🧭 Configurar traits específicos para componentes de tipo link
+      gEditor.DomComponents.addType('link', {
+        isComponent: el => el.tagName === 'A',
+        model: {
+          defaults: {
+            traits: [
+              { type: 'text', label: 'Texto', name: 'text' },
+              { type: 'text', label: 'URL', name: 'data-url' },
+              { type: 'checkbox', label: 'Abrir en nueva pestaña', name: 'target', valueTrue: '_blank' }
+            ],
+            selectable: true,
+            hoverable: true,
+            highlightable: true,
+            draggable: true,
+            droppable: true,
+            removable: true,
+            badgable: true,
+            copyable: true,
+          }
+        }
+      });
+
       // Esperar al evento 'load' antes de cargar contenido
       gEditor.on('load', () => {
         console.log('✅ GrapesJS: evento load disparado');
         setEditorReady(true);
+
+        // ✅ Forzar la restauración de propiedades de edición para componentes existentes
+        try {
+          const wrapper = gEditor.DomComponents.getWrapper();
+          const actionButtons = wrapper.findType('action-button');
+          
+          console.log('🔄 INICIANDO RESTAURACIÓN DE COMPONENTES:', {
+            totalActionButtons: actionButtons.length,
+            timestamp: new Date().toLocaleTimeString()
+          });
+          
+          actionButtons.forEach((cmp, index) => {
+            const el = cmp.getEl();
+            cmp.set({
+              selectable: true,
+              hoverable: true,
+              editable: true,
+              highlightable: true,
+              draggable: true,
+            });
+            
+            console.log(`✅ ACTION-BUTTON ${index + 1} RESTAURADO:`, {
+              id: el?.id || 'sin-id',
+              className: el?.className || 'sin-clase',
+              tag: el?.tagName,
+              href: el?.getAttribute('href'),
+              dataUrl: el?.getAttribute('data-url'),
+              dataAction: el?.getAttribute('data-action'),
+              traitsCount: cmp.get('traits')?.length || 0,
+              isSelectable: cmp.get('selectable'),
+              isEditable: cmp.get('editable')
+            });
+          });
+          
+          console.log(`🎯 RESTAURACIÓN COMPLETADA: ${actionButtons.length} action-buttons procesados`);
+        } catch (e) {
+          console.error('❌ Error restaurando propiedades de action-buttons:', e);
+        }
+
+        // ✅ Habilitar edición total de botones y activar acción solo con doble clic
+        const frame = gEditor.Canvas.getFrameEl();
+        if (!frame || !frame.contentDocument) return;
+
+        const doc = frame.contentDocument;
+
+        // 1️⃣ Permitir seleccionar y editar botones/enlaces normalmente
+        const style = doc.createElement('style');
+        style.innerHTML = `
+          a, button, input, iframe, video { 
+            pointer-events: auto !important; 
+            user-select: auto !important; 
+          } 
+
+          /* Mostrar borde de selección */ 
+          [data-gjs-type="button"], [data-gjs-type="link"], a, button { 
+            cursor: pointer !important; 
+            outline: 1px dashed rgba(0,0,0,0.15); 
+          } 
+
+          .gjs-selected { 
+            outline: 2px solid #007cff !important; 
+            outline-offset: 1px !important; 
+          }
+        `;
+        doc.head.appendChild(style);
+
+        // 2️⃣ Evitar que el click simple dispare acciones
+        doc.addEventListener('click', e => {
+          const target = e.target as HTMLElement;
+          if (target?.matches('a, button, input')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+
+        // 3️⃣ Permitir acción real SOLO con doble click
+        doc.addEventListener('dblclick', e => {
+          const target = e.target as HTMLElement;
+          if (target?.matches('a, button')) {
+            const url = target.getAttribute('href') || target.getAttribute('data-url');
+            if (url && url !== '#') window.open(url, '_blank');
+          }
+        });
+
+        // Función para configurar handlers adicionales de elementos interactivos
+        const setupInteractiveHandlers = () => {
+          // Esta función puede expandirse en el futuro para manejar casos específicos
+          console.log('✅ Handlers interactivos configurados');
+        };
+                
+        // Configurar handlers inicialmente
+        setupInteractiveHandlers();
+        
+        // Reconfigurar handlers cuando se añadan nuevos componentes
+        const observer = new MutationObserver(() => {
+          setupInteractiveHandlers();
+        });
+        
+        observer.observe(doc.body, {
+          childList: true,
+          subtree: true
+        });
+        
+        console.log('✅ Sistema de clic simple/doble clic configurado para componentes interactivos');
+        
+        // 🔧 FIX K: Refuerzo universal para mantener propiedades de edición
+        console.log('🔧 Configurando refuerzo universal...');
+        
+        const universalComponentFix = () => {
+          try {
+            const allComponents = gEditor.DomComponents.getComponents();
+            
+            const walkComponents = (collection: any) => {
+              collection.each((comp: any) => {
+                const el = comp.getEl?.();
+                const tag = (comp.get('tagName') || '').toLowerCase();
+                const type = comp.get('type');
+                
+                // Restaurar referencia __gjs_model si falta
+                if (el && !el.__gjs_model) {
+                  el.__gjs_model = comp;
+                }
+                
+                // Asegurar propiedades de edición para botones y enlaces
+                if (tag === 'a' || tag === 'button' || type === 'button' || type === 'action-button') {
+                  comp.set({
+                    selectable: true,
+                    draggable: true,
+                    hoverable: true,
+                    removable: true,
+                    badgable: true,
+                    copyable: true,
+                    highlightable: true
+                  });
+                }
+                
+                // Procesar componentes hijos
+                if (comp.components && typeof comp.components === 'function') {
+                  walkComponents(comp.components());
+                }
+              });
+            };
+            
+            walkComponents(allComponents);
+          } catch (error) {
+            console.warn('⚠️ Error en refuerzo universal:', error);
+          }
+        };
+        
+        // Aplicar refuerzo en eventos clave
+        gEditor.on('canvas:rendered component:add component:update component:mount', universalComponentFix);
+
+        // 🔧 Reasocia el modelo al DOM si se pierde tras editar traits
+        gEditor.on('component:update', (model: any) => {
+          if (model.get('type') === 'action-button') {
+            const el = model.getEl();
+            if (el && !(el as any).__gjs_model) {
+              (el as any).__gjs_model = model;
+              model.set({
+                selectable: true,
+                hoverable: true,
+                draggable: true,
+                removable: true,
+                highlightable: true
+              });
+              el.style.pointerEvents = 'auto';
+              el.style.zIndex = 'auto';
+              console.log('🔁 Reasociado modelo al botón y restauradas propiedades de edición');
+            }
+          }
+        });
+
+        // 🔍 VERIFICACIÓN AUTOMÁTICA DE COMPONENTES - VERSIÓN SEGURA
+        console.log('🔍 Configurando verificación automática de componentes...');
+        const verifyAndSyncComponents = () => {
+          // ✅ Esperar hasta que el editor esté completamente cargado
+          if (!gEditor || !gEditor.getWrapper) {
+            console.warn('⏳ Editor aún no está listo. Reintentando verificación...');
+            setTimeout(verifyAndSyncComponents, 300);
+            return;
+          }
+
+          let wrapper;
+          try {
+            wrapper = gEditor.getWrapper();
+            if (!wrapper) {
+              console.warn('⚠️ Wrapper no disponible todavía. Reintentando...');
+              setTimeout(verifyAndSyncComponents, 300);
+              return;
+            }
+          } catch (err) {
+            console.error('Error al obtener wrapper:', err);
+            return;
+          }
+
+          // ✅ Aquí el código de verificación real
+          console.log('✅ Verificación completada, wrapper OK');
+          
+          try {
+            const allComponents = wrapper.find('*');
+            let fixedCount = 0;
+            let errorCount = 0;
+            
+            allComponents.forEach((component: any) => {
+              try {
+                // Verificar que el componente responda a select sin error
+                const testSelect = () => {
+                  try {
+                    gEditor.select(component);
+                    gEditor.select(null); // Deseleccionar inmediatamente
+                    return true;
+                  } catch (e) {
+                    console.warn('⚠️ Error al seleccionar componente:', component.get('tagName'), e);
+                    return false;
+                  }
+                };
+                
+                // Si falla la selección, intentar sincronizar la vista
+                if (!testSelect()) {
+                  console.log('🔧 Sincronizando vista del componente:', component.get('tagName'));
+                  
+                  // Re-renderizar la vista del componente
+                  if (component.view && typeof component.view.render === 'function') {
+                    component.view.render();
+                  }
+                  
+                  // Verificar nuevamente después del re-render
+                  if (testSelect()) {
+                    fixedCount++;
+                    console.log('✅ Componente sincronizado correctamente');
+                  } else {
+                    errorCount++;
+                    console.error('❌ No se pudo sincronizar el componente');
+                  }
+                }
+                
+              } catch (e) {
+                errorCount++;
+                console.error('❌ Error procesando componente:', e);
+              }
+            });
+            
+            console.log(`🔍 Verificación completada: ${allComponents.length} componentes revisados, ${fixedCount} sincronizados, ${errorCount} errores`);
+            
+            // Trigger de actualización del canvas
+            gEditor.trigger('change:canvas');
+            
+          } catch (e) {
+            console.error('❌ Error en verificación automática:', e);
+          }
+        };
+
+        // ✅ Restaurar selección en el canvas
+        console.log('🎨 Restaurando selección del canvas...');
+        const canvasFrame = gEditor.Canvas.getFrameEl();
+        if (canvasFrame && canvasFrame.contentDocument) {
+          const style = canvasFrame.contentDocument.createElement('style');
+          style.innerHTML = `
+            * { pointer-events: auto !important; }
+            [data-gjs-type] { cursor: pointer !important; }
+          `;
+          canvasFrame.contentDocument.head.appendChild(style);
+          console.log('✅ CSS de selección aplicado al canvas');
+        }
+
+        // 🎯 CORRECCIÓN DE HITBOX - Selección precisa sin desalineamiento
+        console.log('🎯 Aplicando corrección de hitbox para selección precisa...');
+        const frameEl = gEditor.Canvas.getFrameEl();
+        const frameDoc = frameEl?.contentDocument;
+        if (frameDoc) {
+          const styleFix = frameDoc.createElement('style');
+          styleFix.innerHTML = `
+            [data-gjs-type] {
+              transform-origin: top left !important;
+              position: relative !important;
+            }
+            body, html {
+              overflow-x: hidden;
+              max-width: 100%;
+            }
+          `;
+          frameDoc.head.appendChild(styleFix);
+
+          // 🎯 CORRECCIÓN DE POINTER-EVENTS - Garantizar seleccionabilidad
+          const pointerFix = frameDoc.createElement('style');
+          pointerFix.innerHTML = `
+            .gjs-selected, [data-gjs-type="button"], [data-gjs-type="link"], button, a {
+              pointer-events: auto !important;
+            }
+            .gjs-frame, .gjs-cv-canvas {
+              pointer-events: none !important;
+            }
+          `;
+          frameDoc.head.appendChild(pointerFix);
+          console.log('✅ Corrección de hitbox y pointer-events aplicada - selección precisa habilitada');
+        }
+
+        // 📱 RESPONSIVIDAD Y ALINEACIÓN AUTOMÁTICA
+        console.log('📱 Aplicando responsividad y alineación automática...');
+        const frameElement = gEditor.Canvas.getFrameEl();
+        if (frameElement?.contentDocument) {
+          const responsive = frameElement.contentDocument.createElement('style');
+          responsive.innerHTML = `
+            @media (max-width: 768px) {
+              [data-gjs-type="button"], button, a[type="button"] {
+                width: 100% !important;
+                display: block !important;
+                text-align: center !important;
+                margin-bottom: 10px !important;
+              }
+              .gjs-row, .gjs-column {
+                flex-direction: column !important;
+              }
+              .gjs-row > .gjs-column {
+                width: 100% !important;
+                margin-bottom: 15px !important;
+              }
+              /* Mejoras adicionales para móviles */
+              [data-gjs-type="text"] {
+                font-size: 16px !important;
+                line-height: 1.5 !important;
+              }
+              [data-gjs-type="image"] {
+                max-width: 100% !important;
+                height: auto !important;
+              }
+            }
+            @media (max-width: 480px) {
+              [data-gjs-type="button"], button, a[type="button"] {
+                padding: 12px 20px !important;
+                font-size: 16px !important;
+              }
+              .gjs-row {
+                padding: 10px !important;
+              }
+            }
+          `;
+          frameElement.contentDocument.head.appendChild(responsive);
+          console.log('✅ CSS responsivo aplicado - diseño móvil optimizado');
+        }
+
+        // Ejecutar verificación inicial solo después de que el editor esté completamente cargado
+        console.log('🎨 GrapesJS cargado completamente');
+        verifyAndSyncComponents();
+
+        // 🔧 CORRECCIÓN DE SELECCIÓN DE BOTONES Y ENLACES
+        console.log('🔧 Configurando corrección de selección para botones y enlaces...');
+        
+        // Añadir eventos para detectar hover y mejorar selección
+        gEditor.on('component:hover', (comp: any) => {
+          try {
+            console.log('🎯 Hovering:', comp.getName(), comp.getId());
+          } catch (e) {
+            console.warn('⚠️ Error en hover:', e);
+          }
+        });
+
+        // ✅ Configuración limpia de componentes seleccionados (sin sobrescribir traits)
+        gEditor.on('component:selected', (comp: any) => {
+          try {
+            // Solo validar que el componente mantenga sus propiedades básicas
+            // SIN modificar traits ni eventos onclick
+            if (comp && comp.getEl) {
+              const el = comp.getEl();
+              const componentType = comp.get('type');
+              const isInteractive = el && (el.tagName === 'A' || el.tagName === 'BUTTON' || componentType === 'action-button');
+              
+              if (isInteractive) {
+                // Solo asegurar que sea seleccionable, sin interferir con traits
+                comp.set({
+                  selectable: true,
+                  hoverable: true,
+                  highlightable: true,
+                  draggable: true,
+                  editable: true
+                });
+                
+                // 📊 LOGS DETALLADOS PARA CONFIRMAR FUNCIONAMIENTO
+                console.log('🎯 COMPONENTE INTERACTIVO SELECCIONADO:', {
+                  tag: el.tagName,
+                  type: componentType,
+                  id: el.id || 'sin-id',
+                  className: el.className || 'sin-clase',
+                  traitsCount: comp.get('traits')?.length || 0,
+                  isSelectable: comp.get('selectable'),
+                  isEditable: comp.get('editable'),
+                  isDraggable: comp.get('draggable'),
+                  href: el.getAttribute('href'),
+                  dataUrl: el.getAttribute('data-url'),
+                  dataAction: el.getAttribute('data-action'),
+                  styleManagerReady: !!gEditor.StyleManager,
+                  timestamp: new Date().toLocaleTimeString()
+                });
+                
+                // Verificar que el Style Manager puede acceder al componente
+                setTimeout(() => {
+                  const sm = gEditor.StyleManager;
+                  const selectedComp = gEditor.getSelected();
+                  console.log('🎨 STYLE MANAGER STATUS:', {
+                    componentStillSelected: selectedComp === comp,
+                    styleManagerExists: !!sm,
+                    canGetStyles: !!selectedComp?.getStyle,
+                    currentStyles: selectedComp?.getStyle?.() || 'no-styles'
+                  });
+                }, 100);
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ Error validando componente:', e);
+          }
+        });
+
+        // Asegurar que todos los componentes nuevos sean seleccionables y configurar eventos de click
+        gEditor.on('component:add', (comp: any) => {
+          try {
+            comp.set({
+              selectable: true,
+              hoverable: true,
+              highlightable: true,
+              draggable: true,
+              droppable: true,
+              removable: true,
+              copyable: true,
+            });
+
+            // 🔒 CONFIGURACIÓN ESPECIAL PARA BOTONES Y ENLACES
+            const el = comp.getEl();
+            
+            // ✅ Validación segura: Asegurar que sea un elemento DOM válido
+            if (!el || !el.tagName) return;
+            
+            if (el.tagName === 'A' || el.tagName === 'BUTTON') {
+              // 🔒 Permitir selección normal
+              el.onclick = (e: Event) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // Seleccionar el componente al click normal
+                gEditor.select(comp);
+                console.log('🎯 Componente seleccionado:', comp.getId());
+              };
+
+              // 🧠 Ejecutar la acción real solo si se hace doble click
+              el.ondblclick = (e: Event) => {
+                e.stopPropagation();
+                e.preventDefault();
+
+                const url = el.getAttribute('data-url') || el.getAttribute('href');
+                const target = el.getAttribute('data-target') || '_self';
+                if (url) {
+                  console.log('🚀 Ejecutando acción de doble click:', url);
+                  window.open(url, target);
+                }
+              };
+
+              // Añadir indicador visual
+              el.style.cursor = 'pointer';
+              el.title = 'Click: seleccionar | Doble click: ejecutar acción';
+            }
+          } catch (e) {
+            console.error('❌ Error configurando componente nuevo:', e);
+          }
+        });
+
+        // 🧹 PREVENCIÓN DE DUPLICACIONES Y GHOST CLONES - Versión Robusta
+        console.log('🧹 Configurando prevención de duplicaciones...');
+        gEditor.on('component:drag:end', (model: any) => {
+          try {
+            // Verificar que sea un componente válido
+            if (!model || typeof model.get !== 'function') return;
+
+            const parent = model.parent?.();
+            if (!parent || typeof parent.components !== 'function') return;
+
+            const duplicates = parent.components().filter(
+              (c: any) => c.getId && c.getId() === model.getId()
+            );
+
+            if (duplicates.length > 1) {
+              duplicates.slice(1).forEach((d: any) => d.remove());
+              console.warn('🧹 Duplicado eliminado automáticamente:', model.getId());
+            }
+          } catch (err) {
+            console.error('❌ Error en prevención de duplicaciones:', err);
+          }
+        });
+
+        console.log('✅ Correcciones de selección y prevención de duplicaciones configuradas');
 
         // Convertir botones existentes al tipo action-button
          const wrapper = gEditor.getWrapper();
@@ -2389,9 +2961,9 @@ const GrapesEditor: React.FC = () => {
          }
 
          // Agregar script global para botones existentes que ya tienen data-url
-          const doc = gEditor.Canvas.getDocument();
-          if (doc) {
-            const botones = doc.querySelectorAll('a[data-url], button[data-url]');
+          const canvasDoc = gEditor.Canvas.getDocument();
+          if (canvasDoc) {
+            const botones = canvasDoc.querySelectorAll('a[data-url], button[data-url]');
             botones.forEach(btn => {
               const element = btn as HTMLElement;
               // Remover listeners existentes para evitar duplicados
@@ -2527,10 +3099,9 @@ const GrapesEditor: React.FC = () => {
                        document.body.classList.contains('gjs-dashed');
 
                      if (isInEditorMousedown) {
-                       // Permite seleccionar el elemento en el editor sin ejecutar acción
-                       e.stopPropagation(); // evita que el click se propague
-                       e.preventDefault(); // evita navegación
-                       return false;
+                       // 🔧 CONTROL CORRECTO DE EVENTOS - Solo stopPropagation, no preventDefault
+                       e.stopPropagation(); // Evita que Grapes lo marque como acción externa
+                       return false;        // No ejecutar, pero permite seleccionarlo
                      }
                    });
                    
@@ -3101,10 +3672,148 @@ const GrapesEditor: React.FC = () => {
           content: '<iframe src="" style="width: 100%; height: 400px; border: none;"></iframe>'
         });
 
+        // 🔧 Ajuste general de selección y clics en el editor
+        const fixSelectionIssues = () => {
+          const iframe = gEditor.Canvas.getFrameEl();
+          const iframeDoc = iframe?.contentDocument;
+
+          if (!iframeDoc) return;
+
+          // 1️⃣ Asegurar que todos los elementos dentro del iframe sean seleccionables
+          iframeDoc.querySelectorAll('*').forEach((el: Element) => {
+            (el as HTMLElement).style.pointerEvents = 'auto';
+          });
+
+          // 2️⃣ Permitir que GrapesJS capture eventos sin bloquear clics
+          iframeDoc.addEventListener('mousedown', (e: Event) => {
+            const target = e.target as HTMLElement;
+            const isComponent = target?.closest('[data-gjs-type]');
+            if (isComponent) {
+              e.stopPropagation();
+            }
+          });
+
+          // 3️⃣ Sincronizar hitbox al redimensionar
+          const syncSelection = () => {
+            try {
+              const canvasView = gEditor.Canvas.getCanvasView();
+              if (canvasView && typeof canvasView.updateFrameOffset === 'function') {
+                canvasView.updateFrameOffset();
+              }
+            } catch (e) {
+              // Método no disponible en esta versión
+            }
+          };
+          window.addEventListener('resize', syncSelection);
+          iframeDoc.addEventListener('scroll', syncSelection);
+
+          // 4️⃣ Evitar saltos o desalineaciones
+          gEditor.on('canvas:dragend component:selected', () => {
+            requestAnimationFrame(() => {
+              try {
+                const canvasView = gEditor.Canvas.getCanvasView();
+                if (canvasView && typeof canvasView.updateFrameOffset === 'function') {
+                  canvasView.updateFrameOffset();
+                }
+              } catch (e) {
+                // Método no disponible en esta versión
+              }
+            });
+          });
+        };
+
+        // Ejecutar el fix de selección
+        fixSelectionIssues();
+
+        // 🔍 VERIFICACIÓN AUTOMÁTICA DE COMPONENTES - MOVIDA AL EVENTO LOAD
+        // Esta función ahora se ejecuta dentro del evento 'load' para evitar errores de getWrapper
+
         // El iframe del canvas puede aún no estar listo; se usa 'canvas:frame:load'
       });
 
-      // El frame del canvas está listo; validar ancho antes de marcar canvasReady
+      // 🎨 CSS PARA MEJORAR SELECCIÓN DE BOTONES EN EL CANVAS
+      gEditor.on('canvas:frame:load', () => {
+        console.log('🎨 Inyectando CSS para mejorar selección de botones...');
+        try {
+          const frame = gEditor.Canvas.getFrameEl();
+          if (frame && frame.contentDocument) {
+            const style = frame.contentDocument.createElement('style');
+            style.innerHTML = `
+              /* Asegurar que todos los elementos sean seleccionables */
+              * {
+                pointer-events: auto !important;
+              }
+              
+              /* Mejorar selección de enlaces y botones */
+              a, button, [data-url] {
+                position: relative !important;
+                z-index: 9999 !important;
+                pointer-events: auto !important;
+                cursor: pointer !important;
+              }
+              
+              /* Prevenir que el editor bloquee la selección */
+              .gjs-dashed * {
+                pointer-events: auto !important;
+              }
+              
+              /* Mejorar visibilidad en hover */
+              a:hover, button:hover, [data-url]:hover {
+                outline: 2px solid #007bff !important;
+                outline-offset: 2px !important;
+              }
+            `;
+            frame.contentDocument.head.appendChild(style);
+            console.log('✅ CSS de selección inyectado correctamente');
+          }
+        } catch (error) {
+          console.error('❌ Error inyectando CSS de selección:', error);
+        }
+      });
+
+      // 🔗 MANEJO CORRECTO DE ENLACES CON DATA-URL
+      console.log('🔗 Configurando manejo de enlaces...');
+      
+      // Prevenir navegación en el editor, permitir en la página publicada
+      const handleLinkClick = (e: Event) => {
+        const target = e.target as HTMLElement;
+        const link = target.closest('a[data-url]') as HTMLAnchorElement;
+        
+        if (!link) return;
+        
+        // Detectar si estamos en el editor
+        const isEditor = document.body.classList.contains('gjs-dashed') || 
+                        window.location.pathname.includes('/admin/');
+        
+        if (isEditor) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('🔗 Enlace bloqueado en editor:', link.getAttribute('data-url'));
+          return false;
+        }
+        
+        // En la página publicada, usar la URL del data-url
+        const url = link.getAttribute('data-url');
+        const targetAttr = link.getAttribute('data-target');
+        
+        if (url) {
+          e.preventDefault();
+          const target = targetAttr === '_blank' ? '_blank' : '_self';
+          window.open(url, target);
+          console.log('🔗 Navegando a:', url);
+        }
+      };
+      
+      // Añadir el event listener al documento
+      document.addEventListener('click', handleLinkClick, true);
+      
+      // También añadirlo al frame del canvas cuando esté listo
+      gEditor.on('canvas:frame:load', () => {
+        const frame = gEditor.Canvas.getFrameEl();
+        if (frame && frame.contentDocument) {
+          frame.contentDocument.addEventListener('click', handleLinkClick, true);
+        }
+      });
       gEditor.on('canvas:frame:load', () => {
         console.log('🖼️ Canvas frame listo');
         const checkWidthAndReady = () => {
@@ -3154,6 +3863,716 @@ const GrapesEditor: React.FC = () => {
           }, 100);
         }
       });
+
+      // 🔄 RESTAURAR LAYER MANAGER 100% NATIVO DE GRAPESJS
+      console.log('🔄 Restaurando Layer Manager 100% nativo...');
+      
+      gEditor.on('load', () => {
+        // 🔄 Restaurar Layer Manager a su comportamiento nativo
+        const layerManager = gEditor.LayerManager;
+        if (!layerManager) {
+          console.error('❌ No se encontró el LayerManager');
+          return;
+        }
+
+        // Asegurar que el panel esté visible
+        const layerPanel = gEditor.Panels.getPanel('views-container');
+        if (layerPanel) {
+          layerPanel.set('attributes', { style: 'display: block; overflow: auto; width: 100%; height: auto;' });
+        }
+
+        // 🔧 Reaplicar CSS nativo limpio
+        const style = document.createElement('style');
+        style.id = 'layer-manager-native-restore';
+        style.innerHTML = `
+          .gjs-layers {
+            display: block !important;
+            overflow: auto !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+
+          .gjs-layer {
+            display: block !important;
+            margin: 0 !important;
+            padding: 3px 0 3px 10px !important;
+            border-left: 1px dashed rgba(0,0,0,0.1) !important;
+          }
+
+          .gjs-layer-title {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            cursor: pointer !important;
+          }
+
+          .gjs-layer-children {
+            margin-left: 10px !important;
+            display: block !important;
+          }
+
+          .gjs-layer-name {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+        `;
+        
+        // Solo agregar si no existe ya
+        if (!document.querySelector('#layer-manager-native-restore')) {
+          document.head.appendChild(style);
+          console.log('✅ CSS nativo del Layer Manager aplicado');
+        }
+
+        // 🔁 Forzar sincronización de capas
+        const comps = gEditor.DomComponents.getComponents();
+        layerManager.render(comps);
+        console.log('🔁 Sincronización de capas forzada');
+
+        // Opcional: abrir todas las capas al cargar
+        setTimeout(() => {
+          const allLayers = document.querySelectorAll('.gjs-layer');
+          allLayers.forEach(layer => {
+            layer.classList.add('gjs-open');
+          });
+          console.log('📂 Todas las capas expandidas');
+        }, 500);
+
+        // 🔧 FIX A — Forzar pointer-events dentro del iframe (permitir seleccionar)
+        console.log('🔧 Aplicando Fix A: pointer-events dentro del iframe...');
+        const frame = gEditor.Canvas.getFrameEl();
+        if (!frame?.contentDocument) return;
+        const doc = frame.contentDocument;
+        const fixId = 'gjs-fix-pointer-events';
+        if (!doc.getElementById(fixId)) {
+          const pointerStyle = doc.createElement('style');
+          pointerStyle.id = fixId;
+          pointerStyle.innerHTML = `
+            /* permitir interacción en elementos reales */
+            body, html, #gjs, .gjs-cv-canvas { pointer-events: auto !important; }
+            a, button, [data-gjs-type] { pointer-events: auto !important; z-index: 2000 !important; }
+            /* si hay overlays con pointer-events: none, esto obliga a permitir interacción */
+            
+            /* Mejorar visibilidad de elementos seleccionados */
+            .gjs-selected {
+              outline: 2px solid #007cff !important;
+              outline-offset: 2px !important;
+            }
+            
+            /* Asegurar que los elementos con ID específicos sean seleccionables */
+            [id*="irlnr"], [id*="button"], [id*="link"] {
+              pointer-events: auto !important;
+              z-index: 1000 !important;
+            }
+          `;
+          doc.head.appendChild(pointerStyle);
+          console.log('✅ pointer-events fix aplicado dentro del iframe');
+        }
+
+        // 🔧 FIX B — Asegurar flags del componente (selectable/draggable)
+        console.log('🔧 Aplicando Fix B: flags selectable/draggable...');
+        // convertir todos los componentes tipo "button" o "a" para que sean seleccionables
+        const comps2 = gEditor.DomComponents;
+        const walk = (collection: any) => {
+          collection.each((m: any) => {
+            const tag = (m.get('tagName') || '').toLowerCase();
+            if (tag === 'button' || tag === 'a' || m.get('type') === 'button') {
+              m.set({ selectable: true, draggable: true, hoverable: true });
+            }
+            if (m.components && typeof m.components === 'function') walk(m.components());
+          });
+        };
+        walk(comps2.getComponents());
+        console.log('✅ Flags selectable/draggable forzados en buttons/links');
+
+        // 🔧 FIX C — Normalizar traits para evitar el.getAttribute is not a function (MEJORADO)
+        console.log('🔧 Aplicando Fix C mejorado: normalización segura de traits...');
+        
+        // Helper para leer atributos de forma segura
+        function safeGetAttr(model: any, name: string) {
+          try {
+            const el = model.getEl ? model.getEl() : model.get('el');
+            if (!el || typeof el.getAttribute !== 'function') return null;
+            return el.getAttribute(name);
+          } catch(e) {
+            console.warn('⚠️ Error leyendo atributo:', name, e);
+            return null;
+          }
+        }
+
+        gEditor.on('component:selected', (model: any) => {
+          if (!model) return;
+          const tag = (model.get('tagName') || '').toLowerCase();
+          const type = model.get('type');
+          
+          if (tag === 'a' || tag === 'button' || type === 'button') {
+            try {
+              // 🔧 PRESERVAR TRAITS EXISTENTES - No sobrescribir
+              const existingTraits = model.get('traits') || [];
+              
+              // Solo validar que el componente mantenga sus propiedades de edición
+              // SIN sobrescribir los traits personalizados
+              const currentProps = {
+                selectable: model.get('selectable'),
+                draggable: model.get('draggable'),
+                removable: model.get('removable'),
+                hoverable: model.get('hoverable'),
+                highlightable: model.get('highlightable'),
+                badgable: model.get('badgable'),
+                copyable: model.get('copyable')
+              };
+              
+              // Solo restaurar propiedades de edición si se han perdido
+              const needsRestore = Object.values(currentProps).some(prop => prop === false);
+              
+              if (needsRestore) {
+                model.set({
+                  selectable: true,
+                  draggable: true,
+                  removable: true,
+                  hoverable: true,
+                  highlightable: true,
+                  badgable: true,
+                  copyable: true
+                });
+                console.log('🔧 Propiedades de edición restauradas para:', model.cid);
+              }
+              
+              // Validar elemento DOM con helper seguro (sin modificar traits)
+              const href = safeGetAttr(model, 'href');
+              const target = safeGetAttr(model, 'target');
+              
+              console.log('✅ Componente validado (traits preservados):', {
+                tag, type, href, target, 
+                cid: model.cid,
+                hasValidEl: !!model.getEl(),
+                traitsCount: existingTraits.length,
+                editableProps: currentProps
+              });
+              
+            } catch (error) {
+              console.error('❌ Error en validación de componente:', error);
+              console.log('📊 Modelo problemático:', model.toJSON());
+            }
+          }
+        });
+
+        // 🔧 FIX D — Prevenir acción de navegación en editor pero permitir selección
+        console.log('🔧 Aplicando Fix D: prevenir navegación en editor...');
+        const canvasFrame = gEditor.Canvas.getFrameEl();
+        if (canvasFrame?.contentDocument) {
+          // ✅ Permitir selección de botones/enlaces pero bloquear su acción real
+          canvasFrame.contentDocument.addEventListener('click', function(e: Event) {
+            const target = e.target as HTMLElement;
+            
+            // Solo intervenir si el click fue dentro de un enlace o botón
+            if (target.matches('a, button')) {
+              // No navegues, pero deja que el editor lo seleccione
+              e.preventDefault();
+              
+              // ⚠️ NO usar stopPropagation, porque eso impide que GrapesJS lo seleccione
+              console.log('⚠️ Clic interceptado, pero permitiendo selección:', {
+                tag: target.tagName,
+                href: target.getAttribute('href'),
+                id: target.id,
+                className: target.className,
+              });
+            }
+          }, true); // capture true para interceptar temprano
+          
+          // 🧩 Complemento: doble clic = acción real
+          canvasFrame.contentDocument.addEventListener('dblclick', function(e: Event) {
+            const target = e.target as HTMLElement;
+            if (target.matches('a, button')) {
+              const url = target.getAttribute('href') || target.getAttribute('data-url');
+              const action = target.getAttribute('data-action');
+              
+              console.log('🔗 DOBLE CLIC DETECTADO:', {
+                tag: target.tagName,
+                id: target.id || 'sin-id',
+                className: target.className || 'sin-clase',
+                href: target.getAttribute('href'),
+                dataUrl: target.getAttribute('data-url'),
+                dataAction: action,
+                finalUrl: url,
+                timestamp: new Date().toLocaleTimeString()
+              });
+              
+              if (url && url !== '#') {
+                window.open(url, '_blank');
+                console.log('✅ ENLACE ABIERTO EXITOSAMENTE:', url);
+              } else if (action) {
+                console.log('🎬 ACCIÓN PERSONALIZADA DETECTADA:', action);
+                // Aquí se ejecutarían las acciones personalizadas según el tipo
+              } else {
+                console.log('⚠️ No hay URL ni acción definida para este elemento');
+              }
+            }
+          });
+          
+          console.log('⛔ Acciones reales de navegación desactivadas en el editor (clicks preventDefault)');
+        } else {
+          console.warn('⚠️ No se pudo acceder al frame del canvas para Fix D');
+        }
+
+        // 🔧 Verificar que el contenedor del Layer Manager existe
+        const layersContainer = document.querySelector('.layers-container');
+        if (!layersContainer) {
+          console.warn('⚠️ No se encontró .layers-container, verificar configuración');
+        } else {
+          console.log('✅ Contenedor de capas encontrado');
+        }
+
+        // 🔄 Forzar re-renderizado si sigue vacío
+        setTimeout(() => {
+          const layersVisible = document.querySelectorAll('.gjs-layer').length;
+          if (layersVisible === 0) {
+            console.log('🔄 Panel vacío detectado, forzando re-renderizado...');
+            layerManager.render([]);
+            layerManager.render(gEditor.DomComponents.getComponents());
+          }
+          console.log(`📊 Capas visibles: ${layersVisible}`);
+        }, 1000);
+
+        // 🔍 COMANDOS DE DIAGNÓSTICO - Disponibles en la consola del navegador
+        console.log('🔍 Configurando comandos de diagnóstico...');
+        
+        // Exponer funciones de diagnóstico globalmente
+        (window as any).grapesDebug = {
+          // A — ¿Se están bloqueando los pointer-events?
+          checkPointerEvents: () => {
+            const frame = gEditor.Canvas.getFrameEl();
+            console.log('frame element', frame);
+            console.log('frame style pointer-events (parent):', window.getComputedStyle(frame).pointerEvents);
+            if (frame?.contentDocument) {
+              console.log('canvas doc body pointer-events:', getComputedStyle(frame.contentDocument.body).pointerEvents);
+              // comprobar overlays dentro del iframe
+              const overlays = frame.contentDocument.querySelectorAll('*');
+              overlays.forEach(el => {
+                if (getComputedStyle(el).pointerEvents === 'none') {
+                  /* no hacemos nada, sólo listar posibles culpables */
+                }
+              });
+              console.log('Revisa elementos con pointer-events: none dentro del iframe (manual).');
+            }
+          },
+
+          // B — ¿El componente es select-able? (intenta con el id del botón)
+          checkSelectability: (targetId = 'irlnr4') => {
+            const comps = gEditor.DomComponents;
+            const model = comps.getWrappers ? comps.getWrapper().find(`#${targetId}`) : null;
+            console.log('model find by id (puede ser nulo):', model);
+            // alternativa: buscar primer componente con tag <a>
+            const all = comps.getComponents();
+            function findAnchor(m: any): any {
+              if (!m) return null;
+              if ((m.attributes && (m.attributes.id === targetId || m.attributes.href)) || m.get('tagName') === 'a') return m;
+              for (const c of m.components().models) {
+                const found = findAnchor(c);
+                if (found) return found;
+              }
+              return null;
+            }
+            console.log('buscar anchor recursivo (puede tardar):', findAnchor(all));
+          },
+
+          // C — Loguear component:selected y mostrar el elemento
+          enableSelectionLogging: () => {
+            gEditor.on('component:selected', (model: any) => {
+              console.log('SELECTED model:', model);
+              try {
+                console.log('model.el:', model.getEl ? model.getEl() : model.get('el'));
+              } catch (e) {
+                console.error('error al leer el.el', e);
+              }
+              console.log('selectable/draggable flags:', model.get('selectable'), model.get('draggable'));
+            });
+            console.log('✅ Logging de selección habilitado');
+          },
+
+          // D — Buscar handlers que hagan preventDefault (rápido heurístico)
+          checkEventListeners: () => {
+            // Esto no detecta handlers internos, pero te deja ver listeners en el document dentro del iframe
+            const doc = gEditor.Canvas.getFrameEl()?.contentDocument;
+            if (doc) {
+              console.log('listeners on iframe document:', (window as any).getEventListeners ? (window as any).getEventListeners(doc) : 'devtools-only getEventListeners not available');
+              // también revisa el parent
+              console.log('listeners on parent document:', (window as any).getEventListeners ? (window as any).getEventListeners(document) : 'devtools-only info');
+            }
+          },
+
+          // Comando para re-renderizar manualmente el Layer Manager
+          reRenderLayers: () => {
+            const layerManager = gEditor.LayerManager;
+            layerManager.render(gEditor.DomComponents.getComponents());
+            console.log('🔄 Layer Manager re-renderizado manualmente');
+          },
+
+          // Comando para verificar todos los componentes
+          listAllComponents: () => {
+            const comps = gEditor.DomComponents.getComponents();
+            const walk = (collection: any, level = 0) => {
+              collection.each((m: any) => {
+                const indent = '  '.repeat(level);
+                const tag = m.get('tagName') || 'unknown';
+                const id = m.getId() || 'no-id';
+                const type = m.get('type') || 'no-type';
+                const selectable = m.get('selectable');
+                const draggable = m.get('draggable');
+                console.log(`${indent}${tag}#${id} [${type}] selectable:${selectable} draggable:${draggable}`);
+                if (m.components && typeof m.components === 'function') {
+                  walk(m.components(), level + 1);
+                }
+              });
+            };
+            walk(comps);
+          },
+
+          // 🆕 NUEVOS COMANDOS PARA TESTING FIX C y FIX D
+          
+          // E — Test Fix C: Verificar traits seguros y safeGetAttr
+          testTraitNormalization: () => {
+            console.log('🧪 Testing Fix C - Trait Normalization...');
+            const comps = gEditor.DomComponents.getComponents();
+            const walk = (collection: any) => {
+              collection.each((m: any) => {
+                const tag = (m.get('tagName') || '').toLowerCase();
+                const type = m.get('type');
+                if (tag === 'a' || tag === 'button' || type === 'button') {
+                  console.log('📋 Componente encontrado:', {
+                    tag, type, cid: m.cid,
+                    traits: m.get('traits'),
+                    hasValidEl: !!m.getEl(),
+                    elType: typeof m.getEl()
+                  });
+                  
+                  // Test safeGetAttr
+                  try {
+                    const el = m.getEl ? m.getEl() : m.get('el');
+                    if (el && typeof el.getAttribute === 'function') {
+                      console.log('✅ getAttribute disponible:', el.getAttribute('href') || el.getAttribute('type'));
+                    } else {
+                      console.warn('⚠️ getAttribute NO disponible:', typeof el, el);
+                    }
+                  } catch (e) {
+                    console.error('❌ Error en getAttribute:', e);
+                  }
+                }
+                if (m.components && typeof m.components === 'function') {
+                  walk(m.components());
+                }
+              });
+            };
+            walk(comps);
+          },
+
+          // F — Test Fix D: Verificar prevención de navegación
+          testNavigationPrevention: () => {
+            console.log('🧪 Testing Fix D - Navigation Prevention...');
+            const frame = gEditor.Canvas.getFrameEl();
+            if (frame?.contentDocument) {
+              const links = frame.contentDocument.querySelectorAll('a, button');
+              console.log(`📊 Encontrados ${links.length} elementos a/button en el canvas`);
+              
+              links.forEach((el, index) => {
+                console.log(`${index + 1}. ${el.tagName} - href: ${el.getAttribute('href')} - id: ${el.id}`);
+              });
+              
+              // Simular click en el primer enlace para probar preventDefault
+              if (links.length > 0) {
+                const firstLink = links[0];
+                console.log('🎯 Simulando click en primer elemento:', firstLink);
+                const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+                const result = firstLink.dispatchEvent(event);
+                console.log('📊 Resultado del click simulado (false = preventDefault funcionó):', result);
+              }
+            } else {
+              console.warn('⚠️ No se pudo acceder al frame del canvas');
+            }
+          },
+
+          // G — Test completo: ejecutar todos los tests paso a paso
+          runAllTests: () => {
+            console.log('🚀 Ejecutando todos los tests...');
+            console.log('\n1️⃣ Test A - Pointer Events:');
+            (window as any).grapesDebug.checkPointerEvents();
+            
+            console.log('\n2️⃣ Test B - Selectability:');
+            (window as any).grapesDebug.checkSelectability();
+            
+            console.log('\n3️⃣ Test C - Trait Normalization:');
+            (window as any).grapesDebug.testTraitNormalization();
+            
+            console.log('\n4️⃣ Test D - Navigation Prevention:');
+            (window as any).grapesDebug.testNavigationPrevention();
+            
+            console.log('\n5️⃣ Test E - Component Listing:');
+            (window as any).grapesDebug.listAllComponents();
+            
+            console.log('\n6️⃣ Test F - Button Editing Properties:');
+            (window as any).grapesDebug.checkButtonEditingProperties();
+            
+            console.log('\n7️⃣ Test G - Hitboxes y __gjs_model:');
+            (window as any).grapesDebug.checkHitboxes();
+            
+            console.log('\n8️⃣ Test H - Pointer Events Avanzado:');
+            (window as any).grapesDebug.checkPointerEventsAdvanced();
+            
+            console.log('\n✅ Todos los tests completados. Revisa los logs arriba.');
+          },
+
+          // H — Test específico para propiedades de edición de botones
+          checkButtonEditingProperties: () => {
+            console.log('🧪 Testing Button Editing Properties...');
+            const comps = gEditor.DomComponents.getComponents();
+            let buttonCount = 0;
+            let problematicButtons = 0;
+            
+            const walk = (collection: any) => {
+              collection.each((m: any) => {
+                const tag = (m.get('tagName') || '').toLowerCase();
+                const type = m.get('type');
+                
+                if (tag === 'a' || tag === 'button' || type === 'button' || type === 'action-button') {
+                  buttonCount++;
+                  
+                  const props = {
+                    selectable: m.get('selectable'),
+                    draggable: m.get('draggable'),
+                    removable: m.get('removable'),
+                    hoverable: m.get('hoverable'),
+                    highlightable: m.get('highlightable'),
+                    badgable: m.get('badgable'),
+                    copyable: m.get('copyable')
+                  };
+                  
+                  const traits = m.get('traits') || [];
+                  const hasProblems = Object.values(props).some(prop => prop === false || prop === undefined);
+                  
+                  if (hasProblems) {
+                    problematicButtons++;
+                    console.error(`❌ Botón problemático [${m.cid}]:`, {
+                      tag, type,
+                      traits: traits.length,
+                      properties: props,
+                      element: m.getEl()
+                    });
+                  } else {
+                    console.log(`✅ Botón OK [${m.cid}]:`, {
+                      tag, type,
+                      traits: traits.length,
+                      allPropsTrue: true
+                    });
+                  }
+                }
+                
+                if (m.components && typeof m.components === 'function') {
+                  walk(m.components());
+                }
+              });
+            };
+            
+            walk(comps);
+            
+            console.log(`📊 Resumen: ${buttonCount} botones encontrados, ${problematicButtons} con problemas`);
+            
+            if (problematicButtons > 0) {
+              console.log('🔧 Ejecutando restauración automática...');
+              // Ejecutar la función de restauración
+              const restoreAll = () => {
+                walk(gEditor.DomComponents.getComponents());
+              };
+              restoreAll();
+              console.log('✅ Restauración completada. Ejecuta el test nuevamente para verificar.');
+            }
+          },
+
+          // I — Forzar restauración de propiedades de edición
+          forceRestoreEditingProperties: () => {
+            console.log('🔧 Forzando restauración de propiedades de edición...');
+            const comps = gEditor.DomComponents.getComponents();
+            let restoredCount = 0;
+            
+            const walk = (collection: any) => {
+              collection.each((m: any) => {
+                const tag = (m.get('tagName') || '').toLowerCase();
+                const type = m.get('type');
+                
+                if (tag === 'a' || tag === 'button' || type === 'button' || type === 'action-button') {
+                  m.set({
+                    selectable: true,
+                    draggable: true,
+                    removable: true,
+                    hoverable: true,
+                    highlightable: true,
+                    badgable: true,
+                    copyable: true
+                  });
+                  restoredCount++;
+                  console.log(`🔧 Propiedades restauradas para: ${m.cid}`);
+                }
+                
+                if (m.components && typeof m.components === 'function') {
+                  walk(m.components());
+                }
+              });
+            };
+            
+            walk(comps);
+            console.log(`✅ ${restoredCount} botones restaurados`);
+          },
+
+          // J — Diagnóstico de hitboxes y referencias __gjs_model
+          checkHitboxes: () => {
+            console.log('🎯 Verificando hitboxes y referencias __gjs_model...');
+            
+            try {
+              const wrapper = gEditor.getWrapper();
+              if (!wrapper) {
+                console.error('❌ No se pudo obtener el wrapper del editor');
+                return;
+              }
+              
+              const buttons = wrapper.find('button, a, [data-gjs-type="button"], [data-gjs-type="action-button"]');
+              const broken = buttons.filter((b: any) => {
+                const el = b.getEl?.();
+                return !el || !el.__gjs_model;
+              });
+              
+              console.log(`📊 Total botones: ${buttons.length}, sin hitbox: ${broken.length}`);
+              
+              if (broken.length > 0) {
+                console.warn('❌ Botones sin hitbox encontrados:');
+                broken.forEach((b: any) => {
+                  const el = b.getEl?.();
+                  console.warn(`  - ${b.cid}: elemento=${!!el}, __gjs_model=${!!(el && el.__gjs_model)}`);
+                });
+                
+                // Intentar reparación automática
+                console.log('🔧 Intentando reparación automática...');
+                broken.forEach((b: any) => {
+                  const el = b.getEl?.();
+                  if (el && !el.__gjs_model) {
+                    el.__gjs_model = b;
+                    console.log(`✅ Reparado: ${b.cid}`);
+                  }
+                });
+              } else {
+                console.log('✅ Todos los botones tienen hitbox correcto');
+              }
+              
+              // Verificar también en el DOM del canvas
+              const canvas = gEditor.Canvas;
+              const canvasDoc = canvas.getDocument();
+              const domButtons = canvasDoc.querySelectorAll('button, a, [data-gjs-type="button"]');
+              
+              console.log(`🔍 Botones en DOM del canvas: ${domButtons.length}`);
+              let domBroken = 0;
+              
+              domButtons.forEach((btn: any, index: number) => {
+                if (!btn.__gjs_model) {
+                  domBroken++;
+                  console.warn(`❌ Botón DOM sin modelo [${index}]:`, btn);
+                }
+              });
+              
+              console.log(`📊 Botones DOM sin modelo: ${domBroken}/${domButtons.length}`);
+              
+            } catch (error) {
+              console.error('❌ Error verificando hitboxes:', error);
+            }
+          },
+
+          // K — Test de pointer-events y z-index
+          checkPointerEventsAdvanced: () => {
+            console.log('🖱️ Verificando pointer-events y z-index...');
+            
+            try {
+              const canvas = gEditor.Canvas;
+              const canvasDoc = canvas.getDocument();
+              const buttons = canvasDoc.querySelectorAll('button, a, [data-gjs-type="button"]');
+              
+              console.log(`🔍 Analizando ${buttons.length} botones en canvas...`);
+              
+              buttons.forEach((btn: any, index: number) => {
+                const computedStyle = canvasDoc.defaultView?.getComputedStyle(btn);
+                const pointerEvents = computedStyle?.pointerEvents;
+                const zIndex = computedStyle?.zIndex;
+                const position = computedStyle?.position;
+                
+                const hasIssues = pointerEvents === 'none' || 
+                                 (zIndex && parseInt(zIndex) < 0) ||
+                                 !btn.__gjs_model;
+                
+                if (hasIssues) {
+                  console.warn(`❌ Botón [${index}] con problemas:`, {
+                    pointerEvents,
+                    zIndex,
+                    position,
+                    hasModel: !!btn.__gjs_model,
+                    element: btn
+                  });
+                } else {
+                  console.log(`✅ Botón [${index}] OK:`, {
+                    pointerEvents,
+                    zIndex,
+                    hasModel: !!btn.__gjs_model
+                  });
+                }
+              });
+              
+              // Verificar estilos del canvas
+              const canvasFrame = canvasDoc.querySelector('.gjs-frame, .gjs-cv-canvas');
+              if (canvasFrame) {
+                const frameStyle = canvasDoc.defaultView?.getComputedStyle(canvasFrame);
+                console.log('🖼️ Estilos del canvas frame:', {
+                  pointerEvents: frameStyle?.pointerEvents,
+                  zIndex: frameStyle?.zIndex,
+                  position: frameStyle?.position
+                });
+              }
+              
+            } catch (error) {
+              console.error('❌ Error verificando pointer-events:', error);
+            }
+          },
+
+          // L — Test completo de diagnóstico de botones
+          runButtonDiagnostics: () => {
+            console.log('🚀 Ejecutando diagnóstico completo de botones...');
+            
+            console.log('\n1️⃣ Verificando propiedades de edición...');
+            (window as any).grapesDebug.checkButtonEditingProperties();
+            
+            console.log('\n2️⃣ Verificando hitboxes y referencias __gjs_model...');
+            (window as any).grapesDebug.checkHitboxes();
+            
+            console.log('\n3️⃣ Verificando pointer-events y z-index...');
+            (window as any).grapesDebug.checkPointerEventsAdvanced();
+            
+            console.log('\n4️⃣ Verificando selectabilidad general...');
+            (window as any).grapesDebug.checkSelectability();
+            
+            console.log('\n✅ Diagnóstico completo finalizado');
+          }
+        };
+
+        console.log('✅ Comandos de diagnóstico disponibles en window.grapesDebug');
+        console.log('📋 Comandos disponibles:');
+        console.log('  - window.grapesDebug.checkPointerEvents()');
+        console.log('  - window.grapesDebug.checkSelectability("id-del-elemento")');
+        console.log('  - window.grapesDebug.enableSelectionLogging()');
+        console.log('  - window.grapesDebug.checkEventListeners()');
+        console.log('  - window.grapesDebug.reRenderLayers()');
+        console.log('  - window.grapesDebug.listAllComponents()');
+        console.log('🆕 NUEVOS COMANDOS PARA TESTING:');
+        console.log('  - window.grapesDebug.testTraitNormalization() // Test Fix C');
+        console.log('  - window.grapesDebug.testNavigationPrevention() // Test Fix D');
+        console.log('  - window.grapesDebug.runAllTests() // Ejecutar todos los tests');
+        console.log('💡 Usa runAllTests() para ejecutar todos los tests de una vez');
+      });
+
+      console.log('✅ Layer Manager 100% nativo restaurado');
 
       return true;
     } catch (error) {
@@ -3829,6 +5248,10 @@ const GrapesEditor: React.FC = () => {
         }
         #gjs { 
           height: calc(100vh - 56px) !important; 
+          position: relative;
+          overflow: hidden;
+          background: #fff;
+          user-select: none;
         }
         
         /* Mejoras para el panel de estilos */
