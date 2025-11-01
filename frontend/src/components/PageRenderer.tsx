@@ -194,14 +194,49 @@ const PageRenderer: React.FC = () => {
     });
 
     if (htmlContent) {
+      // Componente para manejar la ejecución de scripts
+      const DynamicContent: React.FC = () => {
+        const contentRef = React.useRef<HTMLDivElement>(null);
+
+        React.useEffect(() => {
+          // 🚀 Ejecutar scripts después de renderizar el HTML
+          if (contentRef.current) {
+            const scripts = contentRef.current.querySelectorAll('script');
+            scripts.forEach((oldScript) => {
+              const newScript = document.createElement('script');
+              
+              // Copiar atributos
+              Array.from(oldScript.attributes).forEach((attr) => {
+                newScript.setAttribute(attr.name, attr.value);
+              });
+              
+              // Copiar contenido
+              newScript.textContent = oldScript.textContent;
+              
+              // Reemplazar el script viejo con el nuevo para que se ejecute
+              oldScript.parentNode?.replaceChild(newScript, oldScript);
+            });
+            
+            console.log('🎯 Scripts ejecutados en página publicada:', scripts.length);
+          }
+        }, []);
+
+        return (
+          <div 
+            ref={contentRef}
+            dangerouslySetInnerHTML={{ __html: htmlContent }} 
+          />
+        );
+      };
+
       return (
         <Layout headerHtml={headerHtml} headerCss={headerCss} footerHtml={footerHtml} footerCss={footerCss}>
           {/* CSS de la página */}
           {cssContent && (
             <style dangerouslySetInnerHTML={{ __html: cssContent }} />
           )}
-          {/* HTML de la página */}
-          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          {/* HTML de la página con scripts ejecutables */}
+          <DynamicContent />
         </Layout>
       );
     }

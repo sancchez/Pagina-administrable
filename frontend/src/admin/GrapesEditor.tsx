@@ -848,6 +848,67 @@ const GrapesEditor: React.FC = () => {
       // Guardar instancia
       editorInstanceRef.current = gEditor;
       try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; console.log("🪄 Editor expuesto en window"); } catch(e) { console.warn("No se pudo exponer editor en window", e); }
+
+      // ======================================================
+      // BLOQUEO DE ACCIONES INTERACTIVAS DENTRO DEL IFRAME
+      // ======================================================
+      gEditor.on('load', () => {
+        const frame = gEditor.Canvas.getFrameEl();
+        if (!frame || !frame.contentWindow) return;
+
+        const frameWin = frame.contentWindow;
+        const frameDoc = frameWin.document;
+
+        console.log('🧠 Inyectando bloqueo dentro del iframe de GrapesJS...');
+
+        // Bloqueo refinado: prevenir acciones pero permitir selección
+        frameDoc.addEventListener("click", (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (!target) return;
+          
+          const tag = target.tagName.toLowerCase();
+          const interactiveTags = ["a", "button", "input", "video", "form", "iframe"];
+          
+          if (interactiveTags.includes(tag)) {
+            // Verificar si tiene traits interactivos
+            const hasInteractiveTraits = target.hasAttribute('data-action-type') || 
+                                       target.hasAttribute('data-url') || 
+                                       target.hasAttribute('href') || 
+                                       target.hasAttribute('onclick') ||
+                                       target.hasAttribute('data-file-url');
+            
+            if (hasInteractiveTraits) {
+              // Solo bloquear la acción nativa, no la selección de GrapesJS
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              console.log("🚫 Bloqueado clic interactivo en editor:", tag);
+              
+              // Permitir que GrapesJS maneje la selección después de un micro-delay
+              setTimeout(() => {
+                try {
+                  const component = gEditor.getComponents().find((cmp: any) => cmp.getEl() === target);
+                  if (component) {
+                    gEditor.select(component);
+                    console.log("✅ Componente seleccionado correctamente");
+                  }
+                } catch (err) {
+                  console.warn("Error en selección:", err);
+                }
+              }, 1);
+            }
+          }
+        }, true); // Usar capture para interceptar antes que otros listeners
+
+        // Permitir seguir seleccionando el componente sin activar su acción
+        gEditor.on('component:click', (component, event) => {
+          event?.preventDefault();
+          event?.stopPropagation();
+          gEditor.select(component);
+        });
+
+        console.log('✅ Bloqueo activo dentro del iframe del editor.');
+      });
+
       // Sin estado: editorInstanceRef mantiene la instancia
 
       // Traits personalizados para botones y enlaces
@@ -960,8 +1021,32 @@ const GrapesEditor: React.FC = () => {
                 
                 script: function() {
                   const el = this as unknown as HTMLElement;
+                  
+                  // Detectar si estamos en el contexto del editor GrapesJS
+                  const isInEditor = () => {
+                    try {
+                      return window.parent !== window || 
+                             document.querySelector('.gjs-cv-canvas') !== null ||
+                             window.location.pathname.includes('/admin/');
+                    } catch (e) {
+                      return false;
+                    }
+                  };
+                  
                   function doAction(e: Event) {
                     try {
+                      // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+                      if (isInEditor()) {
+                        console.log('🎯 Acción de button interceptada por el editor');
+                        return; // No hacer nada, GrapesJS manejará el evento
+                      }
+                      
+                      // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
+                      if (el.hasAttribute('data-grapes-editing')) {
+                        console.log('🎯 Button en modo edición - acción bloqueada');
+                        return;
+                      }
+                      
                       const act = (el.getAttribute('data-action-type') || 'none');
                       if (act === 'none') return;
                       
@@ -1003,13 +1088,17 @@ const GrapesEditor: React.FC = () => {
                   };
                 },
                 
-                // ⚠️ IMPORTANTE: Sin guiones
+                // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
                 scriptProps: [
                   'data-action-type',
-                  'data-file-url',
+                  'data-file-url', 
                   'data-transaction-id',
                   'data-amount',
-                  'data-new-tab'
+                  'data-new-tab',
+                  'href',
+                  'target',
+                  'data-url',
+                  'data-custom-function'
                 ],
               },
             },
@@ -1086,8 +1175,40 @@ const GrapesEditor: React.FC = () => {
                 
                 script: function() {
                   const el = this as unknown as HTMLElement;
+                  
+                  // 🚫 NO ejecutar en el contexto del editor GrapesJS
+                  // Detectar si estamos en el editor verificando si existe el iframe del canvas
+                  const isInEditor = () => {
+                    try {
+                      // Verificar si estamos dentro del iframe del canvas de GrapesJS
+                      return window.parent !== window || 
+                             document.querySelector('.gjs-cv-canvas') !== null ||
+                             window.location.pathname.includes('/admin/');
+                    } catch (e) {
+                      return false;
+                    }
+                  };
+                  
+                  // Solo ejecutar si NO estamos en el editor
+                  if (isInEditor()) {
+                    console.log('🎯 Script de link deshabilitado en el editor');
+                    return { destroy: function() {} };
+                  }
+                  
                   function onClick(e: Event) {
                     try {
+                      // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+                      if (isInEditor()) {
+                        console.log('🎯 Acción de link interceptada por el editor');
+                        return; // No hacer nada, GrapesJS manejará el evento
+                      }
+                      
+                      // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
+                      if (el.hasAttribute('data-grapes-editing')) {
+                        console.log('🎯 Link en modo edición - acción bloqueada');
+                        return;
+                      }
+                      
                       const act = (el.getAttribute('data-action-type') || 'link');
                       const url = el.getAttribute('href') || el.getAttribute('data-file-url');
                       const targetAttr = el.getAttribute('target');
@@ -1127,13 +1248,16 @@ const GrapesEditor: React.FC = () => {
                   };
                 },
                 
+                // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
                 scriptProps: [
                   'data-action-type',
                   'href',
                   'data-file-url',
                   'data-transaction-id',
                   'data-amount',
-                  'target'
+                  'target',
+                  'data-url',
+                  'data-target'
                 ],
               },
             },
@@ -1493,6 +1617,8 @@ const GrapesEditor: React.FC = () => {
         
         gEditor.on('component:selected', () => {});
       } catch {}
+
+
 
       // Contadores simples desactivados: los helpers globales manejan reintentos
 
@@ -2419,6 +2545,25 @@ const GrapesEditor: React.FC = () => {
               }
             ],
             script() {
+               // 🚫 NO ejecutar en el contexto del editor GrapesJS
+               // Detectar si estamos en el editor verificando si existe el iframe del canvas
+               const isInEditor = () => {
+                 try {
+                   // Verificar si estamos dentro del iframe del canvas de GrapesJS
+                   return window.parent !== window || 
+                          document.querySelector('.gjs-cv-canvas') !== null ||
+                          window.location.pathname.includes('/admin/');
+                 } catch (e) {
+                   return false;
+                 }
+               };
+               
+               // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+               if (isInEditor()) {
+                 console.log('🎯 Script de action-button deshabilitado en el editor');
+                 return { destroy: function() {} };
+               }
+               
                const action = this.getAttribute('data-action');
                const url = this.getAttribute('data-url');
                const target = this.getAttribute('data-target') || '_self';
@@ -2431,7 +2576,19 @@ const GrapesEditor: React.FC = () => {
 
                if (!finalAction) return;
 
-               this.addEventListener('click', (e: Event) => {
+               function handleClick(e: Event) {
+                 // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+                 if (isInEditor()) {
+                   console.log('🎯 Acción de action-button interceptada por el editor');
+                   return; // No hacer nada, GrapesJS manejará el evento
+                 }
+                 
+                 // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
+                 if (this.hasAttribute('data-grapes-editing')) {
+                   console.log('🎯 Action-button en modo edición - acción bloqueada');
+                   return;
+                 }
+                 
                  e.preventDefault();
                  
                  switch (finalAction) {
@@ -2473,8 +2630,20 @@ const GrapesEditor: React.FC = () => {
                      }
                      break;
                  }
-               });
+               }
+
+               this.addEventListener('click', handleClick);
              },
+             // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
+             scriptProps: [
+               'data-action',
+               'data-url', 
+               'data-target',
+               'data-transaction-id',
+               'data-amount',
+               'data-custom-function',
+               'href'
+             ],
           },
         },
       });
@@ -2498,78 +2667,6 @@ const GrapesEditor: React.FC = () => {
              btn.set({ type: 'action-button' });
            });
          }
-
-         // Agregar script global para botones existentes que ya tienen data-url
-          const doc = gEditor.Canvas.getDocument();
-          if (doc) {
-            const botones = doc.querySelectorAll('a[data-url], button[data-url]');
-            botones.forEach(btn => {
-              const element = btn as HTMLElement;
-              // Remover listeners existentes para evitar duplicados
-              const newBtn = element.cloneNode(true) as HTMLElement;
-              element.parentNode?.replaceChild(newBtn, element);
-              
-              newBtn.addEventListener('click', (e: Event) => {
-                e.preventDefault();
-                const url = newBtn.getAttribute('data-url');
-                const target = newBtn.getAttribute('data-target') || '_self';
-                const action = newBtn.getAttribute('data-action') || 'link';
-
-                if (!url) return;
-
-                const cleanUrl = url.replace(/`/g, '').trim();
-
-                if (action === 'link') {
-                  window.open(cleanUrl, target);
-                } else if (action === 'download') {
-                  const a = document.createElement('a');
-                  a.href = cleanUrl;
-                  a.download = cleanUrl.split('/').pop() || 'download';
-                  a.click();
-                }
-              });
-            });
-          }
-
-         // Listener para botones agregados dinámicamente
-         gEditor.on('component:add', (component: any) => {
-           if (component.get('type') === 'action-button' || 
-               component.get('tagName') === 'A' || 
-               component.get('tagName') === 'BUTTON') {
-             
-             setTimeout(() => {
-               const doc = gEditor.Canvas.getDocument();
-               if (doc) {
-                 const element = component.getEl();
-                 if (element && element.hasAttribute('data-url')) {
-                   // Remover listeners existentes
-                   const newElement = element.cloneNode(true) as HTMLElement;
-                   element.parentNode?.replaceChild(newElement, element);
-                   
-                   newElement.addEventListener('click', (e: Event) => {
-                     e.preventDefault();
-                     const url = newElement.getAttribute('data-url');
-                     const target = newElement.getAttribute('data-target') || '_self';
-                     const action = newElement.getAttribute('data-action') || 'link';
-
-                     if (!url) return;
-
-                     const cleanUrl = url.replace(/`/g, '').trim();
-
-                     if (action === 'link') {
-                       window.open(cleanUrl, target);
-                     } else if (action === 'download') {
-                       const a = document.createElement('a');
-                       a.href = cleanUrl;
-                       a.download = cleanUrl.split('/').pop() || 'download';
-                       a.click();
-                     }
-                   });
-                 }
-               }
-             }, 100);
-           }
-         });
 
         // Renombrar etiquetas de bloques de plugins a español
         try {
