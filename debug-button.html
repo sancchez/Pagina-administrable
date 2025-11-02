@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Botones</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .button { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            border: none;
+            cursor: pointer;
+        }
+        .debug { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-left: 4px solid #007bff; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug de Botones</h1>
+    
+    <div class="debug">
+        <h3>Información de contexto:</h3>
+        <p><strong>URL actual:</strong> <span id="current-url"></span></p>
+        <p><strong>Contexto detectado:</strong> <span id="context"></span></p>
+    </div>
+
+    <h3>Botones de prueba:</h3>
+    
+    <!-- Botón con configuración completa -->
+    <button class="button" 
+            data-action-type="link" 
+            data-url="https://www.google.com" 
+            data-target="_blank">
+        Botón con URL (Google)
+    </button>
+    
+    <!-- Botón sin URL -->
+    <button class="button" 
+            data-action-type="link" 
+            data-url="" 
+            data-target="_self">
+        Botón sin URL
+    </button>
+    
+    <!-- Botón sin acción -->
+    <button class="button" 
+            data-action-type="none">
+        Botón sin acción
+    </button>
+    
+    <!-- Botón normal sin data-action-type -->
+    <button class="button" onclick="alert('Botón normal funciona!')">
+        Botón normal (sin data-action-type)
+    </button>
+
+    <div class="debug">
+        <h3>Log de eventos:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Mostrar información de contexto
+        document.getElementById('current-url').textContent = window.location.href;
+        const isEditor = window.location.pathname.includes('/admin');
+        document.getElementById('context').textContent = isEditor ? 'EDITOR' : 'PÁGINA PÚBLICA';
+        
+        // Sistema de logging
+        const logDiv = document.getElementById('log');
+        const originalLog = console.log;
+        
+        function addLog(message) {
+            const p = document.createElement('p');
+            p.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logDiv.appendChild(p);
+            originalLog(message); // Usar el console.log original
+        }
+        
+        addLog('Página cargada');
+        
+        // Agregar listeners manuales para debug
+        document.querySelectorAll('button').forEach((btn, index) => {
+            btn.addEventListener('click', function(e) {
+                addLog(`Click detectado en botón ${index + 1}: ${btn.textContent.trim()}`);
+            }, true); // Usar capture para detectar antes que otros listeners
+        });
+    </script>
+    
+    <!-- Cargar el script de acciones -->
+    <script src="frontend/public/button-actions.js"></script>
+</body>
+</html>

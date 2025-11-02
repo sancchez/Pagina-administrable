@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página Publicada - Prueba</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.success { background: #28a745; }
+        .button.warning { background: #ffc107; color: #212529; }
+        .button.danger { background: #dc3545; }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Página Publicada - Prueba de Botones</h1>
+        <p>Esta página simula exactamente cómo se comportan los botones en una página publicada real.</p>
+        
+        <div class="test-section">
+            <h3>✅ Botones que DEBEN funcionar (con URL válida)</h3>
+            
+            <button class="button success" 
+                    data-action-type="link" 
+                    data-url="https://www.google.com" 
+                    data-target="_blank">
+                Ir a Google (nueva pestaña)
+            </button>
+            
+            <button class="button" 
+                    data-action-type="link" 
+                    data-url="https://www.github.com" 
+                    data-target="_self">
+                Ir a GitHub (misma pestaña)
+            </button>
+            
+            <button class="button warning" 
+                    data-action-type="pdf" 
+                    data-url="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf">
+                Abrir PDF
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🚫 Botones que NO deben bloquear clicks (sin URL o acción "none")</h3>
+            
+            <button class="button" 
+                    data-action-type="link" 
+                    data-url="" 
+                    onclick="alert('¡Este botón SÍ debe funcionar! (URL vacía)')">
+                Botón con URL vacía
+            </button>
+            
+            <button class="button" 
+                    data-action-type="none" 
+                    onclick="alert('¡Este botón SÍ debe funcionar! (acción none)')">
+                Botón con acción "none"
+            </button>
+            
+            <button class="button danger" 
+                    data-action-type="link" 
+                    data-url="#" 
+                    onclick="alert('¡Este botón SÍ debe funcionar! (URL #)')">
+                Botón con URL "#"
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎯 Botón normal (sin data-action-type)</h3>
+            
+            <button class="button success" 
+                    onclick="alert('¡Botón normal funcionando perfectamente!')">
+                Botón Normal (sin data-action-type)
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Información de contexto</h3>
+            <p><strong>URL:</strong> <span id="current-url"></span></p>
+            <p><strong>Contexto detectado:</strong> <span id="context-info"></span></p>
+            <p><strong>Script cargado:</strong> <span id="script-status">Verificando...</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar información de contexto
+        document.getElementById('current-url').textContent = window.location.href;
+        const isEditor = window.location.pathname.includes('/admin');
+        document.getElementById('context-info').textContent = isEditor ? 'EDITOR' : 'PÁGINA PÚBLICA';
+        
+        // Verificar si el script se carga
+        setTimeout(() => {
+            const scriptStatus = document.getElementById('script-status');
+            const buttons = document.querySelectorAll('[data-action-type]');
+            const initializedButtons = document.querySelectorAll('[data-button-initialized]');
+            
+            if (initializedButtons.length > 0) {
+                scriptStatus.textContent = `✅ Script cargado correctamente (${initializedButtons.length}/${buttons.length} botones inicializados)`;
+                scriptStatus.style.color = 'green';
+            } else {
+                scriptStatus.textContent = '❌ Script NO cargado o no funcionando';
+                scriptStatus.style.color = 'red';
+            }
+        }, 1000);
+    </script>
+    
+    <!-- Simular exactamente cómo se inyecta en páginas publicadas -->
+    <script src="frontend/public/button-actions.js" defer></script>
+</body>
+</html>

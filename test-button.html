@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Button Actions</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Test de Button Actions</h1>
+    
+    <h2>Botón con enlace (misma ventana)</h2>
+    <button data-action-type="link" data-url="https://www.google.com" data-target="_self">
+        Ir a Google (misma ventana)
+    </button>
+    
+    <h2>Botón con enlace (nueva ventana)</h2>
+    <button data-action-type="link" data-url="https://www.github.com" data-target="_blank">
+        Ir a GitHub (nueva ventana)
+    </button>
+    
+    <h2>Botón sin acción</h2>
+    <button data-action-type="" data-url="" data-target="_self">
+        Sin acción (no debería hacer nada)
+    </button>
+    
+    <h2>Botón con PDF</h2>
+    <button data-action-type="pdf" data-url="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" data-target="_blank">
+        Abrir PDF
+    </button>
+
+    <!-- Cargar el script de acciones -->
+    <script src="frontend/public/button-actions.js"></script>
+</body>
+</html>

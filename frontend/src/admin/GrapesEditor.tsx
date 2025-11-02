@@ -820,6 +820,8 @@ const GrapesEditor: React.FC = () => {
         deviceManager: {
           devices: [
             { id: "Desktop", name: "Escritorio", width: "" },
+            { id: "Tablet", name: "Tablet", width: "768px" },
+            { id: "Mobile", name: "Móvil", width: "375px" },
             { id: "Wide", name: "Ancho", width: "1024px" }
           ]
         },
@@ -829,7 +831,7 @@ const GrapesEditor: React.FC = () => {
         avoidInlineStyle: true,
         canvas: {
           styles: [
-            ".dragging{opacity:0.7 !important;border:2px dashed #3b82f6 !important;z-index:9999 !important;} .gjs-placeholder{background: rgba(59,130,246,0.1) !important;border: 2px dashed #3b82f6 !important;min-height:50px !important;}",
+            // 🎯 URLs de hojas de estilo externas
             '/tailwind.css',
             'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
           ],
@@ -853,11 +855,60 @@ const GrapesEditor: React.FC = () => {
       // BLOQUEO DE ACCIONES INTERACTIVAS DENTRO DEL IFRAME
       // ======================================================
       gEditor.on('load', () => {
+        // 🎯 PASO 2: Corregir escalado/zoom del canvas para alineación perfecta
         const frame = gEditor.Canvas.getFrameEl();
+        if (frame) {
+          frame.style.transform = 'none';
+          frame.style.zoom = '1';
+          frame.style.width = '100%';
+          frame.style.height = '100%';
+          frame.style.display = 'block';
+          console.log('🎯 Canvas frame: escalado corregido para alineación perfecta');
+        }
+
+        const canvasWrapper = document.querySelector('.gjs-cv-canvas') as HTMLElement;
+        if (canvasWrapper) {
+          canvasWrapper.style.transform = 'none';
+          canvasWrapper.style.zoom = '1';
+          canvasWrapper.style.width = '100%';
+          canvasWrapper.style.height = '100%';
+          console.log('🎯 Canvas wrapper: escalado corregido');
+        }
+
+        // Configuración del iframe para responsividad
         if (!frame || !frame.contentWindow) return;
 
         const frameWin = frame.contentWindow;
         const frameDoc = frameWin.document;
+
+        // Asegurar viewport correcto en el iframe
+        let viewportMeta = frameDoc.querySelector('meta[name="viewport"]');
+        if (!viewportMeta) {
+          viewportMeta = frameDoc.createElement('meta');
+          viewportMeta.setAttribute('name', 'viewport');
+          frameDoc.head.appendChild(viewportMeta);
+        }
+        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, shrink-to-fit=no');
+        console.log('🎯 Viewport meta configurado en iframe del canvas');
+
+        // 🎯 Aplicar estilos CSS al canvas del iframe
+        const canvasStyles = `
+          body, html { margin: 0; padding: 0; height: 100%; box-sizing: border-box; }
+          * { box-sizing: border-box; }
+          .dragging { opacity: 0.7 !important; border: 2px dashed #3b82f6 !important; z-index: 9999 !important; }
+          .gjs-placeholder { background: rgba(59,130,246,0.1) !important; border: 2px dashed #3b82f6 !important; min-height: 50px !important; }
+          .gjs-selected { outline: 2px solid #3b82f6 !important; outline-offset: -2px !important; }
+          .gjs-hovered { outline: 1px dashed #8b5cf6 !important; outline-offset: -1px !important; }
+        `;
+        
+        let styleElement = frameDoc.querySelector('#grapes-canvas-styles');
+        if (!styleElement) {
+          styleElement = frameDoc.createElement('style');
+          styleElement.id = 'grapes-canvas-styles';
+          frameDoc.head.appendChild(styleElement);
+        }
+        styleElement.textContent = canvasStyles;
+        console.log('🎯 Estilos CSS aplicados al canvas del iframe');
 
         console.log('🧠 Inyectando bloqueo dentro del iframe de GrapesJS...');
 
@@ -878,33 +929,15 @@ const GrapesEditor: React.FC = () => {
                                        target.hasAttribute('data-file-url');
             
             if (hasInteractiveTraits) {
-              // Solo bloquear la acción nativa, no la selección de GrapesJS
+              // Solo prevenir la acción por defecto (navegación, submit, etc.)
               e.preventDefault();
-              e.stopImmediatePropagation();
               console.log("🚫 Bloqueado clic interactivo en editor:", tag);
               
-              // Permitir que GrapesJS maneje la selección después de un micro-delay
-              setTimeout(() => {
-                try {
-                  const component = gEditor.getComponents().find((cmp: any) => cmp.getEl() === target);
-                  if (component) {
-                    gEditor.select(component);
-                    console.log("✅ Componente seleccionado correctamente");
-                  }
-                } catch (err) {
-                  console.warn("Error en selección:", err);
-                }
-              }, 1);
+              // NO usar stopPropagation para permitir que GrapesJS maneje la selección
+              // GrapesJS necesita que el evento burbujee para detectar la selección
             }
           }
-        }, true); // Usar capture para interceptar antes que otros listeners
-
-        // Permitir seguir seleccionando el componente sin activar su acción
-        gEditor.on('component:click', (component, event) => {
-          event?.preventDefault();
-          event?.stopPropagation();
-          gEditor.select(component);
-        });
+        }, false); // Cambiar a false para permitir que GrapesJS capture primero
 
         console.log('✅ Bloqueo activo dentro del iframe del editor.');
       });
@@ -972,13 +1005,13 @@ const GrapesEditor: React.FC = () => {
                   {
                     type: 'text',
                     label: 'URL',
-                    name: 'href',
+                    name: 'data-url',
                     visible: false,
                   },
                   {
                     type: 'select',
                     label: 'Abrir en',
-                    name: 'target',
+                    name: 'data-target',
                     options: [
                       { id: '_self', name: 'Misma ventana' },
                       { id: '_blank', name: 'Nueva ventana' }
@@ -1547,16 +1580,16 @@ const GrapesEditor: React.FC = () => {
               // Ocultar todos los campos dependientes primero
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
-                if (['href', 'target', 'data-file-url', 'data-transaction-id', 'data-amount', 'data-custom-function', 'data-new-tab'].includes(traitName)) {
+                if (['data-url', 'data-target', 'data-file-url', 'data-transaction-id', 'data-amount', 'data-custom-function', 'data-new-tab'].includes(traitName)) {
                   trait.set('visible', false);
                 }
               });
               
               // Mostrar campos según la acción seleccionada
               if (actionType === 'link') {
-                const hrefTrait = traits.find((t: any) => t.get('name') === 'href');
-                const targetTrait = traits.find((t: any) => t.get('name') === 'target');
-                if (hrefTrait) hrefTrait.set('visible', true);
+                const urlTrait = traits.find((t: any) => t.get('name') === 'data-url');
+                const targetTrait = traits.find((t: any) => t.get('name') === 'data-target');
+                if (urlTrait) urlTrait.set('visible', true);
                 if (targetTrait) targetTrait.set('visible', true);
               } else if (actionType === 'download' || actionType === 'open_pdf') {
                 const fileUrlTrait = traits.find((t: any) => t.get('name') === 'data-file-url');
@@ -2659,6 +2692,79 @@ const GrapesEditor: React.FC = () => {
       gEditor.on('load', () => {
         console.log('✅ GrapesJS: evento load disparado');
         setEditorReady(true);
+
+        // 🎯 PASO 3: Event listeners para recalcular posiciones en cambios responsivos
+        gEditor.on('device:change canvas:resize', () => {
+          console.log('🎯 Recalculando posiciones por cambio de dispositivo/canvas');
+          gEditor.refresh();
+          gEditor.trigger('canvas:refresh');
+          
+          // Recorregir escalado después del cambio
+          setTimeout(() => {
+            const frame = gEditor.Canvas.getFrameEl();
+            if (frame) {
+              frame.style.transform = 'none';
+              frame.style.zoom = '1';
+            }
+            
+            const canvasWrapper = document.querySelector('.gjs-cv-canvas') as HTMLElement;
+            if (canvasWrapper) {
+              canvasWrapper.style.transform = 'none';
+              canvasWrapper.style.zoom = '1';
+            }
+          }, 100);
+        });
+
+        // Event listener para cambios de ventana del navegador
+        const handleWindowResize = () => {
+          console.log('🎯 Recalculando por resize de ventana');
+          gEditor.refresh();
+          gEditor.trigger('canvas:refresh');
+        };
+        
+        window.addEventListener('resize', handleWindowResize);
+        
+        // Cleanup function para remover el listener (se manejará en useEffect cleanup)
+        (gEditor as any)._windowResizeCleanup = () => {
+          window.removeEventListener('resize', handleWindowResize);
+        };
+
+        // 🎯 PASO 4: Sincronización del overlay de selección para alineación perfecta
+        const syncSelectionOverlay = () => {
+          try {
+            const frame = gEditor.Canvas.getFrameEl();
+            if (!frame) return;
+            
+            const frameRect = frame.getBoundingClientRect();
+            const offsetY = frameRect.top;
+            const offsetX = frameRect.left;
+            
+            // Sincronizar highlighter (caja de selección azul)
+            const highlighter = document.querySelector('.gjs-highlighter') as HTMLElement;
+            if (highlighter) {
+              highlighter.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+            }
+            
+            // Sincronizar herramientas de selección
+            const tools = document.querySelector('.gjs-tools') as HTMLElement;
+            if (tools) {
+              tools.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+            }
+            
+            console.log('🎯 Overlay sincronizado - offsetX:', offsetX, 'offsetY:', offsetY);
+          } catch (e) {
+            console.warn('Error sincronizando overlay:', e);
+          }
+        };
+
+        // Aplicar sincronización en eventos de selección y cambios
+        gEditor.on('component:selected component:deselected canvas:refresh device:change', syncSelectionOverlay);
+        
+        // Sincronizar también en scroll del canvas
+        const canvasEl = gEditor.Canvas.getElement();
+        if (canvasEl) {
+          canvasEl.addEventListener('scroll', syncSelectionOverlay);
+        }
 
         // Convertir botones existentes al tipo action-button
          const wrapper = gEditor.getWrapper();

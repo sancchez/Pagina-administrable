@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación Completa - Botones Públicos</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover { background: #0056b3; }
+        .button.success { background: #28a745; }
+        .button.warning { background: #ffc107; color: #212529; }
+        .button.danger { background: #dc3545; }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .diagnostic-output {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .status-ok { color: #28a745; font-weight: bold; }
+        .status-error { color: #dc3545; font-weight: bold; }
+        .status-warning { color: #ffc107; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Verificación Completa - Botones Públicos</h1>
+        <p>Esta página verifica todos los casos específicos que mencionaste.</p>
+        
+        <!-- Diagnóstico automático -->
+        <div class="test-section">
+            <h3>🔧 Diagnóstico Automático</h3>
+            <button onclick="runFullDiagnostic()" class="button success">Ejecutar Diagnóstico Completo</button>
+            <div id="diagnostic-results" class="diagnostic-output" style="display: none;"></div>
+        </div>
+        
+        <!-- Caso 1: Botones con data-url con espacios -->
+        <div class="test-section">
+            <h3>✅ Caso 1: Botones con data-url=" https://... " (con espacios)</h3>
+            <div class="code">
+                &lt;a href="#" data-url=" https://asomielrodas.wixsite.com/asomielrodas/informacion-esal " data-target="_blank"&gt;
+            </div>
+            
+            <a href="#" 
+               id="btn-case1" 
+               data-url=" https://asomielrodas.wixsite.com/asomielrodas/informacion-esal " 
+               data-target="_blank" 
+               class="button success">
+                Botón con data-url con espacios → DEBE ABRIR
+            </a>
+        </div>
+        
+        <!-- Caso 2: Botones con href válido y data-url vacío -->
+        <div class="test-section">
+            <h3>✅ Caso 2: Botones con href="https://..." y data-url=""</h3>
+            <div class="code">
+                &lt;a href="https://asomielrodas.wixsite.com/asomielrodas/informacion-esal" data-url="" data-target="_blank"&gt;
+            </div>
+            
+            <a href="https://asomielrodas.wixsite.com/asomielrodas/informacion-esal" 
+               id="btn-case2"
+               data-url="" 
+               data-target="_blank" 
+               class="button warning">
+                Botón con href válido y data-url vacío → DEBE ABRIR
+            </a>
+        </div>
+        
+        <!-- Caso 3: Botones con href="#" y data-url="" -->
+        <div class="test-section">
+            <h3>🚫 Caso 3: Botones con href="#" y data-url=""</h3>
+            <div class="code">
+                &lt;a href="#" data-url="" onclick="alert('Click nativo funcionando')"&gt;
+            </div>
+            
+            <a href="#" 
+               id="btn-case3"
+               data-url="" 
+               onclick="alert('¡Click nativo funcionando! Este botón NO debe ser bloqueado.')" 
+               class="button danger">
+                Botón con href="#" y data-url="" → NO DEBE HACER NADA (permite onclick)
+            </a>
+        </div>
+        
+        <!-- Caso 4: Botones normales sin data-url -->
+        <div class="test-section">
+            <h3>✅ Caso 4: Botones normales (sin data-url)</h3>
+            <div class="code">
+                &lt;a href="https://www.google.com" target="_blank"&gt;
+            </div>
+            
+            <a href="https://www.google.com" 
+               id="btn-case4"
+               target="_blank" 
+               class="button">
+                Botón normal con href → DEBE ABRIR NORMALMENTE
+            </a>
+        </div>
+        
+        <!-- Información del sistema -->
+        <div class="test-section">
+            <h3>📊 Información del Sistema</h3>
+            <p><strong>URL actual:</strong> <span id="current-url"></span></p>
+            <p><strong>Contexto detectado:</strong> <span id="context-info"></span></p>
+            <p><strong>Script cargado:</strong> <span id="script-status">Verificando...</span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Información básica
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        // Detectar contexto
+        const isEditor = window.location.pathname.includes('/admin') || !!document.querySelector('.gjs-cv-canvas');
+        document.getElementById('context-info').textContent = isEditor ? 'EDITOR' : 'PÁGINA PÚBLICA';
+        
+        // Función de diagnóstico completo
+        function runFullDiagnostic() {
+            const results = document.getElementById('diagnostic-results');
+            let output = '<h4>🔍 Resultados del Diagnóstico Completo:</h4>';
+            
+            // 1. Verificar carga del script
+            const scriptLoaded = !!document.querySelector('script[src*="button-actions"]');
+            output += `<p><strong>1. Script button-actions.js cargado:</strong> <span class="${scriptLoaded ? 'status-ok' : 'status-error'}">${scriptLoaded ? '✅ SÍ' : '❌ NO'}</span></p>`;
+            
+            // 2. Verificar cada caso
+            const cases = [
+                { id: 'btn-case1', name: 'Caso 1 (data-url con espacios)' },
+                { id: 'btn-case2', name: 'Caso 2 (href válido, data-url vacío)' },
+                { id: 'btn-case3', name: 'Caso 3 (href="#", data-url vacío)' },
+                { id: 'btn-case4', name: 'Caso 4 (botón normal)' }
+            ];
+            
+            cases.forEach(testCase => {
+                const el = document.getElementById(testCase.id);
+                if (el) {
+                    output += `<p><strong>2. ${testCase.name}:</strong></p>`;
+                    output += `<ul>`;
+                    output += `<li>href: "${el.getAttribute('href')}"</li>`;
+                    output += `<li>data-url: "${el.getAttribute('data-url')}"</li>`;
+                    output += `<li>data-target: "${el.getAttribute('data-target')}"</li>`;
+                    
+                    // Calcular URL procesada (como lo hace el script)
+                    const rawDataUrl = el.getAttribute('data-url') || '';
+                    const href = (el.getAttribute('href') || '').trim();
+                    const url = rawDataUrl.trim() || (href !== '#' ? href : '');
+                    output += `<li><strong>URL procesada:</strong> "${url}" ${url ? '<span class="status-ok">✅ VÁLIDA</span>' : '<span class="status-warning">⚠️ VACÍA</span>'}</li>`;
+                    
+                    // Verificar listeners (aproximado)
+                    try {
+                        if (typeof getEventListeners === 'function') {
+                            const listeners = getEventListeners(el);
+                            output += `<li><strong>Event Listeners:</strong> ${JSON.stringify(listeners)}</li>`;
+                        } else {
+                            output += `<li><strong>Event Listeners:</strong> getEventListeners no disponible (solo DevTools)</li>`;
+                        }
+                    } catch (e) {
+                        output += `<li><strong>Event Listeners:</strong> Error al verificar</li>`;
+                    }
+                    
+                    output += `</ul>`;
+                }
+            });
+            
+            // 3. Verificar contexto
+            output += `<p><strong>3. Contexto:</strong> <span class="${isEditor ? 'status-warning' : 'status-ok'}">${isEditor ? '⚠️ EDITOR (script no debe ejecutar lógica pública)' : '✅ PÁGINA PÚBLICA (script debe ejecutar acciones)'}</span></p>`;
+            
+            // 4. Verificar otros scripts
+            const allScripts = document.querySelectorAll('script[src]');
+            output += `<p><strong>4. Scripts cargados:</strong></p><ul>`;
+            allScripts.forEach(script => {
+                output += `<li>${script.src}</li>`;
+            });
+            output += `</ul>`;
+            
+            results.innerHTML = output;
+            results.style.display = 'block';
+            
+            // También ejecutar el console.log que pediste
+            console.log('button-actions.js cargado?', !!document.querySelector('script[src*="button-actions"]'));
+        }
+        
+        // Verificar carga del script
+        setTimeout(() => {
+            const scriptStatus = document.getElementById('script-status');
+            const scriptLoaded = !!document.querySelector('script[src*="button-actions"]');
+            
+            if (scriptLoaded) {
+                scriptStatus.innerHTML = '<span class="status-ok">✅ Script detectado</span>';
+            } else {
+                scriptStatus.innerHTML = '<span class="status-error">❌ Script NO detectado</span>';
+            }
+        }, 1000);
+        
+        // Ejecutar diagnóstico automáticamente después de 2 segundos
+        setTimeout(() => {
+            runFullDiagnostic();
+        }, 2000);
+    </script>
+    
+    <!-- Cargar el script con versión para evitar caché -->
+    <script src="frontend/public/button-actions.js?v=2" defer></script>
+</body>
+</html>

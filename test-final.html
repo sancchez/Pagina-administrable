@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Final - Botón Específico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button-test {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .button-test:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .console-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Prueba Final - Tu Botón Específico</h1>
+        
+        <div class="info">
+            <h3>📍 Información del Sistema</h3>
+            <p><strong>URL:</strong> <span id="current-url"></span></p>
+            <p><strong>Contexto:</strong> <span id="context-info"></span></p>
+            <p><strong>Script cargado:</strong> <span id="script-status"></span></p>
+        </div>
+
+        <h3>🔘 Tu Botón Original (con espacios en data-url)</h3>
+        <a href="#" type="button" id="irlnr4" data-url=" https://www.youtube.com/watch?v=rwlwX8TbxpE " class="button-test">Botón</a>
+        
+        <h3>🔘 Botones de Comparación</h3>
+        <a href="#" data-url="https://www.youtube.com/watch?v=rwlwX8TbxpE" class="button-test">Sin espacios en data-url</a>
+        <a href="https://www.youtube.com/watch?v=rwlwX8TbxpE" class="button-test">Solo href</a>
+        
+        <div class="console-output" id="console-output">
+            <div>🖥️ Consola de Diagnóstico:</div>
+        </div>
+        
+        <button onclick="runDiagnostic()" style="padding: 10px 20px; margin: 10px 0;">🔍 Ejecutar Diagnóstico</button>
+    </div>
+
+    <script>
+        // Capturar logs de consola
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const output = document.getElementById('console-output');
+            const div = document.createElement('div');
+            div.textContent = args.join(' ');
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        };
+
+        // Información del sistema
+        document.getElementById('current-url').textContent = window.location.href;
+        
+        // Detectar contexto
+        const isEditorContext = window.location.pathname.includes('/admin') || 
+                               window.location.pathname.includes('/editor') ||
+                               window.grapesjs ||
+                               document.querySelector('.gjs-editor');
+        
+        document.getElementById('context-info').textContent = isEditorContext ? 'EDITOR' : 'PÁGINA PÚBLICA';
+        
+        // Verificar script
+        setTimeout(() => {
+            const scriptLoaded = !!document.querySelector('script[src*="button-actions"]');
+            document.getElementById('script-status').textContent = scriptLoaded ? '✅ SÍ' : '❌ NO';
+        }, 100);
+
+        function runDiagnostic() {
+            console.log('\n🔍 === DIAGNÓSTICO MANUAL ===');
+            
+            const targetButton = document.getElementById('irlnr4');
+            console.log('🔘 Botón objetivo encontrado:', !!targetButton);
+            
+            if (targetButton) {
+                console.log('  - data-url:', `"${targetButton.getAttribute('data-url')}"`);
+                console.log('  - data-url limpio:', `"${targetButton.getAttribute('data-url')?.trim()}"`);
+                console.log('  - href:', `"${targetButton.getAttribute('href')}"`);
+                
+                // Verificar listeners
+                console.log('  - Listeners:', getEventListeners ? getEventListeners(targetButton) : 'No disponible en este navegador');
+            }
+            
+            console.log('🔍 Diagnóstico completado\n');
+        }
+    </script>
+
+    <!-- Cargar el script -->
+    <script src="frontend/public/button-actions.js" defer></script>
+</body>
+</html>

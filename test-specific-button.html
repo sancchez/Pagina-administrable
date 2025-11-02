@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Botón Específico</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Prueba del Botón Específico</h1>
+        <p>Esta página prueba el botón exacto que está fallando.</p>
+        
+        <div class="test-section">
+            <h3>🔍 Botón Problemático (EXACTO como el tuyo)</h3>
+            <div class="code">
+                &lt;a href="#" type="button" id="iggvyb" data-url=" https://asomielrodas.wixsite.com/asomielrodas/informacion-esal " data-target="_blank"&gt;Botón&lt;/a&gt;
+            </div>
+            
+            <!-- Botón EXACTO como el tuyo -->
+            <a href="#" type="button" id="iggvyb" data-url=" https://asomielrodas.wixsite.com/asomielrodas/informacion-esal " data-target="_blank" class="button">Botón Original (con espacios)</a>
+        </div>
+        
+        <div class="test-section">
+            <h3>✅ Variaciones para comparar</h3>
+            
+            <!-- Sin espacios en data-url -->
+            <a href="#" type="button" data-url="https://asomielrodas.wixsite.com/asomielrodas/informacion-esal" data-target="_blank" class="button">Botón sin espacios en data-url</a>
+            
+            <!-- Solo con href válido -->
+            <a href="https://asomielrodas.wixsite.com/asomielrodas/informacion-esal" type="button" data-target="_blank" class="button">Botón solo con href</a>
+            
+            <!-- Con data-action-type -->
+            <a href="#" type="button" data-url="https://asomielrodas.wixsite.com/asomielrodas/informacion-esal" data-action-type="link" data-target="_blank" class="button">Botón con data-action-type</a>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔧 Diagnóstico en Consola</h3>
+            <p>Abre la consola (F12) y ejecuta este código para diagnosticar:</p>
+            <div class="code">
+// 1) ¿El listener de click existe y quién lo puso?<br>
+const el = document.getElementById('iggvyb');<br>
+console.log('Elemento:', el);<br>
+if (typeof getEventListeners === 'function') {<br>
+&nbsp;&nbsp;console.log('getEventListeners:', getEventListeners(el));<br>
+} else {<br>
+&nbsp;&nbsp;console.log('getEventListeners no disponible (solo DevTools).');<br>
+}<br><br>
+
+// 2) ¿Alguna regla CSS que bloquee pointer-events?<br>
+console.log('pointer-events (computed):', window.getComputedStyle(el).pointerEvents);<br><br>
+
+// 3) ¿data-* y href actuales?<br>
+console.log('href:', el.getAttribute('href'));<br>
+console.log('data-url:', el.getAttribute('data-url'));<br>
+console.log('data-action-type:', el.getAttribute('data-action-type'));
+            </div>
+            
+            <button onclick="runDiagnostic()" class="button" style="background: #28a745;">Ejecutar Diagnóstico</button>
+            <div id="diagnostic-results" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Información de contexto</h3>
+            <p><strong>URL:</strong> <span id="current-url"></span></p>
+            <p><strong>Contexto detectado:</strong> <span id="context-info"></span></p>
+            <p><strong>Script cargado:</strong> <span id="script-status">Verificando...</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar información de contexto
+        document.getElementById('current-url').textContent = window.location.href;
+        const isEditor = window.location.pathname.includes('/admin') || !!document.querySelector('.gjs-cv-canvas');
+        document.getElementById('context-info').textContent = isEditor ? 'EDITOR' : 'PÁGINA PÚBLICA';
+        
+        // Función de diagnóstico
+        function runDiagnostic() {
+            const el = document.getElementById('iggvyb');
+            const results = document.getElementById('diagnostic-results');
+            
+            let output = '<h4>Resultados del Diagnóstico:</h4>';
+            output += '<p><strong>Elemento encontrado:</strong> ' + (el ? 'SÍ' : 'NO') + '</p>';
+            
+            if (el) {
+                output += '<p><strong>href:</strong> "' + el.getAttribute('href') + '"</p>';
+                output += '<p><strong>data-url:</strong> "' + el.getAttribute('data-url') + '"</p>';
+                output += '<p><strong>data-action-type:</strong> "' + el.getAttribute('data-action-type') + '"</p>';
+                output += '<p><strong>data-target:</strong> "' + el.getAttribute('data-target') + '"</p>';
+                output += '<p><strong>pointer-events:</strong> ' + window.getComputedStyle(el).pointerEvents + '</p>';
+                
+                // Verificar URL procesada
+                const rawDataUrl = el.getAttribute('data-url') || '';
+                const href = (el.getAttribute('href') || '').trim();
+                const url = rawDataUrl.trim() || (href !== '#' ? href : '');
+                output += '<p><strong>URL procesada por script:</strong> "' + url + '"</p>';
+                output += '<p><strong>¿Tiene URL válida?:</strong> ' + (url ? 'SÍ' : 'NO') + '</p>';
+            }
+            
+            results.innerHTML = output;
+            results.style.display = 'block';
+        }
+        
+        // Verificar si el script se carga
+        setTimeout(() => {
+            const scriptStatus = document.getElementById('script-status');
+            const buttons = document.querySelectorAll('[data-url], [data-action-type], [href]');
+            
+            // Verificar si hay listeners
+            const testButton = document.getElementById('iggvyb');
+            let hasListeners = false;
+            
+            if (testButton) {
+                // Intentar detectar listeners (método aproximado)
+                const events = ['click'];
+                events.forEach(eventType => {
+                    const cloned = testButton.cloneNode(true);
+                    if (testButton.outerHTML !== cloned.outerHTML) {
+                        hasListeners = true;
+                    }
+                });
+            }
+            
+            scriptStatus.textContent = hasListeners ? '✅ Script cargado (listeners detectados)' : '❌ Script NO detectado';
+            scriptStatus.style.color = hasListeners ? 'green' : 'red';
+        }, 1000);
+    </script>
+    
+    <!-- Cargar el script corregido -->
+    <script src="frontend/public/button-actions.js" defer></script>
+</body>
+</html>
