@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sistema Web Administrable para Acueducto</title>
+    
+    <!-- 🔧 PARCHE GLOBAL: Definir checkEditorContext para evitar errores en páginas publicadas -->
+    <script>
+      // Define una versión neutra de checkEditorContext para la página pública
+      function checkEditorContext() {
+        return false; // Siempre retorna false fuera del editor
+      }
+      
+      // También definir en window para acceso global
+      window.checkEditorContext = checkEditorContext;
+    </script>
   </head>
   <body>
     <div id="root"></div>

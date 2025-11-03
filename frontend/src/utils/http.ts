@@ -22,6 +22,9 @@ class HttpClient {
     
     if (token) {
       headers.Authorization = `Bearer ${token}`;
+      console.log('HttpClient: Token agregado a headers');
+    } else {
+      console.warn('HttpClient: No se encontró token en localStorage');
     }
     
     return headers;
@@ -31,6 +34,17 @@ class HttpClient {
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      // Si es error 401, verificar si hay token
+      if (response.status === 401) {
+        const token = this.getAuthToken();
+        console.error('Error 401 - Token presente:', !!token);
+        if (token) {
+          console.error('Token value:', token.substring(0, 20) + '...');
+        }
+        throw new Error(errorData.message || 'Token de acceso requerido');
+      }
+      
       throw new Error(errorData.message || `HTTP Error: ${response.status}`);
     }
     
@@ -40,6 +54,28 @@ class HttpClient {
     }
     
     return response.text() as unknown as T;
+  }
+
+  // Método genérico para hacer peticiones
+  private async request<T>(url: string, options: RequestInit = {}): Promise<T> {
+    const fullURL = `${this.baseURL}${url}`;
+    const headers = this.getHeaders(options.headers as Record<string, string>);
+    
+    // Debug temporal para investigar el problema 401
+    console.log('🔍 HttpClient Debug:', {
+      url: fullURL,
+      method: options.method || 'GET',
+      hasAuthHeader: !!headers.Authorization,
+      authHeader: headers.Authorization ? headers.Authorization.substring(0, 20) + '...' : 'No token',
+      allHeaders: Object.keys(headers)
+    });
+    
+    const response = await fetch(fullURL, {
+      ...options,
+      headers,
+    });
+
+    return this.handleResponse<T>(response);
   }
 
   // GET request

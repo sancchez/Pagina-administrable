@@ -1166,6 +1166,28 @@ export class PageController {
   }
 
   /**
+   * Eliminar backup específico
+   */
+  static async deleteBackup(req: Request, res: Response) {
+    try {
+      console.log('[PageController.deleteBackup] start', { id: req.params.id, backupId: req.params.backupId });
+      const { id, backupId } = req.params;
+
+      await PageService.deleteBackup(id, backupId);
+
+      return res.json({
+        success: true,
+        message: 'Backup eliminado exitosamente'
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
    * Crear backup manual de una página
    */
   static async createManualBackup(req: Request, res: Response) {

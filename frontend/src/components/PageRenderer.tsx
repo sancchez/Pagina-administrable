@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from './Layout';
 
+// 🔧 Declaración de tipo para checkEditorContext en window
+declare global {
+  interface Window {
+    checkEditorContext?: () => boolean;
+  }
+}
+
 // Importar todas las páginas estáticas
 import HomePage from '../pages/HomePage';
 import Contacto from '../pages/Contacto';
@@ -43,6 +50,17 @@ interface DynamicPageData {
   gjsCss?: string;
   content?: string;
   grapesData?: string;
+}
+
+// 🧼 Función para sanitizar scripts del editor en contenido publicado
+function sanitizeEditorScripts(html: string): string {
+  // Remover scripts que contengan checkEditorContext o funciones específicas del editor
+  return html
+    .replace(/<script[^>]*>[\s\S]*?checkEditorContext[\s\S]*?<\/script>/gi, '')
+    .replace(/<script[^>]*checkEditorContext[^>]*>[\s\S]*?<\/script>/gi, '')
+    // También remover scripts inline que usen checkEditorContext
+    .replace(/onclick\s*=\s*["'][^"']*checkEditorContext[^"']*["']/gi, '')
+    .replace(/onload\s*=\s*["'][^"']*checkEditorContext[^"']*["']/gi, '');
 }
 
 const PageRenderer: React.FC = () => {
@@ -183,14 +201,18 @@ const PageRenderer: React.FC = () => {
 
   // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioridad)
   if (dynamicPage) {
-    const htmlContent = dynamicPage.publishedHtml || dynamicPage.html || dynamicPage.gjsHtml || '';
+    const rawHtmlContent = dynamicPage.publishedHtml || dynamicPage.html || dynamicPage.gjsHtml || '';
     const cssContent = dynamicPage.publishedCss || dynamicPage.css || dynamicPage.gjsCss || '';
+    
+    // 🧼 Sanitizar scripts del editor antes de renderizar
+    const htmlContent = sanitizeEditorScripts(rawHtmlContent);
 
     console.log('🎬 [PageRenderer] Renderizando:', htmlContent ? 'DINÁMICO' : 'ESTÁTICO');
     console.log('📥 [PageRenderer] Datos recibidos de API', {
       slug: dynamicPage.slug,
       htmlPreview: htmlContent.substring(0, 50),
       cssPreview: cssContent.substring(0, 50),
+      sanitized: rawHtmlContent !== htmlContent ? 'Scripts del editor removidos' : 'Sin cambios',
     });
 
     if (htmlContent) {
@@ -201,6 +223,11 @@ const PageRenderer: React.FC = () => {
         React.useEffect(() => {
           // 🚀 Ejecutar scripts después de renderizar el HTML
           if (contentRef.current) {
+            // 🔧 Parche: Definir checkEditorContext para evitar errores en scripts del editor
+            if (typeof window !== 'undefined' && !window.checkEditorContext) {
+              window.checkEditorContext = () => false;
+            }
+            
             const scripts = contentRef.current.querySelectorAll('script');
             scripts.forEach((oldScript) => {
               const newScript = document.createElement('script');

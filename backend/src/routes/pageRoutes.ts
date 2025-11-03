@@ -870,5 +870,49 @@ router.post('/:id/backups', authenticate, authorize("ADMIN", "MANAGER"), general
  */
 router.post('/:id/restore/:backupId', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.restoreFromBackup);
 
+/**
+ * @swagger
+ * /api/pages/{id}/backups/{backupId}:
+ *   delete:
+ *     summary: Eliminar backup específico
+ *     tags: [Pages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la página
+ *       - in: path
+ *         name: backupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID del backup
+ *     responses:
+ *       200:
+ *         description: Backup eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Página o backup no encontrado
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso denegado
+ */
+router.delete('/:id/backups/:backupId', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.deleteBackup);
+
 
 export default router;

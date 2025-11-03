@@ -41,6 +41,7 @@ export default function BackupManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isDeletingBackup, setIsDeletingBackup] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [previewBackup, setPreviewBackup] = useState<PageBackup | null>(null);
   const [compareBackup, setCompareBackup] = useState<PageBackup | null>(null);
@@ -125,6 +126,27 @@ export default function BackupManager() {
       showMessage('error', 'Error al restaurar el backup');
     } finally {
       setIsRestoring(false);
+    }
+  };
+
+  const deleteBackup = async (pageId: string, backupId: string) => {
+    if (!confirm('¿Estás seguro de que quieres borrar esta versión? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      setIsDeletingBackup(backupId);
+      const response = await HttpClient.delete(`/pages/${pageId}/backups/${backupId}`);
+      
+      if (response?.success) {
+        showMessage('success', 'Backup eliminado exitosamente');
+        fetchBackups(pageId);
+      }
+    } catch (error) {
+      console.error('Error deleting backup:', error);
+      showMessage('error', 'Error al eliminar el backup');
+    } finally {
+      setIsDeletingBackup(null);
     }
   };
 
@@ -315,6 +337,18 @@ export default function BackupManager() {
                                 <RefreshCw className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Upload className="h-4 w-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => deleteBackup(selectedPage.id, backup.id)}
+                              disabled={isDeletingBackup === backup.id}
+                              className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Eliminar esta versión"
+                            >
+                              {isDeletingBackup === backup.id ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
                               )}
                             </button>
                           </div>

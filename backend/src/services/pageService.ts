@@ -663,6 +663,47 @@ export class PageService {
   }
 
   /**
+   * Eliminar un backup específico
+   */
+  static async deleteBackup(pageId: string, backupId: string): Promise<void> {
+    try {
+      console.log('[PageService.deleteBackup] start', { pageId, backupId });
+      
+      // Verificar que la página existe
+      const page = await prisma.page.findUnique({
+        where: { id: pageId }
+      });
+
+      if (!page) {
+        throw createError(404, 'Página no encontrada');
+      }
+
+      // Verificar que el backup existe y pertenece a la página
+      const backup = await prisma.pageBackup.findFirst({
+        where: { 
+          id: backupId,
+          pageId: pageId
+        }
+      });
+
+      if (!backup) {
+        throw createError(404, 'Backup no encontrado');
+      }
+
+      // Eliminar el backup
+      await prisma.pageBackup.delete({
+        where: { id: backupId }
+      });
+
+      console.log('[PageService.deleteBackup] done', { pageId, backupId });
+    } catch (error: any) {
+      if (error.status) throw error;
+      console.error('Error deleting backup:', error);
+      throw createError(500, 'Error interno del servidor al eliminar backup');
+    }
+  }
+
+  /**
    * Eliminar backups antiguos (mantener solo los últimos N)
    */
   static async cleanupOldBackups(pageId: string, keepCount: number = 20): Promise<void> {

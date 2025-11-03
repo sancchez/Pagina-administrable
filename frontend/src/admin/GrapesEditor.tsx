@@ -428,6 +428,9 @@ const GrapesEditor: React.FC = () => {
         }
       };
       
+      // 🌐 Hacer la función accesible globalmente para los scripts de GrapesJS
+      (window as any).checkEditorContext = checkEditorContext;
+      
       const gEditor = grapesjs.init({
         container: editorContainerRef.current,
         height: '100vh',
@@ -3278,6 +3281,27 @@ const GrapesEditor: React.FC = () => {
       // El frame del canvas está listo; validar ancho antes de marcar canvasReady
       gEditor.on('canvas:frame:load', () => {
         console.log('🖼️ Canvas frame listo');
+        
+        // 🔧 PARCHE: Evitar errores de checkEditorContext en iframes
+        try {
+          const frame = gEditor.Canvas.getFrameEl();
+          if (frame && frame.contentWindow) {
+            // Evita errores si scripts antiguos llaman esta función
+            frame.contentWindow.checkEditorContext = () => false;
+            console.log('✅ Parche checkEditorContext aplicado al iframe');
+            
+            // También prevenir errores relacionados con checkEditorContext
+            frame.contentWindow.addEventListener('error', (e) => {
+              if (e.message && e.message.includes('checkEditorContext')) {
+                e.preventDefault();
+                console.log('🛡️ Error checkEditorContext prevenido en iframe');
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('⚠️ No se pudo aplicar parche checkEditorContext:', e);
+        }
+        
         const checkWidthAndReady = () => {
           try {
             const frame = gEditor.Canvas.getFrameEl();
