@@ -1,16 +1,17 @@
 // button-actions.js - SCRIPT ÚNICO PARA PÁGINAS PUBLICADAS
-console.log('🚀 CARGANDO button-actions.js');
+(function() {
+    console.log('🚀 CARGANDO button-actions.js');
 
-// Detectar contexto
-const isEditor = window.location.pathname.includes('/admin') || 
-                 window.location.pathname.includes('/editor') ||
-                 window.grapesjs ||
-                 document.querySelector('.gjs-editor');
+    // Detectar contexto
+    const isInEditorMode = window.location.pathname.includes('/admin') || 
+                           window.location.pathname.includes('/editor') ||
+                           window.grapesjs ||
+                           document.querySelector('.gjs-editor');
 
-console.log('📍 Contexto detectado:', isEditor ? 'EDITOR' : 'PÁGINA PÚBLICA');
+    console.log('📍 Contexto detectado:', isInEditorMode ? 'EDITOR' : 'PÁGINA PÚBLICA');
 
-// Solo ejecutar en páginas públicas
-if (!isEditor) {
+    // Solo ejecutar en páginas públicas
+    if (!isInEditorMode) {
     console.log('✅ Ejecutando lógica para PÁGINA PÚBLICA');
     
     // Esperar a que el DOM esté listo
@@ -81,3 +82,4 @@ if (!isEditor) {
 } else {
     console.log('⏸️ Script NO ejecutado - Contexto: EDITOR');
 }
+})(); // Cierre de la IIFE

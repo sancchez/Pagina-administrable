@@ -416,6 +416,18 @@ const GrapesEditor: React.FC = () => {
           forms: typeof pluginFormsFn,
         });
       } catch {}
+      
+      // 🎯 Función global única para detectar contexto del editor (evita declaraciones duplicadas)
+      const checkEditorContext = () => {
+        try {
+          return window.parent !== window || 
+                 document.querySelector('.gjs-cv-canvas') !== null ||
+                 window.location.pathname.includes('/admin/');
+        } catch (e) {
+          return false;
+        }
+      };
+      
       const gEditor = grapesjs.init({
         container: editorContainerRef.current,
         height: '100vh',
@@ -1055,21 +1067,10 @@ const GrapesEditor: React.FC = () => {
                 script: function() {
                   const el = this as unknown as HTMLElement;
                   
-                  // Detectar si estamos en el contexto del editor GrapesJS
-                  const isInEditor = () => {
-                    try {
-                      return window.parent !== window || 
-                             document.querySelector('.gjs-cv-canvas') !== null ||
-                             window.location.pathname.includes('/admin/');
-                    } catch (e) {
-                      return false;
-                    }
-                  };
-                  
                   function doAction(e: Event) {
                     try {
                       // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                      if (isInEditor()) {
+                      if (checkEditorContext()) {
                         console.log('🎯 Acción de button interceptada por el editor');
                         return; // No hacer nada, GrapesJS manejará el evento
                       }
@@ -1210,20 +1211,8 @@ const GrapesEditor: React.FC = () => {
                   const el = this as unknown as HTMLElement;
                   
                   // 🚫 NO ejecutar en el contexto del editor GrapesJS
-                  // Detectar si estamos en el editor verificando si existe el iframe del canvas
-                  const isInEditor = () => {
-                    try {
-                      // Verificar si estamos dentro del iframe del canvas de GrapesJS
-                      return window.parent !== window || 
-                             document.querySelector('.gjs-cv-canvas') !== null ||
-                             window.location.pathname.includes('/admin/');
-                    } catch (e) {
-                      return false;
-                    }
-                  };
-                  
                   // Solo ejecutar si NO estamos en el editor
-                  if (isInEditor()) {
+                  if (checkEditorContext()) {
                     console.log('🎯 Script de link deshabilitado en el editor');
                     return { destroy: function() {} };
                   }
@@ -1231,7 +1220,7 @@ const GrapesEditor: React.FC = () => {
                   function onClick(e: Event) {
                     try {
                       // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                      if (isInEditor()) {
+                      if (checkEditorContext()) {
                         console.log('🎯 Acción de link interceptada por el editor');
                         return; // No hacer nada, GrapesJS manejará el evento
                       }
@@ -2579,20 +2568,8 @@ const GrapesEditor: React.FC = () => {
             ],
             script() {
                // 🚫 NO ejecutar en el contexto del editor GrapesJS
-               // Detectar si estamos en el editor verificando si existe el iframe del canvas
-               const isInEditor = () => {
-                 try {
-                   // Verificar si estamos dentro del iframe del canvas de GrapesJS
-                   return window.parent !== window || 
-                          document.querySelector('.gjs-cv-canvas') !== null ||
-                          window.location.pathname.includes('/admin/');
-                 } catch (e) {
-                   return false;
-                 }
-               };
-               
                // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-               if (isInEditor()) {
+               if (checkEditorContext()) {
                  console.log('🎯 Script de action-button deshabilitado en el editor');
                  return { destroy: function() {} };
                }
@@ -2611,7 +2588,7 @@ const GrapesEditor: React.FC = () => {
 
                function handleClick(e: Event) {
                  // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                 if (isInEditor()) {
+                 if (checkEditorContext()) {
                    console.log('🎯 Acción de action-button interceptada por el editor');
                    return; // No hacer nada, GrapesJS manejará el evento
                  }
@@ -2692,6 +2669,44 @@ const GrapesEditor: React.FC = () => {
       gEditor.on('load', () => {
         console.log('✅ GrapesJS: evento load disparado');
         setEditorReady(true);
+
+        // 🎯 SOLUCIÓN: Ajusta automáticamente el ancho del iframe según el panel derecho
+        const canvasElement = gEditor.Canvas.getElement(); // contenedor del canvas
+        const frameEl = gEditor.Canvas.getFrameEl();  // iframe donde se ve la página
+        const panelsEl = document.querySelector('.gjs-pn-views-container') as HTMLElement; // panel derecho (propiedades)
+
+        function adjustCanvasWidth() {
+          if (!canvasElement || !frameEl || !panelsEl) return;
+
+          const panelWidth = panelsEl.offsetWidth;
+          const editorEl = gEditor.getEl();
+          if (!editorEl) return;
+          
+          const editorWidth = editorEl.offsetWidth;
+          const canvasWidth = editorWidth - panelWidth;
+
+          canvasElement.style.width = `${canvasWidth}px`;
+          frameEl.style.width = '100%';
+          frameEl.style.margin = '0 auto';
+          
+          console.log('🎯 Canvas ajustado - Panel:', panelWidth, 'Editor:', editorWidth, 'Canvas:', canvasWidth);
+        }
+
+        // Ajustar al cargar
+        adjustCanvasWidth();
+
+        // Ajustar al cambiar tamaño de ventana o al abrir/cerrar paneles
+        window.addEventListener('resize', adjustCanvasWidth);
+        if (panelsEl) {
+          const observer = new ResizeObserver(adjustCanvasWidth);
+          observer.observe(panelsEl);
+
+          // Cleanup function para el observer (se manejará en useEffect cleanup)
+          (gEditor as any)._canvasResizeCleanup = () => {
+            window.removeEventListener('resize', adjustCanvasWidth);
+            observer.disconnect();
+          };
+        }
 
         // 🎯 PASO 3: Event listeners para recalcular posiciones en cambios responsivos
         gEditor.on('device:change canvas:resize', () => {
@@ -3366,7 +3381,16 @@ const GrapesEditor: React.FC = () => {
         }
         // Destruir editor solo en desmontaje real del componente
         if (editorInstanceRef.current) {
-          try { editorInstanceRef.current.destroy(); } catch {}
+          try { 
+            // Llamar cleanup functions si existen
+            if ((editorInstanceRef.current as any)._windowResizeCleanup) {
+              (editorInstanceRef.current as any)._windowResizeCleanup();
+            }
+            if ((editorInstanceRef.current as any)._canvasResizeCleanup) {
+              (editorInstanceRef.current as any)._canvasResizeCleanup();
+            }
+            editorInstanceRef.current.destroy(); 
+          } catch {}
           editorInstanceRef.current = null;
         }
       } catch (e) {
