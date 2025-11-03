@@ -3173,49 +3173,548 @@ const GrapesEditor: React.FC = () => {
           `
         });
 
-        // Bloques adicionales solicitados
-        // Categoría: Texto
-        bm.add('heading-1', {
-          label: 'Título H1',
-          category: 'Texto',
-          content: '<h1 style="font-size: 48px; font-weight: bold;">Título Principal</h1>'
+        // ========================================
+        // 🎨 BIBLIOTECA COMPLETA DE BLOQUES PERSONALIZADOS
+        // ========================================
+
+        // 🔷 CATEGORÍA: FORMAS GEOMÉTRICAS
+        bm.add('shape-rectangle', {
+          label: '⬜ Rectángulo',
+          category: '🔷 Formas',
+          content: '<div style="width:200px; height:120px; background:#4a90e2; border-radius:8px; margin:10px;"></div>'
         });
 
-        bm.add('heading-2', {
-          label: 'Título H2',
-          category: 'Texto',
-          content: '<h2 style="font-size: 36px; font-weight: bold;">Subtítulo</h2>'
+        bm.add('shape-square', {
+          label: '🟦 Cuadrado',
+          category: '🔷 Formas',
+          content: '<div style="width:120px; height:120px; background:#e94e77; border-radius:8px; margin:10px;"></div>'
         });
 
-        bm.add('quote', {
-          label: 'Cita',
-          category: 'Texto',
+        bm.add('shape-circle', {
+          label: '🔵 Círculo',
+          category: '🔷 Formas',
+          content: '<div style="width:120px; height:120px; background:#50c878; border-radius:50%; margin:10px;"></div>'
+        });
+
+        bm.add('shape-oval', {
+          label: '🥚 Óvalo',
+          category: '🔷 Formas',
+          content: '<div style="width:180px; height:120px; background:#ff6b35; border-radius:50%; margin:10px;"></div>'
+        });
+
+        bm.add('shape-triangle', {
+          label: '🔺 Triángulo',
+          category: '🔷 Formas',
+          content: '<div style="width:0; height:0; border-left:60px solid transparent; border-right:60px solid transparent; border-bottom:100px solid #9b59b6; margin:20px;"></div>'
+        });
+
+        bm.add('shape-diamond', {
+          label: '💎 Diamante',
+          category: '🔷 Formas',
+          content: '<div style="width:80px; height:80px; background:#f39c12; transform:rotate(45deg); margin:40px;"></div>'
+        });
+
+        bm.add('shape-line-horizontal', {
+          label: '➖ Línea Horizontal',
+          category: '🔷 Formas',
+          content: '<div style="width:300px; height:4px; background:#2c3e50; margin:20px 0;"></div>'
+        });
+
+        bm.add('shape-line-vertical', {
+          label: '|️ Línea Vertical',
+          category: '🔷 Formas',
+          content: '<div style="width:4px; height:200px; background:#2c3e50; margin:0 20px;"></div>'
+        });
+
+        bm.add('shape-arrow-right', {
+          label: '➡️ Flecha Derecha',
+          category: '🔷 Formas',
+          content: '<div style="width:0; height:0; border-top:30px solid transparent; border-bottom:30px solid transparent; border-left:60px solid #3498db; margin:20px;"></div>'
+        });
+
+        bm.add('shape-star', {
+          label: '⭐ Estrella',
+          category: '🔷 Formas',
+          content: `<div style="position:relative; display:inline-block; width:100px; height:100px; margin:20px;">
+            <div style="position:absolute; top:0; left:50%; width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent; border-bottom:25px solid #f1c40f; transform:translateX(-50%);"></div>
+            <div style="position:absolute; top:20px; left:50%; width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent; border-top:25px solid #f1c40f; transform:translateX(-50%);"></div>
+          </div>`
+        });
+
+        // 📐 CATEGORÍA: LAYOUTS Y CONTENEDORES
+        bm.add('layout-container', {
+          label: '📦 Contenedor',
+          category: '📐 Layouts',
+          content: '<div style="max-width:1200px; margin:0 auto; padding:20px; border:2px dashed #ddd; min-height:100px;">Contenedor Principal</div>'
+        });
+
+        bm.add('layout-section', {
+          label: '📄 Sección',
+          category: '📐 Layouts',
+          content: '<section style="padding:60px 20px; background:#f8f9fa; border:1px solid #e9ecef; margin:10px 0;">Sección de Contenido</section>'
+        });
+
+        bm.add('layout-flex-row', {
+          label: '↔️ Fila Flex',
+          category: '📐 Layouts',
+          content: `<div style="display:flex; gap:20px; padding:20px; border:2px dashed #007bff;">
+            <div style="flex:1; padding:20px; background:#e3f2fd; border-radius:8px;">Elemento 1</div>
+            <div style="flex:1; padding:20px; background:#e8f5e8; border-radius:8px;">Elemento 2</div>
+          </div>`
+        });
+
+        bm.add('layout-flex-column', {
+          label: '↕️ Columna Flex',
+          category: '📐 Layouts',
+          content: `<div style="display:flex; flex-direction:column; gap:20px; padding:20px; border:2px dashed #28a745;">
+            <div style="padding:20px; background:#fff3cd; border-radius:8px;">Elemento Superior</div>
+            <div style="padding:20px; background:#d1ecf1; border-radius:8px;">Elemento Inferior</div>
+          </div>`
+        });
+
+        bm.add('layout-grid-2', {
+          label: '⚏ Grid 2 Columnas',
+          category: '📐 Layouts',
+          content: `<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; padding:20px; border:2px dashed #6f42c1;">
+            <div style="padding:20px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6;">Columna 1</div>
+            <div style="padding:20px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6;">Columna 2</div>
+          </div>`
+        });
+
+        bm.add('layout-grid-3', {
+          label: '⚏ Grid 3 Columnas',
+          category: '📐 Layouts',
+          content: `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; padding:20px; border:2px dashed #dc3545;">
+            <div style="padding:15px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6;">Col 1</div>
+            <div style="padding:15px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6;">Col 2</div>
+            <div style="padding:15px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6;">Col 3</div>
+          </div>`
+        });
+
+        bm.add('layout-grid-4', {
+          label: '⚏ Grid 4 Columnas',
+          category: '📐 Layouts',
+          content: `<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:20px; border:2px dashed #fd7e14;">
+            <div style="padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6; text-align:center;">1</div>
+            <div style="padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6; text-align:center;">2</div>
+            <div style="padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6; text-align:center;">3</div>
+            <div style="padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6; text-align:center;">4</div>
+          </div>`
+        });
+
+        bm.add('layout-sidebar', {
+          label: '📋 Sidebar Layout',
+          category: '📐 Layouts',
+          content: `<div style="display:flex; gap:20px; min-height:300px; border:2px dashed #20c997;">
+            <aside style="width:250px; padding:20px; background:#e9ecef; border-radius:8px;">
+              <h3 style="margin:0 0 15px 0; font-size:18px;">Sidebar</h3>
+              <p style="margin:0; color:#6c757d;">Contenido lateral</p>
+            </aside>
+            <main style="flex:1; padding:20px; background:#f8f9fa; border-radius:8px;">
+              <h2 style="margin:0 0 15px 0;">Contenido Principal</h2>
+              <p style="margin:0; color:#6c757d;">Área principal de contenido</p>
+            </main>
+          </div>`
+        });
+
+        // 🎨 CATEGORÍA: ELEMENTOS UI
+        bm.add('ui-button-primary', {
+          label: '🔘 Botón Primario',
+          category: '🎨 UI Elements',
+          content: '<button style="padding:12px 24px; background:#007bff; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Primario</button>'
+        });
+
+        bm.add('ui-button-secondary', {
+          label: '🔘 Botón Secundario',
+          category: '🎨 UI Elements',
+          content: '<button style="padding:12px 24px; background:transparent; color:#6c757d; border:2px solid #6c757d; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Secundario</button>'
+        });
+
+        bm.add('ui-button-success', {
+          label: '✅ Botón Éxito',
+          category: '🎨 UI Elements',
+          content: '<button style="padding:12px 24px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Éxito</button>'
+        });
+
+        bm.add('ui-button-danger', {
+          label: '❌ Botón Peligro',
+          category: '🎨 UI Elements',
+          content: '<button style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Peligro</button>'
+        });
+
+        bm.add('ui-card-basic', {
+          label: '🃏 Tarjeta Básica',
+          category: '🎨 UI Elements',
+          content: `<div style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); padding:24px; margin:16px; max-width:300px;">
+            <h3 style="margin:0 0 12px 0; font-size:20px; font-weight:600;">Título de Tarjeta</h3>
+            <p style="margin:0 0 16px 0; color:#6c757d; line-height:1.5;">Descripción de la tarjeta con información relevante para el usuario.</p>
+            <button style="padding:8px 16px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer;">Acción</button>
+          </div>`
+        });
+
+        bm.add('ui-card-image', {
+          label: '🖼️ Tarjeta con Imagen',
+          category: '🎨 UI Elements',
+          content: `<div style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); overflow:hidden; max-width:300px; margin:16px;">
+            <img src="https://via.placeholder.com/300x200" style="width:100%; height:200px; object-fit:cover;">
+            <div style="padding:20px;">
+              <h3 style="margin:0 0 8px 0; font-size:18px; font-weight:600;">Título</h3>
+              <p style="margin:0 0 12px 0; color:#6c757d; font-size:14px;">Descripción breve del contenido de la tarjeta.</p>
+              <button style="padding:8px 16px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">Ver más</button>
+            </div>
+          </div>`
+        });
+
+        bm.add('ui-badge-primary', {
+          label: '🏷️ Badge Primario',
+          category: '🎨 UI Elements',
+          content: '<span style="display:inline-block; padding:4px 12px; background:#007bff; color:white; border-radius:12px; font-size:12px; font-weight:500;">Badge</span>'
+        });
+
+        bm.add('ui-badge-success', {
+          label: '🏷️ Badge Éxito',
+          category: '🎨 UI Elements',
+          content: '<span style="display:inline-block; padding:4px 12px; background:#28a745; color:white; border-radius:12px; font-size:12px; font-weight:500;">Éxito</span>'
+        });
+
+        bm.add('ui-alert-info', {
+          label: '💡 Alerta Info',
+          category: '🎨 UI Elements',
+          content: `<div style="padding:16px; background:#d1ecf1; border:1px solid #bee5eb; border-radius:8px; margin:16px 0;">
+            <strong style="color:#0c5460;">Información:</strong>
+            <span style="color:#0c5460; margin-left:8px;">Este es un mensaje informativo importante.</span>
+          </div>`
+        });
+
+        bm.add('ui-alert-warning', {
+          label: '⚠️ Alerta Advertencia',
+          category: '🎨 UI Elements',
+          content: `<div style="padding:16px; background:#fff3cd; border:1px solid #ffeaa7; border-radius:8px; margin:16px 0;">
+            <strong style="color:#856404;">Advertencia:</strong>
+            <span style="color:#856404; margin-left:8px;">Presta atención a este mensaje de advertencia.</span>
+          </div>`
+        });
+
+        bm.add('ui-alert-error', {
+          label: '🚨 Alerta Error',
+          category: '🎨 UI Elements',
+          content: `<div style="padding:16px; background:#f8d7da; border:1px solid #f5c6cb; border-radius:8px; margin:16px 0;">
+            <strong style="color:#721c24;">Error:</strong>
+            <span style="color:#721c24; margin-left:8px;">Ha ocurrido un error que requiere atención.</span>
+          </div>`
+        });
+
+        // 📝 CATEGORÍA: ELEMENTOS DE TEXTO (CONSOLIDADA)
+        bm.add('text-heading-1', {
+          label: 'H1 Título Principal',
+          category: '📝 Texto',
+          content: '<h1 style="font-size:48px; font-weight:700; margin:0 0 24px 0; color:#212529; line-height:1.2;">Título Principal</h1>'
+        });
+
+        bm.add('text-heading-2', {
+          label: 'H2 Subtítulo',
+          category: '📝 Texto',
+          content: '<h2 style="font-size:36px; font-weight:600; margin:0 0 20px 0; color:#495057; line-height:1.3;">Subtítulo</h2>'
+        });
+
+        bm.add('text-heading-3', {
+          label: 'H3 Encabezado',
+          category: '📝 Texto',
+          content: '<h3 style="font-size:28px; font-weight:600; margin:0 0 16px 0; color:#495057; line-height:1.4;">Encabezado</h3>'
+        });
+
+        bm.add('text-paragraph', {
+          label: '📄 Párrafo',
+          category: '📝 Texto',
+          content: '<p style="font-size:16px; line-height:1.6; margin:0 0 16px 0; color:#6c757d;">Este es un párrafo de texto editable que puede contener información importante para tus visitantes.</p>'
+        });
+
+        bm.add('text-lead', {
+          label: '📄 Texto Destacado',
+          category: '📝 Texto',
+          content: '<p style="font-size:20px; font-weight:300; line-height:1.6; margin:0 0 20px 0; color:#495057;">Texto destacado que llama la atención del lector con un tamaño mayor.</p>'
+        });
+
+        bm.add('text-quote', {
+          label: '💬 Cita Estilizada',
+          category: '📝 Texto',
+          content: `<blockquote style="border-left:4px solid #007bff; padding:16px 20px; margin:20px 0; background:#f8f9fa; border-radius:0 8px 8px 0;">
+            <p style="font-style:italic; font-size:18px; margin:0 0 8px 0; color:#495057;">"Esta es una cita inspiradora que destaca información importante."</p>
+            <footer style="font-size:14px; color:#6c757d;">— Autor de la cita</footer>
+          </blockquote>`
+        });
+
+        bm.add('text-quote-simple', {
+          label: '💬 Cita Simple',
+          category: '📝 Texto',
           content: '<blockquote style="border-left: 4px solid #3b82f6; padding-left: 16px; font-style: italic;">"Texto de cita"</blockquote>'
         });
 
-        // Categoría: Layout
-        bm.add('container', {
-          label: 'Contenedor',
-          category: 'Layout',
-          content: '<div style="max-width: 1200px; margin: 0 auto; padding: 20px;"></div>'
+        bm.add('text-list-bullets', {
+          label: '• Lista con Viñetas',
+          category: '📝 Texto',
+          content: `<ul style="padding-left:20px; margin:16px 0; color:#495057;">
+            <li style="margin-bottom:8px;">Primer elemento de la lista</li>
+            <li style="margin-bottom:8px;">Segundo elemento importante</li>
+            <li style="margin-bottom:8px;">Tercer elemento a destacar</li>
+          </ul>`
         });
 
-        bm.add('section', {
-          label: 'Sección',
-          category: 'Layout',
-          content: '<section style="padding: 60px 20px;"></section>'
+        bm.add('text-list-numbers', {
+          label: '1. Lista Numerada',
+          category: '📝 Texto',
+          content: `<ol style="padding-left:20px; margin:16px 0; color:#495057;">
+            <li style="margin-bottom:8px;">Primer paso del proceso</li>
+            <li style="margin-bottom:8px;">Segundo paso importante</li>
+            <li style="margin-bottom:8px;">Tercer paso final</li>
+          </ol>`
         });
 
-        bm.add('grid-2', {
-          label: 'Grid 2 Columnas',
-          category: 'Layout',
-          content: '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"><div style="background: #f3f4f6; padding: 20px;">Columna 1</div><div style="background: #f3f4f6; padding: 20px;">Columna 2</div></div>'
+        // 🖼️ CATEGORÍA: MEDIOS Y MULTIMEDIA
+        bm.add('media-image-basic', {
+          label: '🖼️ Imagen',
+          category: '🖼️ Medios',
+          content: '<img src="https://via.placeholder.com/400x300" style="width:100%; max-width:400px; height:auto; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);" alt="Imagen descriptiva">'
         });
 
-        bm.add('grid-3', {
-          label: 'Grid 3 Columnas',
-          category: 'Layout',
-          content: '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;"><div style="background: #f3f4f6; padding: 20px;">Columna 1</div><div style="background: #f3f4f6; padding: 20px;">Columna 2</div><div style="background: #f3f4f6; padding: 20px;">Columna 3</div></div>'
+        bm.add('media-image-rounded', {
+          label: '🖼️ Imagen Circular',
+          category: '🖼️ Medios',
+          content: '<img src="https://via.placeholder.com/200x200" style="width:200px; height:200px; border-radius:50%; object-fit:cover; box-shadow:0 4px 12px rgba(0,0,0,0.15);" alt="Imagen circular">'
+        });
+
+        bm.add('media-gallery-grid', {
+          label: '🖼️ Galería Grid',
+          category: '🖼️ Medios',
+          content: `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; padding:20px;">
+            <img src="https://via.placeholder.com/200x200" style="width:100%; height:200px; object-fit:cover; border-radius:8px;" alt="Imagen 1">
+            <img src="https://via.placeholder.com/200x200" style="width:100%; height:200px; object-fit:cover; border-radius:8px;" alt="Imagen 2">
+            <img src="https://via.placeholder.com/200x200" style="width:100%; height:200px; object-fit:cover; border-radius:8px;" alt="Imagen 3">
+            <img src="https://via.placeholder.com/200x200" style="width:100%; height:200px; object-fit:cover; border-radius:8px;" alt="Imagen 4">
+          </div>`
+        });
+
+        bm.add('media-video-responsive', {
+          label: '🎥 Video Responsivo',
+          category: '🖼️ Medios',
+          content: `<div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
+          </div>`
+        });
+
+        bm.add('media-audio-player', {
+          label: '🎵 Reproductor Audio',
+          category: '🖼️ Medios',
+          content: `<div style="background:white; border-radius:12px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:400px;">
+            <h4 style="margin:0 0 12px 0; font-size:16px; font-weight:600;">Título del Audio</h4>
+            <audio controls style="width:100%; margin-bottom:8px;">
+              <source src="#" type="audio/mpeg">
+              Tu navegador no soporta el elemento de audio.
+            </audio>
+            <p style="margin:0; font-size:14px; color:#6c757d;">Descripción del contenido de audio</p>
+          </div>`
+        });
+
+        // 📋 CATEGORÍA: FORMULARIOS
+        bm.add('form-input-text', {
+          label: '📝 Input Texto',
+          category: '📋 Formularios',
+          content: `<div style="margin-bottom:16px;">
+            <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Etiqueta del Campo</label>
+            <input type="text" placeholder="Escribe aquí..." style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px; transition:border-color 0.3s;">
+          </div>`
+        });
+
+        bm.add('form-textarea', {
+          label: '📝 Área de Texto',
+          category: '📋 Formularios',
+          content: `<div style="margin-bottom:16px;">
+            <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Mensaje</label>
+            <textarea placeholder="Escribe tu mensaje aquí..." rows="4" style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px; resize:vertical; transition:border-color 0.3s;"></textarea>
+          </div>`
+        });
+
+        bm.add('form-select', {
+          label: '📋 Select/Dropdown',
+          category: '📋 Formularios',
+          content: `<div style="margin-bottom:16px;">
+            <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Selecciona una opción</label>
+            <select style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px; background:white;">
+              <option>Opción 1</option>
+              <option>Opción 2</option>
+              <option>Opción 3</option>
+            </select>
+          </div>`
+        });
+
+        bm.add('form-checkbox', {
+          label: '☑️ Checkbox',
+          category: '📋 Formularios',
+          content: `<div style="margin-bottom:16px;">
+            <label style="display:flex; align-items:center; cursor:pointer;">
+              <input type="checkbox" style="margin-right:8px; transform:scale(1.2);">
+              <span style="font-weight:500; color:#495057;">Acepto los términos y condiciones</span>
+            </label>
+          </div>`
+        });
+
+        bm.add('form-radio-group', {
+          label: '🔘 Radio Buttons',
+          category: '📋 Formularios',
+          content: `<div style="margin-bottom:16px;">
+            <label style="display:block; margin-bottom:8px; font-weight:500; color:#495057;">Selecciona una opción:</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="radio" name="radio-group" style="margin-right:8px;">
+                <span>Primera opción</span>
+              </label>
+              <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="radio" name="radio-group" style="margin-right:8px;">
+                <span>Segunda opción</span>
+              </label>
+            </div>
+          </div>`
+        });
+
+        bm.add('form-complete', {
+          label: '📋 Formulario Completo',
+          category: '📋 Formularios',
+          content: `<form style="background:white; padding:32px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:500px; margin:20px auto;">
+            <h3 style="margin:0 0 24px 0; text-align:center; color:#495057;">Formulario de Contacto</h3>
+            
+            <div style="margin-bottom:20px;">
+              <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Nombre completo</label>
+              <input type="text" placeholder="Tu nombre" style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px;">
+            </div>
+            
+            <div style="margin-bottom:20px;">
+              <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Email</label>
+              <input type="email" placeholder="tu@email.com" style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px;">
+            </div>
+            
+            <div style="margin-bottom:20px;">
+              <label style="display:block; margin-bottom:6px; font-weight:500; color:#495057;">Mensaje</label>
+              <textarea placeholder="Escribe tu mensaje..." rows="4" style="width:100%; padding:12px; border:2px solid #e9ecef; border-radius:6px; font-size:16px; resize:vertical;"></textarea>
+            </div>
+            
+            <button type="submit" style="width:100%; padding:14px; background:#007bff; color:white; border:none; border-radius:6px; font-size:16px; font-weight:500; cursor:pointer;">Enviar Mensaje</button>
+          </form>`
+        });
+
+        // 🧭 CATEGORÍA: NAVEGACIÓN
+        bm.add('nav-horizontal-menu', {
+          label: '🧭 Menú Horizontal',
+          category: '🧭 Navegación',
+          content: `<nav style="background:white; padding:16px 0; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+            <div style="max-width:1200px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; padding:0 20px;">
+              <div style="font-size:24px; font-weight:bold; color:#007bff;">Logo</div>
+              <ul style="display:flex; list-style:none; margin:0; padding:0; gap:32px;">
+                <li><a href="#" style="text-decoration:none; color:#495057; font-weight:500; transition:color 0.3s;">Inicio</a></li>
+                <li><a href="#" style="text-decoration:none; color:#495057; font-weight:500; transition:color 0.3s;">Servicios</a></li>
+                <li><a href="#" style="text-decoration:none; color:#495057; font-weight:500; transition:color 0.3s;">Acerca</a></li>
+                <li><a href="#" style="text-decoration:none; color:#495057; font-weight:500; transition:color 0.3s;">Contacto</a></li>
+              </ul>
+            </div>
+          </nav>`
+        });
+
+        bm.add('nav-breadcrumbs', {
+          label: '🍞 Breadcrumbs',
+          category: '🧭 Navegación',
+          content: `<nav style="padding:16px 0;">
+            <ol style="display:flex; list-style:none; margin:0; padding:0; align-items:center; gap:8px; color:#6c757d;">
+              <li><a href="#" style="text-decoration:none; color:#007bff;">Inicio</a></li>
+              <li style="margin:0 4px;">/</li>
+              <li><a href="#" style="text-decoration:none; color:#007bff;">Categoría</a></li>
+              <li style="margin:0 4px;">/</li>
+              <li style="color:#495057;">Página Actual</li>
+            </ol>
+          </nav>`
+        });
+
+        bm.add('nav-pagination', {
+          label: '📄 Paginación',
+          category: '🧭 Navegación',
+          content: `<nav style="display:flex; justify-content:center; padding:32px 0;">
+            <ul style="display:flex; list-style:none; margin:0; padding:0; gap:8px; align-items:center;">
+              <li><a href="#" style="padding:8px 12px; border:1px solid #dee2e6; border-radius:4px; text-decoration:none; color:#6c757d;">‹ Anterior</a></li>
+              <li><a href="#" style="padding:8px 12px; border:1px solid #dee2e6; border-radius:4px; text-decoration:none; color:#495057; background:#f8f9fa;">1</a></li>
+              <li><a href="#" style="padding:8px 12px; border:1px solid #007bff; border-radius:4px; text-decoration:none; color:white; background:#007bff;">2</a></li>
+              <li><a href="#" style="padding:8px 12px; border:1px solid #dee2e6; border-radius:4px; text-decoration:none; color:#495057;">3</a></li>
+              <li><a href="#" style="padding:8px 12px; border:1px solid #dee2e6; border-radius:4px; text-decoration:none; color:#6c757d;">Siguiente ›</a></li>
+            </ul>
+          </nav>`
+        });
+
+        bm.add('nav-tabs', {
+          label: '📑 Pestañas',
+          category: '🧭 Navegación',
+          content: `<div style="border-bottom:1px solid #dee2e6; margin-bottom:20px;">
+            <ul style="display:flex; list-style:none; margin:0; padding:0; gap:0;">
+              <li><a href="#" style="padding:12px 24px; text-decoration:none; color:#007bff; border-bottom:2px solid #007bff; font-weight:500;">Pestaña Activa</a></li>
+              <li><a href="#" style="padding:12px 24px; text-decoration:none; color:#6c757d; border-bottom:2px solid transparent; font-weight:500;">Pestaña 2</a></li>
+              <li><a href="#" style="padding:12px 24px; text-decoration:none; color:#6c757d; border-bottom:2px solid transparent; font-weight:500;">Pestaña 3</a></li>
+            </ul>
+          </div>`
+        });
+
+        // 🏗️ SECCIONES ADICIONALES (CONSOLIDADAS EN 📊 SECCIONES)
+        bm.add('section-hero-modern', {
+          label: '🏗️ Hero Moderno',
+          category: '📊 Secciones',
+          content: `<section style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding:100px 20px; text-align:center;">
+            <div style="max-width:800px; margin:0 auto;">
+              <h1 style="font-size:56px; font-weight:700; margin:0 0 24px 0; line-height:1.2;">Título Impactante</h1>
+              <p style="font-size:24px; margin:0 0 40px 0; opacity:0.9; line-height:1.4;">Subtítulo que explica de manera clara y concisa el valor que ofreces</p>
+              <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+                <button style="padding:16px 32px; background:white; color:#667eea; border:none; border-radius:8px; font-size:18px; font-weight:600; cursor:pointer;">Comenzar Ahora</button>
+                <button style="padding:16px 32px; background:transparent; color:white; border:2px solid white; border-radius:8px; font-size:18px; font-weight:600; cursor:pointer;">Saber Más</button>
+              </div>
+            </div>
+          </section>`
+        });
+
+        bm.add('section-features-cards', {
+          label: '🏗️ Características Cards',
+          category: '📊 Secciones',
+          content: `<section style="padding:80px 20px; background:#f8f9fa;">
+            <div style="max-width:1200px; margin:0 auto; text-align:center;">
+              <h2 style="font-size:42px; font-weight:700; margin:0 0 16px 0; color:#212529;">Nuestras Características</h2>
+              <p style="font-size:20px; color:#6c757d; margin:0 0 60px 0; max-width:600px; margin-left:auto; margin-right:auto;">Descubre todo lo que podemos hacer por ti</p>
+              
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:32px;">
+                <div style="background:white; padding:40px 32px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="width:80px; height:80px; background:#007bff; border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:32px; color:white;">🚀</div>
+                  <h3 style="font-size:24px; font-weight:600; margin:0 0 16px 0; color:#212529;">Rápido</h3>
+                  <p style="color:#6c757d; line-height:1.6; margin:0;">Optimizado para la máxima velocidad y rendimiento en todos los dispositivos.</p>
+                </div>
+                
+                <div style="background:white; padding:40px 32px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="width:80px; height:80px; background:#28a745; border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:32px; color:white;">🔒</div>
+                  <h3 style="font-size:24px; font-weight:600; margin:0 0 16px 0; color:#212529;">Seguro</h3>
+                  <p style="color:#6c757d; line-height:1.6; margin:0;">Protección avanzada y encriptación de datos para mantener tu información segura.</p>
+                </div>
+                
+                <div style="background:white; padding:40px 32px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="width:80px; height:80px; background:#ffc107; border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:32px; color:white;">⚡</div>
+                  <h3 style="font-size:24px; font-weight:600; margin:0 0 16px 0; color:#212529;">Potente</h3>
+                  <p style="color:#6c757d; line-height:1.6; margin:0;">Herramientas avanzadas que te permiten lograr más en menos tiempo.</p>
+                </div>
+              </div>
+            </div>
+          </section>`
+        });
+
+        bm.add('section-cta-modern', {
+          label: '🏗️ CTA Moderno',
+          category: '📊 Secciones',
+          content: `<section style="background:linear-gradient(45deg, #ff6b6b, #ee5a24); padding:80px 20px; text-align:center; color:white;">
+            <div style="max-width:800px; margin:0 auto;">
+              <h2 style="font-size:48px; font-weight:700; margin:0 0 20px 0; line-height:1.2;">¿Listo para comenzar?</h2>
+              <p style="font-size:22px; margin:0 0 40px 0; opacity:0.9; line-height:1.5;">Únete a miles de usuarios que ya están transformando su negocio</p>
+              <button style="padding:20px 40px; background:white; color:#ff6b6b; border:none; border-radius:50px; font-size:20px; font-weight:600; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.2); transition:transform 0.3s;">Empezar Gratis</button>
+            </div>
+          </section>`
         });
 
         // Categoría: Componentes
