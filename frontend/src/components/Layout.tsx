@@ -15,10 +15,27 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
     try {
       const container = document.getElementById('site-header');
       if (!container) return;
+      // 1) Normalizar enlaces
       const anchors = container.querySelectorAll('a');
       anchors.forEach((a) => {
         a.setAttribute('target', '_self');
         if (a.hasAttribute('rel')) a.removeAttribute('rel');
+      });
+
+      // 2) Desactivar edición en página pública: eliminar contenteditable y atributos de edición
+      const editableNodes = container.querySelectorAll('[contenteditable]');
+      editableNodes.forEach((node) => node.removeAttribute('contenteditable'));
+
+      const attrsToRemove = [
+        'data-gjs-type', 'data-gjs-id', 'data-draggable', 'data-highlightable', 'data-selectable',
+        'data-resizable', 'data-editable', 'data-inline', 'spellcheck',
+        'oninput', 'onkeydown', 'onkeyup', 'onkeypress', 'onpaste', 'onchange'
+      ];
+      const allNodes = container.querySelectorAll('*');
+      allNodes.forEach((el) => {
+        attrsToRemove.forEach((attr) => {
+          if (el.hasAttribute(attr)) el.removeAttribute(attr);
+        });
       });
     } catch (e) {
       console.warn('⚠️ Normalización de enlaces del header falló', e);

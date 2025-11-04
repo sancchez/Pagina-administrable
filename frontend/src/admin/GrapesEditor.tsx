@@ -847,7 +847,8 @@ const GrapesEditor: React.FC = () => {
         canvas: {
           styles: [
             // 🎯 URLs de hojas de estilo externas
-            '/tailwind.css',
+            // Usar Tailwind CDN para consistencia visual dentro del iframe del editor
+            'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css',
             'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
           ],
           scripts: []
@@ -923,6 +924,41 @@ const GrapesEditor: React.FC = () => {
           frameDoc.head.appendChild(styleElement);
         }
         styleElement.textContent = canvasStyles;
+        
+        // Inyectar CSS global consistente en el iframe (en caso de que el canvas no lo cargue)
+        try {
+          const ensureStyle = (href: string) => {
+            const exists = Array.from(frameDoc.querySelectorAll('link[rel="stylesheet"]'))
+              .some((l) => (l as HTMLLinkElement).href.includes(href));
+            if (!exists) {
+              const linkEl = frameDoc.createElement('link');
+              linkEl.setAttribute('rel', 'stylesheet');
+              linkEl.setAttribute('href', href);
+              frameDoc.head.appendChild(linkEl);
+              console.log('🎨 CSS inyectado en iframe:', href);
+            }
+          };
+          ensureStyle('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+          ensureStyle('https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css');
+        } catch (err) {
+          console.warn('⚠️ No se pudo inyectar CSS global en iframe', err);
+        }
+
+        // Normalizar colores base para que coincidan con Tailwind en producción
+        try {
+          const styleFix = frameDoc.createElement('style');
+          styleFix.innerHTML = `
+            .bg-white { background-color: #ffffff !important; }
+            .bg-blue-50 { background-color: #eff6ff !important; }
+            .bg-blue-100 { background-color: #dbeafe !important; }
+            .bg-blue-200 { background-color: #bfdbfe !important; }
+          `;
+          frameDoc.head.appendChild(styleFix);
+          console.log('🎨 Normalización de colores aplicada en iframe');
+        } catch (e) {
+          console.warn('⚠️ No se pudo aplicar normalización de colores', e);
+        }
+
         console.log('🎯 Estilos CSS aplicados al canvas del iframe');
 
         console.log('🧠 Inyectando bloqueo dentro del iframe de GrapesJS...');
@@ -2258,11 +2294,12 @@ const GrapesEditor: React.FC = () => {
           defaults: {
             tagName: 'a',
             attributes: { href: '#', target: '_self' },
+            content: 'Enlace',
             draggable: true,
             droppable: false,
             editable: true,
             traits: [
-              { type: 'text', label: 'Texto', name: 'text', placeholder: 'Enlace' },
+              { type: 'text', label: 'Texto', name: 'content', changeProp: true, placeholder: 'Enlace' },
               { type: 'text', label: 'URL', name: 'href' },
               { type: 'select', label: 'Target', name: 'target', options: [
                 { id: '_self', name: 'Misma ventana' },
@@ -2283,11 +2320,20 @@ const GrapesEditor: React.FC = () => {
               } catch {}
             },
           },
+          init() {
+            // Mantener sincronizado el contenido del modelo con el texto del elemento
+            this.listenTo(this, 'change:content', () => {
+              const el = (this as any).view?.el as HTMLElement | undefined;
+              if (el) el.innerText = this.get('content') || '';
+            });
+          }
         },
         view: {
           onRender() {
+            const modelContent = (this.model && (this.model as any).get?.('content')) || '';
             const inner = this.el.innerText;
-            if (!inner || inner.trim() === '') this.el.innerText = 'Enlace';
+            const finalText = (modelContent && modelContent.trim() !== '') ? modelContent : (inner || 'Enlace');
+            this.el.innerText = finalText;
             this.el.setAttribute('contenteditable', 'true');
             try {
               this.el.addEventListener('keydown', (e: any) => {
@@ -2298,6 +2344,10 @@ const GrapesEditor: React.FC = () => {
               this.el.addEventListener('mouseup', stop);
               this.el.addEventListener('click', stop);
               this.el.addEventListener('dblclick', stop);
+              this.el.addEventListener('input', () => {
+                const txt = this.el.textContent || '';
+                try { (this.model as any).set?.('content', txt); } catch {}
+              });
             } catch {}
           },
         },
@@ -2335,14 +2385,14 @@ const GrapesEditor: React.FC = () => {
               class: 'btn',
               type: 'button'
             },
-            text: 'Botón',
+            content: 'Botón',
             editable: true,
             droppable: false,
             traits: [
               {
                 type: 'text',
                 label: 'Texto',
-                name: 'text',
+                name: 'content',
                 changeProp: true,
               },
               {
@@ -2363,7 +2413,7 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Acción',
-                name: 'data-action',
+                name: 'data-action-type',
                 options: [
                   { id: '', name: 'Ninguna' },
                   { id: 'link', name: 'Ir a página' },
@@ -2419,7 +2469,7 @@ const GrapesEditor: React.FC = () => {
                 return { destroy: function() {} };
               }
                
-              const action = this.getAttribute('data-action');
+              const action = this.getAttribute('data-action-type');
               const url = this.getAttribute('data-url') || this.getAttribute('href');
               const target = this.getAttribute('target') || '_self';
               const transactionId = this.getAttribute('data-transaction-id');
@@ -2490,7 +2540,7 @@ const GrapesEditor: React.FC = () => {
             },
             // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
             scriptProps: [
-              'data-action',
+              'data-action-type',
               'data-url', 
               'target',
               'href',
@@ -2500,7 +2550,12 @@ const GrapesEditor: React.FC = () => {
             ],
           },
           init() {
-            this.listenTo(this, 'change:text', (this as any).updateText);
+            // Sincronizar cambios de contenido con el texto del botón
+            (this as any).updateText = () => {
+              const el = (this as any).view?.el as HTMLElement | undefined;
+              if (el) el.innerText = this.get('content') || '';
+            };
+            this.listenTo(this, 'change:content', (this as any).updateText);
             
             this.on('change:text-color', () => {
               const color = this.get('text-color');
@@ -2544,9 +2599,9 @@ const GrapesEditor: React.FC = () => {
             });
           },
           updateText() {
-            const text = this.get('text') || '';
+            const content = this.get('content') || '';
             const el = this.view?.el as HTMLElement | undefined;
-            if (el) el.textContent = text;
+            if (el) el.textContent = content;
           }
         },
         view: {
@@ -2576,7 +2631,7 @@ const GrapesEditor: React.FC = () => {
           },
           onTextInput(e: any) {
             const text = (e?.target as HTMLElement)?.textContent || '';
-            (this as any).model?.set?.('text', text);
+            (this as any).model?.set?.('content', text);
           },
         }
       });
@@ -2585,7 +2640,7 @@ const GrapesEditor: React.FC = () => {
       gEditor.StyleManager.addSector('configuracion', {
         name: '⚙️ Configuración',
         open: true,
-        buildProps: ['data-action', 'data-url', 'data-target', 'data-transaction-id', 'data-amount', 'data-custom-function'],
+        buildProps: ['data-action-type', 'data-url', 'target', 'href', 'data-transaction-id', 'data-amount', 'data-custom-function'],
       });
 
       // Añadir propiedad "Texto" dentro del sector de texto/tipografía existente
@@ -2913,13 +2968,7 @@ const GrapesEditor: React.FC = () => {
           canvasEl.addEventListener('scroll', syncSelectionOverlay);
         }
 
-        // Convertir botones existentes al tipo action-button
-         const wrapper = gEditor.getWrapper();
-         if (wrapper) {
-           wrapper.find('a, button').forEach(btn => {
-             btn.set({ type: 'action-button' });
-           });
-         }
+        // Eliminar conversión automática obsoleta a 'action-button' para evitar romper edición
 
         // Renombrar etiquetas de bloques de plugins a español
         try {
