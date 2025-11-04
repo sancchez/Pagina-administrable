@@ -954,6 +954,37 @@ const GrapesEditor: React.FC = () => {
           }
         }, false); // Cambiar a false para permitir que GrapesJS capture primero
 
+        // 💾 Persistencia de texto: guardar cambios hechos dentro de contenteditable
+        // Detecta cualquier edición de texto dentro del iframe y si pertenece al componente seleccionado,
+        // actualiza el modelo (propiedad 'content') y ejecuta store() para que se conserve.
+        frameDoc.addEventListener('input', (e: Event) => {
+          try {
+            const selected = gEditor.getSelected();
+            if (!selected) return;
+            const rootEl = (selected as any).view?.el as HTMLElement | undefined;
+            if (!rootEl) return;
+            const target = e.target as Node | null;
+            if (!target) return;
+            // Solo si el input ocurre dentro del componente seleccionado y este es contenteditable
+            if (rootEl.contains(target as Node) && rootEl.isContentEditable) {
+              const newText = rootEl.textContent || '';
+              const oldText = selected.get('content');
+              if (newText !== oldText) {
+                // Actualiza el modelo de GrapesJS con el nuevo texto
+                selected.set('content', newText);
+                // Notificar cambio y refrescar vista si aplica
+                (selected as any).trigger?.('change:content');
+                gEditor.trigger('component:update', selected);
+                // Guardar el estado (según storage manager configurado)
+                try { gEditor.store(); } catch {}
+                console.log('💾 Texto guardado:', newText);
+              }
+            }
+          } catch (err) {
+            console.warn('⚠️ Error persistiendo texto editable:', err);
+          }
+        }, true);
+
         console.log('✅ Bloqueo activo dentro del iframe del editor.');
       });
 
@@ -964,331 +995,15 @@ const GrapesEditor: React.FC = () => {
         const dc: any = (gEditor as any).DomComponents;
         if (dc && dc.addType) {
           
-          // =================== BOTÓN ===================
-          dc.addType('button', {
-            isComponent: (el: any) => {
-              if (!el || !el.tagName) return false;
-              const tagName = el.tagName.toLowerCase();
-              return tagName === 'button' ||
-                     (tagName === 'a' && (
-                       el.style?.display?.includes('block') ||
-                       el.style?.padding ||
-                       el.className?.includes('btn') ||
-                       el.className?.includes('button')
-                     ));
-            },
-            extend: 'button',
-            model: {
-              defaults: {
-                tagName: 'button',
-                draggable: true,
-                droppable: false,
-                editable: true,
-                
-                traits: [
-                  // Trait para cambiar el texto
-                  {
-                    type: 'text',
-                    label: 'Texto del botón',
-                    name: 'text',
-                    changeProp: 1,
-                  },
-                  {
-                    type: 'text',
-                    label: 'ID',
-                    name: 'id',
-                  },
-                  {
-                    type: 'text',
-                    label: 'Clase CSS',
-                    name: 'class',
-                  },
-                  {
-                    type: 'select',
-                    label: 'Tipo de acción',
-                    name: 'data-action-type',
-                    options: [
-                      { id: 'none', name: 'Sin acción' },
-                      { id: 'link', name: 'Enlace' },
-                      { id: 'open_pdf', name: 'Abrir PDF' },
-                      { id: 'download', name: 'Descargar' },
-                      { id: 'go_to_payment', name: 'Ir a pago' },
-                      { id: 'execute-function', name: 'Ejecutar función' }
-                    ],
-                    changeProp: 1,
-                  },
-                  {
-                    type: 'text',
-                    label: 'URL',
-                    name: 'data-url',
-                    visible: false,
-                  },
-                  {
-                    type: 'select',
-                    label: 'Abrir en',
-                    name: 'data-target',
-                    options: [
-                      { id: '_self', name: 'Misma ventana' },
-                      { id: '_blank', name: 'Nueva ventana' }
-                    ],
-                    visible: false,
-                  },
-                  {
-                    type: 'text',
-                    label: 'URL del archivo',
-                    name: 'data-file-url',
-                    visible: false,
-                  },
-                  {
-                    type: 'text',
-                    label: 'ID de transacción',
-                    name: 'data-transaction-id',
-                    visible: false,
-                  },
-                  {
-                    type: 'number',
-                    label: 'Monto',
-                    name: 'data-amount',
-                    visible: false,
-                  },
-                  {
-                    type: 'textarea',
-                    label: 'Código JavaScript',
-                    name: 'data-custom-function',
-                    visible: false,
-                  },
-                  {
-                    type: 'checkbox',
-                    label: 'Abrir en nueva pestaña',
-                    name: 'data-new-tab',
-                    visible: false,
-                    valueTrue: 'true',
-                    valueFalse: 'false',
-                  },
-                ],
-                
-                script: function() {
-                  const el = this as unknown as HTMLElement;
-                  
-                  function doAction(e: Event) {
-                    try {
-                      // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                      if (checkEditorContext()) {
-                        console.log('🎯 Acción de button interceptada por el editor');
-                        return; // No hacer nada, GrapesJS manejará el evento
-                      }
-                      
-                      // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
-                      if (el.hasAttribute('data-grapes-editing')) {
-                        console.log('🎯 Button en modo edición - acción bloqueada');
-                        return;
-                      }
-                      
-                      const act = (el.getAttribute('data-action-type') || 'none');
-                      if (act === 'none') return;
-                      
-                      const url = el.getAttribute('data-file-url') || el.getAttribute('href');
-                      const newTabAttr = el.getAttribute('data-new-tab');
-                      const newTab = (newTabAttr === 'true' || newTabAttr === '1');
-                      
-                      if (act === 'link' && url) {
-                        newTab ? window.open(url, '_blank') : (window.location.href = url);
-                      } else if (act === 'open_pdf' && url) {
-                        window.open(url, '_blank');
-                      } else if (act === 'download' && url) {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = url.split('/').pop() || 'archivo';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      } else if (act === 'go_to_payment') {
-                        const tx = el.getAttribute('data-transaction-id') || '';
-                        const amount = el.getAttribute('data-amount') || '';
-                        const payUrl = url || '/pago';
-                        const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
-                          'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
-                        newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
-                      }
-                      
-                      if (e && e.preventDefault) e.preventDefault();
-                    } catch(err) {
-                      console.warn('button action error', err);
-                    }
-                  }
-                  
-                  el.addEventListener('click', doAction);
-                  return {
-                    destroy: function() {
-                      el.removeEventListener('click', doAction);
-                    }
-                  };
-                },
-                
-                // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
-                scriptProps: [
-                  'data-action-type',
-                  'data-file-url', 
-                  'data-transaction-id',
-                  'data-amount',
-                  'data-new-tab',
-                  'href',
-                  'target',
-                  'data-url',
-                  'data-custom-function'
-                ],
-              },
-            },
-          });
+          // =================== DEFINICIONES ELIMINADAS ===================
+          // Se eliminaron las definiciones conflictivas de 'button' y 'action-button'
+          // para evitar conflictos. Solo se mantiene la definición unificada más abajo.
 
-          // =================== ENLACE ===================
-          dc.addType('link', {
-            isComponent: (el: any) => {
-              if (!el || !el.tagName) return false;
-              return el.tagName.toLowerCase() === 'a';
-            },
-            extend: 'link',
-            model: {
-              defaults: {
-                tagName: 'a',
-                draggable: true,
-                droppable: true,
-                editable: true,
-                
-                traits: [
-                  {
-                    type: 'text',
-                    label: 'Texto del enlace',
-                    name: 'text',
-                    changeProp: 1,
-                  },
-                  {
-                    type: 'text',
-                    label: 'URL',
-                    name: 'href',
-                    placeholder: 'https://ejemplo.com',
-                  },
-                  {
-                    type: 'select',
-                    label: 'Target',
-                    name: 'target',
-                    options: [
-                      { id: '', name: 'Misma ventana' },
-                      { id: '_blank', name: 'Nueva ventana' }
-                    ],
-                  },
-                  {
-                    type: 'text',
-                    label: 'ID',
-                    name: 'id',
-                  },
-                  {
-                    type: 'text',
-                    label: 'Clase CSS',
-                    name: 'class',
-                  },
-                  {
-                    type: 'select',
-                    label: 'Tipo de acción',
-                    name: 'data-action-type',
-                    options: [
-                      { id: 'link', name: 'Enlace' },
-                      { id: 'open_pdf', name: 'Abrir PDF' },
-                      { id: 'download', name: 'Descargar' },
-                      { id: 'go_to_payment', name: 'Ir a pago' },
-                    ],
-                  },
-                  {
-                    type: 'text',
-                    label: 'ID de transacción',
-                    name: 'data-transaction-id',
-                  },
-                  {
-                    type: 'number',
-                    label: 'Monto',
-                    name: 'data-amount',
-                  },
-                ],
-                
-                script: function() {
-                  const el = this as unknown as HTMLElement;
-                  
-                  // 🚫 NO ejecutar en el contexto del editor GrapesJS
-                  // Solo ejecutar si NO estamos en el editor
-                  if (checkEditorContext()) {
-                    console.log('🎯 Script de link deshabilitado en el editor');
-                    return { destroy: function() {} };
-                  }
-                  
-                  function onClick(e: Event) {
-                    try {
-                      // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                      if (checkEditorContext()) {
-                        console.log('🎯 Acción de link interceptada por el editor');
-                        return; // No hacer nada, GrapesJS manejará el evento
-                      }
-                      
-                      // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
-                      if (el.hasAttribute('data-grapes-editing')) {
-                        console.log('🎯 Link en modo edición - acción bloqueada');
-                        return;
-                      }
-                      
-                      const act = (el.getAttribute('data-action-type') || 'link');
-                      const url = el.getAttribute('href') || el.getAttribute('data-file-url');
-                      const targetAttr = el.getAttribute('target');
-                      const newTab = targetAttr === '_blank';
-                      
-                      if (act === 'link' && url) {
-                        newTab ? window.open(url, '_blank') : (window.location.href = url);
-                      } else if (act === 'open_pdf' && url) {
-                        window.open(url, '_blank');
-                      } else if (act === 'download' && url) {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = url.split('/').pop() || 'archivo';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      } else if (act === 'go_to_payment') {
-                        const tx = el.getAttribute('data-transaction-id') || '';
-                        const amount = el.getAttribute('data-amount') || '';
-                        const payUrl = url || '/pago';
-                        const finalUrl = payUrl + (payUrl.indexOf('?') === -1 ? '?' : '&') +
-                          'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
-                        newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
-                      }
-                      
-                      if (e && e.preventDefault) e.preventDefault();
-                    } catch(err) {
-                      console.warn('link action error', err);
-                    }
-                  }
-                  
-                  el.addEventListener('click', onClick);
-                  return {
-                    destroy: function() {
-                      el.removeEventListener('click', onClick);
-                    }
-                  };
-                },
-                
-                // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
-                scriptProps: [
-                  'data-action-type',
-                  'href',
-                  'data-file-url',
-                  'data-transaction-id',
-                  'data-amount',
-                  'target',
-                  'data-url',
-                  'data-target'
-                ],
-              },
-            },
-          });
-          
-          console.log('✅ Traits personalizados registrados para button y link');
+          // =================== ENLACE (definición duplicada removida) ===================
+          // Se eliminó la definición anterior de 'link' para evitar conflictos.
+          // La definición unificada de 'link' está más abajo.
+
+          console.log('✅ Traits personalizados registrados para button');
         }
       } catch (e) {
         console.warn('No se pudieron registrar traits personalizados de button/link', e);
@@ -1364,7 +1079,7 @@ const GrapesEditor: React.FC = () => {
           });
           
           if (configSector) {
-            const properties = configSector.get('properties');
+            const properties: any[] = (configSector as any).get('properties') || [];
             
             // Obtener los traits del componente
             const traits = component.get('traits');
@@ -1372,21 +1087,23 @@ const GrapesEditor: React.FC = () => {
             // Sincronizar cada propiedad
             traits.forEach((trait: any) => {
               const traitName = trait.get('name');
-              const traitValue = trait.get('value') || component.get(traitName);
+              const traitValue = trait.get('value') ?? component.get(traitName);
               
               // Buscar la propiedad correspondiente en el Style Manager
-              const property = properties.find((p: any) => 
-                p.property === traitName || 
-                p.property === `data-${traitName}` ||
-                p.id === `${type}-${traitName}`
-              );
+              const property = properties.find((p: any) => {
+                const propKey = (p && (p.get ? p.get('property') : p.property)) as string | undefined;
+                const pid = (p && ((typeof p.getId === 'function' && p.getId()) || (p.get ? (p.get('id') || p.get('name')) : (p.id || p.name)))) as string | undefined;
+                return propKey === traitName || propKey === `data-${traitName}` || pid === `${type}-${traitName}`;
+              });
               
-              if (property && traitValue) {
-                // Aplicar el valor al Style Manager
-                sm.addProperty(configSector.get('id'), {
-                  ...property,
-                  value: traitValue
-                });
+              if (property && traitValue !== undefined) {
+                // Aplicar el valor directamente a la propiedad encontrada
+                try {
+                  (property as any).set?.('value', traitValue);
+                } catch {
+                  // Fallback: intentar setValue si existe
+                  try { (property as any).setValue?.(traitValue); } catch {}
+                }
               }
             });
           }
@@ -1501,6 +1218,20 @@ const GrapesEditor: React.FC = () => {
             
             const propertyName = property.get('property');
             const propertyValue = property.get('value');
+
+            // Campo "Texto" en Style Manager: actualizar contenido del componente seleccionado
+            if (propertyName === 'component-text') {
+              const newText = propertyValue ?? '';
+              // Mantener selección y evitar que el update de contenido la pierda
+              try { gEditor.select(selected); } catch {}
+              try { (selected as any).set?.({ content: newText }); } catch {}
+              try {
+                const el = (selected as any).view?.el as HTMLElement | undefined;
+                if (el) el.innerText = newText;
+              } catch {}
+              // No continuar con otras lógicas cuando es el campo de texto
+              return;
+            }
             
             // Lógica para campos dependientes en la configuración de botones
             if (propertyName === 'data-action-type') {
@@ -1512,32 +1243,32 @@ const GrapesEditor: React.FC = () => {
               });
               
               if (configSector) {
-                const properties = configSector.get('properties');
+                const properties: any[] = (configSector as any).get('properties') || [];
                 
                 // Ocultar todos los campos dependientes primero
                 properties.forEach((prop: any) => {
-                  if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes(prop.get('id'))) {
-                    prop.set('visible', false);
+                  if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes((prop as any).get('id'))) {
+                    (prop as any).set('visible', false);
                   }
                 });
                 
                 // Mostrar campos según la acción seleccionada
                 if (propertyValue === 'go-to-page') {
                   // Mostrar URL y selector "Abrir en"
-                  const pageUrlProp = properties.find((p: any) => p.get('id') === 'page-url');
-                  const openInProp = properties.find((p: any) => p.get('id') === 'open-in');
-                  if (pageUrlProp) pageUrlProp.set('visible', true);
-                  if (openInProp) openInProp.set('visible', true);
+                  const pageUrlProp = properties.find((p: any) => (p as any).get('id') === 'page-url');
+                  const openInProp = properties.find((p: any) => (p as any).get('id') === 'open-in');
+                  (pageUrlProp as any)?.set('visible', true);
+                  (openInProp as any)?.set('visible', true);
                 } else if (propertyValue === 'download-file') {
                   // Mostrar URL del archivo y nombre de archivo
-                  const fileUrlProp = properties.find((p: any) => p.get('id') === 'file-url');
-                  const fileNameProp = properties.find((p: any) => p.get('id') === 'file-name');
-                  if (fileUrlProp) fileUrlProp.set('visible', true);
-                  if (fileNameProp) fileNameProp.set('visible', true);
+                  const fileUrlProp = properties.find((p: any) => (p as any).get('id') === 'file-url');
+                  const fileNameProp = properties.find((p: any) => (p as any).get('id') === 'file-name');
+                  (fileUrlProp as any)?.set('visible', true);
+                  (fileNameProp as any)?.set('visible', true);
                 } else if (propertyValue === 'execute-function') {
                   // Mostrar textarea para código JavaScript
-                  const customFunctionProp = properties.find((p: any) => p.get('id') === 'custom-function');
-                  if (customFunctionProp) customFunctionProp.set('visible', true);
+                  const customFunctionProp = properties.find((p: any) => (p as any).get('id') === 'custom-function');
+                  (customFunctionProp as any)?.set('visible', true);
                 }
                 
                 // Forzar re-renderizado del Style Manager
@@ -1549,11 +1280,13 @@ const GrapesEditor: React.FC = () => {
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {
               const traitName = propertyName.replace('data-', '');
-              const trait = selected.get('traits').find((t: any) => t.get('name') === traitName);
+              const traitsColl: any = selected.get?.('traits');
+              const traitsList: any[] = Array.isArray(traitsColl) ? traitsColl : (traitsColl?.models || []);
+              const trait = traitsList?.find((t: any) => t?.get?.('name') === traitName);
               
               if (trait) {
-                trait.set('value', propertyValue);
-                selected.set(propertyName, propertyValue);
+                try { (trait as any).set?.('value', propertyValue); } catch {}
+                try { (selected as any).set?.(propertyName, propertyValue); } catch {}
                 console.log(`✅ Trait ${traitName} actualizado desde Style Manager:`, propertyValue);
               }
             }
@@ -1615,7 +1348,7 @@ const GrapesEditor: React.FC = () => {
               return id === 'button-config' || s.get('name') === '⚙️ Configuración';
             });
             
-            if (configSector && configSector.get('visible')) {
+            if (configSector && (configSector as any).get('visible')) {
               const traits = component.get('traits');
               
               traits.forEach((trait: any) => {
@@ -1624,10 +1357,11 @@ const GrapesEditor: React.FC = () => {
                 
                 // Actualizar la propiedad correspondiente en el Style Manager
                 const propertyName = traitName.startsWith('data-') ? traitName : `data-${traitName}`;
-                const property = configSector.get('properties').find((p: any) => p.get('property') === propertyName);
+                const props: any[] = (configSector as any).get('properties') || [];
+                const property = props.find((p: any) => (p as any).get('property') === propertyName);
                 
                 if (property && traitValue !== undefined) {
-                  property.set('value', traitValue);
+                  (property as any).set('value', traitValue);
                   console.log(`✅ Style Manager actualizado desde trait ${traitName}:`, traitValue);
                 }
               });
@@ -2509,18 +2243,123 @@ const GrapesEditor: React.FC = () => {
         }
       };
 
-      // Registrar tipo personalizado para botones con traits
-      gEditor.DomComponents.addType('action-button', {
+      // =================== DEFINICIÓN ELIMINADA ===================
+      // Se eliminó 'action-button' para evitar conflictos con la definición unificada
+
+      // =================== DEFINICIÓN ELIMINADA ===================
+      // Se eliminó la segunda definición de 'button' para evitar conflictos
+
+      // Registrar tipo base 'link' (<a>) con texto editable en canvas
+      gEditor.DomComponents.addType('link', {
         isComponent: (el) => {
-          if (el.tagName === 'A' || el.tagName === 'BUTTON') {
-            return { type: 'action-button' };
-          }
+          if (el.tagName === 'A') return { type: 'link' };
         },
         model: {
           defaults: {
             tagName: 'a',
-            attributes: { href: '#', type: 'button' },
+            attributes: { href: '#', target: '_self' },
+            draggable: true,
+            droppable: false,
+            editable: true,
             traits: [
+              { type: 'text', label: 'Texto', name: 'text', placeholder: 'Enlace' },
+              { type: 'text', label: 'URL', name: 'href' },
+              { type: 'select', label: 'Target', name: 'target', options: [
+                { id: '_self', name: 'Misma ventana' },
+                { id: '_blank', name: 'Nueva ventana' },
+              ]},
+              { type: 'text', label: 'ID', name: 'id' },
+              { type: 'text', label: 'Clase CSS', name: 'class' },
+              { type: 'color', label: 'Color de texto', name: 'color' },
+            ],
+            script() {
+              try {
+                const isEditor = (window).checkEditorContext?.();
+                this.addEventListener('click', (e: Event) => {
+                  if (isEditor) return;
+                  const href = this.getAttribute('href');
+                  if (href) window.location.href = href;
+                });
+              } catch {}
+            },
+          },
+        },
+        view: {
+          onRender() {
+            const inner = this.el.innerText;
+            if (!inner || inner.trim() === '') this.el.innerText = 'Enlace';
+            this.el.setAttribute('contenteditable', 'true');
+            try {
+              this.el.addEventListener('keydown', (e: any) => {
+                e.stopPropagation?.();
+              });
+              const stop = (e: any) => e.stopPropagation?.();
+              this.el.addEventListener('mousedown', stop);
+              this.el.addEventListener('mouseup', stop);
+              this.el.addEventListener('click', stop);
+              this.el.addEventListener('dblclick', stop);
+            } catch {}
+          },
+        },
+      });
+
+      // Hook global: cualquier componente <button> o <a> agregado será editable
+      gEditor.on('component:add', (component) => {
+        try {
+          const isButton = component.is('button') || component.get('tagName') === 'button';
+          const isLink = component.is('link') || component.get('tagName') === 'a';
+          if (isButton || isLink) {
+            component.addAttributes({ contenteditable: 'true' });
+            const el: HTMLElement | null = (component as any)?.view?.el || null;
+            const content = (el && el.innerText) ? el.innerText : '';
+            if (el && (!content || content.trim() === '')) {
+              el.innerText = isButton ? 'Botón' : 'Enlace';
+            }
+          }
+        } catch {}
+      });
+
+      // =================== DEFINICIÓN UNIFICADA DE BOTÓN ===================
+      // Esta es la única definición de botón que maneja todos los casos
+      gEditor.DomComponents.addType('button', {
+        isComponent: (el) => {
+          const tag = el.tagName;
+          // Detectar tanto <button> como <a type="button">
+          if (tag === 'BUTTON') return { type: 'button' };
+          if (tag === 'A' && (el.getAttribute('type') === 'button' || el.classList.contains('btn'))) return { type: 'button' };
+        },
+        model: {
+          defaults: {
+            tagName: 'button',
+            attributes: { 
+              class: 'btn',
+              type: 'button'
+            },
+            text: 'Botón',
+            editable: true,
+            droppable: false,
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto',
+                name: 'text',
+                changeProp: true,
+              },
+              {
+                type: 'text',
+                label: 'Enlace',
+                name: 'href',
+                placeholder: 'https://...',
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '_self', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva ventana' },
+                ],
+              },
               {
                 type: 'select',
                 label: 'Acción',
@@ -2533,22 +2372,12 @@ const GrapesEditor: React.FC = () => {
                   { id: 'go_to_payment', name: 'Ir a pago' },
                   { id: 'execute-function', name: 'Ejecutar función' }
                 ],
-                changeProp: 1,
               },
               {
                 type: 'text',
                 label: 'URL o archivo',
                 name: 'data-url',
                 placeholder: 'https://...',
-              },
-              {
-                type: 'select',
-                label: 'Abrir en',
-                name: 'data-target',
-                options: [
-                  { id: '_self', name: 'Misma ventana' },
-                  { id: '_blank', name: 'Nueva ventana' },
-                ],
               },
               {
                 type: 'text',
@@ -2569,96 +2398,187 @@ const GrapesEditor: React.FC = () => {
                 placeholder: 'console.log("Hola mundo");',
               }
             ],
-            script() {
-               // 🚫 NO ejecutar en el contexto del editor GrapesJS
-               // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-               if (checkEditorContext()) {
-                 console.log('🎯 Script de action-button deshabilitado en el editor');
-                 return { destroy: function() {} };
-               }
+            style: {
+              'background-color': '#007bff',
+              'color': '#ffffff',
+              'padding': '12px 24px',
+              'border': 'none',
+              'border-radius': '6px',
+              'font-size': '16px',
+              'font-weight': 'normal',
+              'cursor': 'pointer',
+              'transition': 'all 0.3s ease',
+              'display': 'inline-block',
+              'text-decoration': 'none',
+              'text-align': 'center',
+            },
+            script: function () {
+              // 🚫 NO ejecutar en el contexto del editor GrapesJS
+              if (checkEditorContext()) {
+                console.log('🎯 Script de botón deshabilitado en el editor');
+                return { destroy: function() {} };
+              }
                
-               const action = this.getAttribute('data-action');
-               const url = this.getAttribute('data-url');
-               const target = this.getAttribute('data-target') || '_self';
-               const transactionId = this.getAttribute('data-transaction-id');
-               const amount = this.getAttribute('data-amount');
-               const customFunction = this.getAttribute('data-custom-function');
+              const action = this.getAttribute('data-action');
+              const url = this.getAttribute('data-url') || this.getAttribute('href');
+              const target = this.getAttribute('target') || '_self';
+              const transactionId = this.getAttribute('data-transaction-id');
+              const amount = this.getAttribute('data-amount');
+              const customFunction = this.getAttribute('data-custom-function');
 
-               // Si no hay acción pero hay URL, asumir que es un enlace
-               const finalAction = action || (url ? 'link' : null);
+              // Si no hay acción pero hay URL, asumir que es un enlace
+              const finalAction = action || (url ? 'link' : null);
 
-               if (!finalAction) return;
+              if (!finalAction) return;
 
-               function handleClick(e: Event) {
-                 // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                 if (checkEditorContext()) {
-                   console.log('🎯 Acción de action-button interceptada por el editor');
-                   return; // No hacer nada, GrapesJS manejará el evento
-                 }
+              function handleClick(this: HTMLElement, e: Event) {
+                // 🚫 En el editor, NO ejecutar la acción
+                if (checkEditorContext()) {
+                  console.log('🎯 Acción de botón interceptada por el editor');
+                  return;
+                }
                  
-                 // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
-                 if (this.hasAttribute('data-grapes-editing')) {
-                   console.log('🎯 Action-button en modo edición - acción bloqueada');
-                   return;
-                 }
+                // 🚫 Si el elemento está en modo edición, no ejecutar
+                if (this.hasAttribute('data-grapes-editing')) {
+                  console.log('🎯 Botón en modo edición - acción bloqueada');
+                  return;
+                }
                  
-                 e.preventDefault();
+                e.preventDefault();
                  
-                 switch (finalAction) {
-                   case 'link':
-                     if (url) {
-                       // Limpiar la URL de backticks si los tiene
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, target);
-                     }
-                     break;
-                   case 'download':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       const a = document.createElement('a');
-                       a.href = cleanUrl;
-                       a.download = cleanUrl.split('/').pop() || 'download';
-                       a.click();
-                     }
-                     break;
-                   case 'open_pdf':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, '_blank');
-                     }
-                     break;
-                   case 'go_to_payment':
-                     if (transactionId && amount) {
-                       console.log('Procesando pago:', { transactionId, amount });
-                       // Aquí iría la lógica de pago
-                     }
-                     break;
-                   case 'execute-function':
-                     if (customFunction) {
-                       try {
-                         new Function(customFunction)();
-                       } catch (error) {
-                         console.error('Error ejecutando función personalizada:', error);
-                       }
-                     }
-                     break;
-                 }
-               }
+                switch (finalAction) {
+                  case 'link':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      window.open(cleanUrl, target);
+                    }
+                    break;
+                  case 'download':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      const a = document.createElement('a');
+                      a.href = cleanUrl;
+                      a.download = cleanUrl.split('/').pop() || 'download';
+                      a.click();
+                    }
+                    break;
+                  case 'open_pdf':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      window.open(cleanUrl, '_blank');
+                    }
+                    break;
+                  case 'go_to_payment':
+                    if (transactionId && amount) {
+                      console.log('Procesando pago:', { transactionId, amount });
+                      // Aquí iría la lógica de pago
+                    }
+                    break;
+                  case 'execute-function':
+                    if (customFunction) {
+                      try {
+                        new Function(customFunction)();
+                      } catch (error) {
+                        console.error('Error ejecutando función personalizada:', error);
+                      }
+                    }
+                    break;
+                }
+              }
 
-               this.addEventListener('click', handleClick);
-             },
-             // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
-             scriptProps: [
-               'data-action',
-               'data-url', 
-               'data-target',
-               'data-transaction-id',
-               'data-amount',
-               'data-custom-function',
-               'href'
-             ],
+              this.addEventListener('click', handleClick as any);
+            },
+            // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
+            scriptProps: [
+              'data-action',
+              'data-url', 
+              'target',
+              'href',
+              'data-transaction-id',
+              'data-amount',
+              'data-custom-function'
+            ],
           },
+          init() {
+            this.listenTo(this, 'change:text', (this as any).updateText);
+            
+            this.on('change:text-color', () => {
+              const color = this.get('text-color');
+              if (color) {
+                this.addStyle({ 'color': color });
+              }
+            });
+            
+            this.on('change:bg-color', () => {
+              const color = this.get('bg-color');
+              if (color) {
+                this.addStyle({ 'background-color': color });
+              }
+            });
+            
+            this.on('change:font-size', () => {
+              const size = this.get('font-size');
+              if (size) {
+                this.addStyle({ 'font-size': size + 'px' });
+              }
+            });
+            
+            this.on('change:padding-x change:padding-y', () => {
+              const paddingX = this.get('padding-x') || 24;
+              const paddingY = this.get('padding-y') || 12;
+              this.addStyle({ 'padding': `${paddingY}px ${paddingX}px` });
+            });
+            
+            this.on('change:border-radius', () => {
+              const radius = this.get('border-radius');
+              if (radius !== undefined) {
+                this.addStyle({ 'border-radius': radius + 'px' });
+              }
+            });
+            
+            this.on('change:font-weight', () => {
+              const weight = this.get('font-weight');
+              if (weight) {
+                this.addStyle({ 'font-weight': weight });
+              }
+            });
+          },
+          updateText() {
+            const text = this.get('text') || '';
+            const el = this.view?.el as HTMLElement | undefined;
+            if (el) el.textContent = text;
+          }
         },
+        view: {
+          events() {
+            return {
+              dblclick: 'enableEditing',
+              blur: 'disableEditing',
+              input: 'onTextInput',
+            };
+          },
+          enableEditing() {
+            const el = (this as any).el as HTMLElement;
+            el.setAttribute('contenteditable', 'true');
+            el.focus();
+            const handler = (this as any).preventDelete?.bind?.(this) || ((e: any) => e.stopPropagation());
+            el.addEventListener('keydown', handler, true);
+            (this as any).__editableHandler = handler;
+          },
+          disableEditing() {
+            const el = (this as any).el as HTMLElement;
+            el.removeAttribute('contenteditable');
+            const handler = (this as any).__editableHandler;
+            if (handler) el.removeEventListener('keydown', handler, true);
+          },
+          preventDelete(e: any) {
+            e.stopPropagation?.();
+          },
+          onTextInput(e: any) {
+            const text = (e?.target as HTMLElement)?.textContent || '';
+            (this as any).model?.set?.('text', text);
+          },
+        }
       });
 
       // Agregar sector de configuración al Style Manager
@@ -2667,6 +2587,39 @@ const GrapesEditor: React.FC = () => {
         open: true,
         buildProps: ['data-action', 'data-url', 'data-target', 'data-transaction-id', 'data-amount', 'data-custom-function'],
       });
+
+      // Añadir propiedad "Texto" dentro del sector de texto/tipografía existente
+      try {
+        const sm = gEditor.StyleManager;
+        const sectors = sm.getSectors();
+        let textoSectorId: string | undefined;
+        sectors.forEach((s: any) => {
+          const name = (typeof s.getName === 'function' ? s.getName() : s.get('name'));
+          const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || name));
+          if (name === '📝 Texto' || name === 'Tipografía' || name === 'Typography') {
+            textoSectorId = id;
+          }
+        });
+        if (textoSectorId) {
+          const props = sm.getProperties(textoSectorId) || [];
+          const exists = props.some((p: any) => (p.id || p.get?.('id')) === 'component-text');
+          if (!exists) {
+            sm.addProperty(textoSectorId, {
+              id: 'component-text',
+              type: 'text',
+              property: 'component-text',
+              label: 'Texto',
+              defaults: '',
+              full: true,
+            } as any);
+            console.log('✅ Propiedad "Texto" añadida al sector de texto');
+          }
+        } else {
+          console.warn('⚠️ Sector de texto no encontrado (📝 Texto/Tipografía)');
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudo añadir propiedad Texto al sector de texto', e);
+      }
 
       // Esperar al evento 'load' antes de cargar contenido
       gEditor.on('load', () => {
@@ -2699,6 +2652,182 @@ const GrapesEditor: React.FC = () => {
         adjustCanvasWidth();
 
         // Ajustar al cambiar tamaño de ventana o al abrir/cerrar paneles
+        // ————————————————————————————————————————————————————————————
+        // Campo "Texto" dentro del sector de texto: sincroniza visibilidad y valor según selección
+        try {
+          const sm = gEditor.StyleManager;
+          const sectors = sm.getSectors();
+          let textoSectorId: string | undefined;
+          sectors.forEach((s: any) => {
+            const name = (typeof s.getName === 'function' ? s.getName() : s.get('name'));
+            const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || name));
+            if (name === '📝 Texto' || name === 'Tipografía' || name === 'Typography') {
+              textoSectorId = id;
+            }
+          });
+          const findTextoProp = (): any => {
+            if (!textoSectorId) return undefined;
+            const props = sm.getProperties(textoSectorId) || [];
+            return props.find((p: any) => (p?.id || p?.get?.('id')) === 'component-text')
+              || props.find((p: any) => (p?.property || p?.get?.('property')) === 'component-text');
+          };
+
+          const isTextLike = (comp: any) => {
+            if (!comp) return false;
+            let type: string | undefined;
+            let tag: string | undefined;
+            try { type = comp.get?.('type') || comp.get?.('tagName'); } catch {}
+            try { tag = comp.get?.('tagName'); } catch {}
+            type = type || (comp.type as string) || (comp.tagName as string);
+            tag = tag || (comp.tagName as string);
+            return type === 'text' || type === 'link' || type === 'button' || tag === 'a' || tag === 'button';
+          };
+
+          const getComponentText = (comp: any): string => {
+            try {
+              const el = comp?.view?.el as HTMLElement | undefined;
+              const txt = el?.innerText ?? el?.textContent ?? '';
+              if (txt && txt.trim().length > 0) return txt;
+            } catch {}
+            try { return (comp?.get?.('content') as string) ?? ''; } catch {}
+            return '';
+          };
+
+          const updateTextoField = () => {
+            try {
+              const sel = gEditor.getSelected();
+              const show = isTextLike(sel);
+              const textoProp = findTextoProp();
+              if (textoProp && (textoProp as any).set) {
+                try { (textoProp as any).set('visible', show); } catch {}
+                const value = show ? getComponentText(sel) : '';
+                try { (textoProp as any).set('value', value); } catch {}
+                // Asegurar que el campo no provoque pérdida de selección del componente
+                try {
+                  const input = (textoProp as any).view?.getInput?.() as HTMLInputElement | HTMLTextAreaElement | undefined;
+                  if (input) {
+                    const stopAll = (e: Event) => { e.stopPropagation(); };
+                    input.addEventListener('mousedown', stopAll);
+                    input.addEventListener('mouseup', stopAll);
+                    input.addEventListener('click', stopAll);
+                    input.addEventListener('dblclick', stopAll);
+                    input.addEventListener('keydown', stopAll);
+                  }
+                } catch {}
+              }
+            } catch (err) {
+              console.warn('No se pudo actualizar campo Texto', err);
+            }
+          };
+
+          // Inicializar y actualizar al cambiar selección o el componente
+          updateTextoField();
+          gEditor.on('component:selected', updateTextoField as any);
+          gEditor.on('component:select', updateTextoField as any);
+          gEditor.on('component:update', updateTextoField as any);
+          // Refrescar después de cambiar propiedades del StyleManager también
+          gEditor.on('style:property:update', updateTextoField as any);
+        } catch (err) {
+          console.warn('⚠️ Error configurando el campo Texto', err);
+        }
+
+        // Permitir borrar dentro de elementos contenteditable sin que GrapesJS intercepte Backspace/Delete
+        try {
+          gEditor.on('canvas:keydown', (ev: any) => {
+            const e = ev as KeyboardEvent;
+            const target = e?.target as HTMLElement | null;
+            if (target && (target.isContentEditable || target.getAttribute('contenteditable') === 'true')) {
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation?.();
+            }
+          });
+        } catch (e) {
+          console.warn('No se pudo configurar manejo de teclado para contenteditable', e);
+        }
+
+        // ————————————————————————————————————————————————————————————
+        // Fix adicional: trabajar directamente dentro del iframe del canvas
+        try {
+          const frame = gEditor.Canvas.getFrameEl();
+          const iframeDoc = frame && ((frame as any).contentDocument || (frame as any).contentWindow?.document);
+          if (iframeDoc) {
+            // 1) Evitar que Backspace borre el componente entero
+            iframeDoc.addEventListener('keydown', (e: KeyboardEvent) => {
+              try {
+                const sel = gEditor.getSelected();
+                const el = sel?.view?.el as HTMLElement | undefined;
+                if (sel && el && (el.isContentEditable || el.getAttribute('contenteditable') === 'true')) {
+                  if (e.key === 'Backspace') {
+                    e.stopPropagation();
+                  }
+                }
+              } catch {}
+            }, true);
+
+            // 2) Mantener el componente seleccionado mientras el foco entra en su contenido
+            iframeDoc.addEventListener('focusin', (e: FocusEvent) => {
+              try {
+                const target = e.target as Node | null;
+                const sel = gEditor.getSelected();
+                const selectedEl = sel?.view?.el as HTMLElement | undefined;
+                if (sel && selectedEl && target && selectedEl.contains(target)) {
+                  try { gEditor.select(sel); } catch {}
+                }
+              } catch {}
+            }, true);
+          }
+        } catch (err) {
+          console.warn('No se pudo configurar listeners dentro del iframe', err);
+        }
+
+        // 3) Doble clic activa edición inline en elementos con texto
+        try {
+          gEditor.on('component:dblclick', (model: any) => {
+            try {
+              const el = model?.view?.el as HTMLElement | undefined;
+              if (!el) return;
+              const tag = el.tagName;
+              if (['BUTTON', 'A', 'P', 'SPAN', 'DIV', 'H1', 'H2', 'H3'].includes(tag)) {
+                el.setAttribute('contenteditable', 'true');
+                try { el.focus(); } catch {}
+              }
+            } catch {}
+          });
+        } catch {}
+
+        // 4) Al seleccionar, activar edición inline si corresponde; al deseleccionar, limpiar
+        try {
+          gEditor.on('component:selected', (model: any) => {
+            try {
+              const el = model?.view?.el as HTMLElement | undefined;
+              if (!el) return;
+              const tag = el.tagName;
+              if (['BUTTON', 'A', 'P', 'SPAN', 'DIV', 'H1', 'H2', 'H3'].includes(tag)) {
+                el.setAttribute('contenteditable', 'true');
+              }
+            } catch {}
+          });
+          gEditor.on('component:deselected', (model: any) => {
+            try {
+              const el = model?.view?.el as HTMLElement | undefined;
+              if (el && el.hasAttribute('contenteditable')) {
+                el.removeAttribute('contenteditable');
+              }
+            } catch {}
+          });
+        } catch {}
+
+        // 5) Evitar que el Style Manager deseleccione el componente activo
+        try {
+          const smEl = document.querySelector('.gjs-sm-properties') as HTMLElement | null;
+          if (smEl) {
+            const stop = (e: Event) => { e.stopPropagation(); };
+            smEl.addEventListener('mousedown', stop, true);
+            smEl.addEventListener('click', stop, true);
+            smEl.addEventListener('keydown', stop, true);
+            smEl.addEventListener('dblclick', stop, true);
+          }
+        } catch {}
         window.addEventListener('resize', adjustCanvasWidth);
         if (panelsEl) {
           const observer = new ResizeObserver(adjustCanvasWidth);
@@ -2860,6 +2989,17 @@ const GrapesEditor: React.FC = () => {
           label: '🔘 Botón',
           category: '📌 Básico',
           content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">Botón</a>'
+        });
+
+        // Botón primario usando tipo unificado 'button'
+        bm.add('boton-primario', {
+          label: '🔘 Botón Primario',
+          category: '📌 Básico',
+          content: {
+            type: 'button',
+            classes: ['btn', 'btn-primary'],
+            text: 'Botón Primario',
+          },
         });
 
         bm.add('image-block', {
@@ -3321,25 +3461,31 @@ const GrapesEditor: React.FC = () => {
         bm.add('ui-button-primary', {
           label: '🔘 Botón Primario',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#007bff; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Primario</button>'
+          content: '<button class="editable-btn" type="button" style="padding:12px 24px; background:#007bff; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Primario</button>'
         });
 
         bm.add('ui-button-secondary', {
           label: '🔘 Botón Secundario',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:transparent; color:#6c757d; border:2px solid #6c757d; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Secundario</button>'
+          content: '<button class="editable-btn" type="button" style="padding:12px 24px; background:transparent; color:#6c757d; border:2px solid #6c757d; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Secundario</button>'
         });
 
         bm.add('ui-button-success', {
           label: '✅ Botón Éxito',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Éxito</button>'
+          content: '<button class="editable-btn" type="button" style="padding:12px 24px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Éxito</button>'
         });
 
         bm.add('ui-button-danger', {
           label: '❌ Botón Peligro',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Peligro</button>'
+          content: '<button class="editable-btn" type="button" style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Peligro</button>'
+        });
+
+        bm.add('editable-button', {
+          label: '✏️ Botón Editable',
+          category: '🎨 UI Elements',
+          content: '<button class="editable-btn" type="button">Botón Editable</button>'
         });
 
         bm.add('ui-card-basic', {

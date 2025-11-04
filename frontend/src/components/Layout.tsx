@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 interface LayoutProps {
@@ -10,6 +10,21 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footerHtml, footerCss }) => {
+  // Normalizar enlaces del header para abrir en la misma ventana
+  useEffect(() => {
+    try {
+      const container = document.getElementById('site-header');
+      if (!container) return;
+      const anchors = container.querySelectorAll('a');
+      anchors.forEach((a) => {
+        a.setAttribute('target', '_self');
+        if (a.hasAttribute('rel')) a.removeAttribute('rel');
+      });
+    } catch (e) {
+      console.warn('⚠️ Normalización de enlaces del header falló', e);
+    }
+  }, [headerHtml]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}

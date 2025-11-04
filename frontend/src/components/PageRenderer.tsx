@@ -275,7 +275,11 @@ const PageRenderer: React.FC = () => {
   if (PageComponent) {
     console.log('✅ [PageRenderer] Usando componente estático de React');
     console.log('🎬 [PageRenderer] Renderizando:', 'ESTÁTICO');
-    return <PageComponent />;
+    return (
+      <Layout headerHtml={headerHtml} headerCss={headerCss} footerHtml={footerHtml} footerCss={footerCss}>
+        <PageComponent />
+      </Layout>
+    );
   }
 
   // 404: No se encontró ni página dinámica ni componente estático
