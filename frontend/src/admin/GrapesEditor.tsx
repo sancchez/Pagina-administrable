@@ -29,6 +29,8 @@ interface PageData {
   gjsCss?: string | null;
   gjsComponents?: string | null;
   gjsStyles?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'auto-saving';
@@ -242,6 +244,23 @@ const GrapesEditor: React.FC = () => {
     try {
       setSaveStatus(isAutoSave ? 'auto-saving' : 'saving');
 
+      // Sincronizar texto visible de botones con data-label antes de exportar HTML
+      try {
+        const wrapper = inst.getWrapper?.();
+        if (wrapper) {
+          const buttons = wrapper.find('a, button');
+          buttons.forEach((btn: any) => {
+            const attrs = typeof btn.getAttributes === 'function' ? btn.getAttributes() : (btn.get('attributes') || {});
+            const label = attrs?.['data-label'];
+            if (typeof label === 'string' && label.trim().length > 0) {
+              btn.set('content', label);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('No se pudo sincronizar el texto de botones antes de exportar:', e);
+      }
+
       const grapesData = inst.store ? inst.store() : inst.getProjectData?.();
       const html = inst.getHtml() || '';
       const css = inst.getCss() || '';
@@ -250,7 +269,9 @@ const GrapesEditor: React.FC = () => {
 
       console.log('💾 Guardando:', {
         htmlLen: html.length,
-        cssLen: css.length
+        cssLen: css.length,
+        pageId: pageData.id,
+        isNewPage: !pageData.id
       });
 
       // Preparar payload con datos de GrapesJS
@@ -260,6 +281,30 @@ const GrapesEditor: React.FC = () => {
         components: typeof components === 'string' ? JSON.parse(components) : components || [],
         styles: typeof styles === 'string' ? JSON.parse(styles) : styles || []
       };
+
+      // Si es una página nueva (sin ID), crearla primero
+      let currentPageData = pageData;
+      if (!pageData.id) {
+        console.log('📝 Creando página nueva...');
+        const createPayload = {
+          slug: pageData.slug,
+          title: pageData.title,
+          content: html || pageData.content,
+          css: css || pageData.css
+        };
+        
+        const createResult = await HttpClient.post<ApiResponse<{ page: PageData }>>('/pages', createPayload);
+        if (createResult?.success && createResult.data) {
+          const createdPage = (('page' in createResult.data)
+            ? (createResult.data as { page: PageData }).page
+            : (createResult.data as unknown as PageData));
+          currentPageData = createdPage;
+          setPageData(currentPageData);
+          console.log('✅ Página creada con ID:', currentPageData.id);
+        } else {
+          throw new Error('Error al crear la página');
+        }
+      }
 
       // Solo enviar los campos permitidos por el backend
       const payload: any = {
@@ -274,7 +319,7 @@ const GrapesEditor: React.FC = () => {
 
       // Guardar por ID usando HttpClient con Authorization
       const resultJson = await HttpClient.post<ApiResponse<{ page: PageData }>>(
-        `/pages/${pageData.id}/grapes-data`,
+        `/pages/${currentPageData.id}/grapes-data`,
         payload
       );
 
@@ -301,14 +346,20 @@ const GrapesEditor: React.FC = () => {
 
   // Publicar página (guardar si hay cambios y llamar endpoint de publish)
   const handlePublish = useCallback(async () => {
-    if (!pageData?.id) return;
+    if (!pageData) return;
+    
     try {
       setIsPublishing(true);
       setPublishStatus('publishing');
 
-      // Guardar cambios antes de publicar
-      if (hasUnsavedChanges) {
+      // Si es una página nueva, guardarla primero
+      if (!pageData.id || hasUnsavedChanges) {
         await handleSave(false);
+      }
+
+      // Verificar que ahora tenemos ID después de guardar
+      if (!pageData.id) {
+        throw new Error('No se pudo crear la página');
       }
 
       // Llamar endpoint de publicación con tipado
@@ -376,8 +427,25 @@ const GrapesEditor: React.FC = () => {
       console.log('📥 Página cargada para editar:', page.slug);
       setPageData(page);
     } catch (error) {
-      console.error('Error:', error);
-      setError(normalizeError(error));
+      console.error('❌ Error al cargar página:', error);
+      // Si la página no existe (404), crear una página nueva
+      if (error instanceof Error && error.message.includes('404')) {
+        console.log('📝 Creando página nueva para:', slug);
+        const newPage: PageData = {
+          id: '',
+          slug: slug,
+          title: slug.charAt(0).toUpperCase() + slug.slice(1),
+          content: '<div class="container"><h1>' + slug.charAt(0).toUpperCase() + slug.slice(1) + '</h1><p>Contenido de la página.</p></div>',
+          css: 'body { font-family: Arial, sans-serif; }',
+          grapesData: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        setPageData(newPage);
+        setError(null); // Limpiar el error
+      } else {
+        setError(normalizeError(error));
+      }
     } finally {
       setLoading(false);
     }
@@ -435,7 +503,35 @@ const GrapesEditor: React.FC = () => {
         container: editorContainerRef.current,
         height: '100vh',
         width: 'auto',
-        panels: { defaults: [] },
+        panels: {
+          defaults: [
+            {
+              id: 'panel-switcher',
+              el: '.gjs-pn-views-container',
+              buttons: [
+                {
+                  id: 'open-blocks',
+                  label: 'Bloques',
+                  command: 'open-blocks',
+                  togglable: false,
+                  active: true
+                },
+                {
+                  id: 'open-style-manager',
+                  label: 'Estilos',
+                  command: 'open-sm',
+                  togglable: false
+                },
+                {
+                  id: 'open-traits',
+                  label: 'Configuración',
+                  command: 'open-tm',
+                  togglable: false
+                }
+              ]
+            }
+          ]
+        },
         i18n: {
           locale: 'es',
           messages: {
@@ -480,6 +576,7 @@ const GrapesEditor: React.FC = () => {
                 }
               },
               traitManager: {
+                appendTo: '#traits-container',
                 empty: 'Selecciona un elemento para ver sus propiedades',
                 label: 'Configuración del componente',
                 traits: {
@@ -851,20 +948,102 @@ const GrapesEditor: React.FC = () => {
             'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
           ],
           scripts: []
-        },
+        }
       });
 
-      // Logs de verificación para StyleManager
-      try {
-        console.log('StyleManager configurado:', gEditor.StyleManager);
-        console.log('Sectores:', gEditor.StyleManager.getSectors().length);
-      } catch (e) {
-        console.warn('No se pudo obtener información de StyleManager:', e);
-      }
+    // ====== SINCRONIZACIÓN DE TEXTO EN BOTONES (SETTINGS - TUERCA) ======
 
-      // Guardar instancia
+      console.log('🔧 Configurando edición de texto en botones para la pestaña Settings...');
+
+      // EVENTO PRINCIPAL: Cuando se selecciona un botón o enlace
+      gEditor.on('component:selected', (component: any) => {
+        try {
+          const type = component.get('type');
+          if (type !== 'button' && type !== 'link') {
+            // Ocultar el panel de traits si no es un botón o enlace
+            const traitsContainer = document.getElementById('traits-container');
+            if (traitsContainer) {
+              traitsContainer.style.transform = 'translateX(100%)';
+              setTimeout(() => {
+                traitsContainer.style.display = 'none';
+              }, 300);
+            }
+            return;
+          }
+          
+          console.log('👆 Componente seleccionado, tipo:', type);
+          
+          // Mostrar el panel de traits
+          const traitsContainer = document.getElementById('traits-container');
+          if (traitsContainer) {
+            traitsContainer.style.display = 'block';
+            traitsContainer.style.transform = 'translateX(0)';
+          }
+          
+          // Pequeño timeout para asegurar que el componente esté completamente renderizado
+          setTimeout(() => {
+            const el = component.view?.el as HTMLElement;
+            if (!el) {
+              console.warn('⚠️ No se encontró elemento HTML del componente');
+              return;
+            }
+            
+            // Obtener el texto actual del componente
+            const currentText = el.innerText.trim() || component.get('content') || type === 'button' ? 'Botón' : 'Enlace';
+            console.log('📖 Texto actual:', currentText);
+            
+            // Actualizar el trait 'content' con el texto actual
+            const contentTrait = component.getTrait('content');
+            if (contentTrait) {
+              contentTrait.set('value', currentText);
+              contentTrait.set('label', type === 'button' ? 'Texto del botón' : 'Texto del enlace');
+              contentTrait.set('placeholder', type === 'button' ? 'Ingrese el texto del botón...' : 'Ingrese el texto del enlace...');
+              console.log('✅ Trait "content" actualizado con:', currentText);
+            } else {
+              console.warn('⚠️ No se encontró el trait "content"');
+            }
+            
+            // Renderizar el TraitManager para mostrar los traits en la pestaña Settings
+            setTimeout(() => {
+              gEditor.TraitManager.render();
+              console.log('🔄 TraitManager renderizado - traits visibles en Settings');
+            }, 100);
+          }, 50);
+        } catch (error) {
+          console.error('❌ Error al seleccionar componente:', error);
+        }
+      });
+
+      // 🔧 SINCRONIZACIÓN DESDE SETTINGS (pestaña tuerca): Cuando se edita el trait 'content'
+      gEditor.on('trait:change', (component: any, trait: any) => {
+        try {
+          if (!component || !trait || trait.get('name') !== 'content') return;
+          
+          const type = component.get('type');
+          if (type !== 'button' && type !== 'link') return;
+          
+          const newValue = trait.get('value');
+          if (newValue !== null && newValue !== undefined) {
+            console.log('✏️ Texto actualizado desde Settings:', newValue);
+            component.components(String(newValue));
+            setHasUnsavedChanges(true);
+            scheduleAutoSave();
+          }
+        } catch (error) {
+          console.error('❌ Error al actualizar desde Settings:', error);
+        }
+      });
+
+      // Guardar instancia y configurar logs
       editorInstanceRef.current = gEditor;
-      try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; console.log("🪄 Editor expuesto en window"); } catch(e) { console.warn("No se pudo exponer editor en window", e); }
+      try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; } catch(e) {}
+
+      // Inicializar TraitManager después de cargar
+      gEditor.on('load', () => {
+        setTimeout(() => {
+          gEditor.TraitManager.render();
+        }, 300);
+      });
 
       // ======================================================
       // BLOQUEO DE ACCIONES INTERACTIVAS DENTRO DEL IFRAME
@@ -990,8 +1169,8 @@ const GrapesEditor: React.FC = () => {
                   {
                     type: 'text',
                     label: 'Texto del botón',
-                    name: 'text',
-                    changeProp: 1,
+                    name: 'content',
+                    changeProp: true,
                   },
                   {
                     type: 'text',
@@ -1015,7 +1194,7 @@ const GrapesEditor: React.FC = () => {
                       { id: 'go_to_payment', name: 'Ir a pago' },
                       { id: 'execute-function', name: 'Ejecutar función' }
                     ],
-                    changeProp: 1,
+                    changeProp: true,
                   },
                   {
                     type: 'text',
@@ -1160,7 +1339,7 @@ const GrapesEditor: React.FC = () => {
                     type: 'text',
                     label: 'Texto del enlace',
                     name: 'text',
-                    changeProp: 1,
+                    changeProp: true,
                   },
                   {
                     type: 'text',
@@ -1512,12 +1691,12 @@ const GrapesEditor: React.FC = () => {
               });
               
               if (configSector) {
-                const properties = configSector.get('properties');
+                const properties = (configSector.get('properties') as any[]) || [];
                 
                 // Ocultar todos los campos dependientes primero
                 properties.forEach((prop: any) => {
                   if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes(prop.get('id'))) {
-                    prop.set('visible', false);
+                    prop?.set?.('visible', false);
                   }
                 });
                 
@@ -1526,22 +1705,22 @@ const GrapesEditor: React.FC = () => {
                   // Mostrar URL y selector "Abrir en"
                   const pageUrlProp = properties.find((p: any) => p.get('id') === 'page-url');
                   const openInProp = properties.find((p: any) => p.get('id') === 'open-in');
-                  if (pageUrlProp) pageUrlProp.set('visible', true);
-                  if (openInProp) openInProp.set('visible', true);
+                  pageUrlProp?.set?.('visible', true);
+                  openInProp?.set?.('visible', true);
                 } else if (propertyValue === 'download-file') {
                   // Mostrar URL del archivo y nombre de archivo
                   const fileUrlProp = properties.find((p: any) => p.get('id') === 'file-url');
                   const fileNameProp = properties.find((p: any) => p.get('id') === 'file-name');
-                  if (fileUrlProp) fileUrlProp.set('visible', true);
-                  if (fileNameProp) fileNameProp.set('visible', true);
+                  fileUrlProp?.set?.('visible', true);
+                  fileNameProp?.set?.('visible', true);
                 } else if (propertyValue === 'execute-function') {
                   // Mostrar textarea para código JavaScript
                   const customFunctionProp = properties.find((p: any) => p.get('id') === 'custom-function');
-                  if (customFunctionProp) customFunctionProp.set('visible', true);
+                  customFunctionProp?.set?.('visible', true);
                 }
                 
                 // Forzar re-renderizado del Style Manager
-                sm.render();
+                sm.render?.();
                 console.log(`✅ Campos dependientes actualizados para acción: ${propertyValue}`);
               }
             }
@@ -1549,7 +1728,10 @@ const GrapesEditor: React.FC = () => {
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {
               const traitName = propertyName.replace('data-', '');
-              const trait = selected.get('traits').find((t: any) => t.get('name') === traitName);
+              const traitsCollection = selected.get('traits');
+              const trait = traitsCollection && typeof traitsCollection.find === 'function'
+                ? traitsCollection.find((t: any) => t.get('name') === traitName)
+                : null;
               
               if (trait) {
                 trait.set('value', propertyValue);
@@ -1567,13 +1749,13 @@ const GrapesEditor: React.FC = () => {
           try {
             if (component.get('type') === 'button') {
               const actionType = component.get('data-action-type');
-              const traits = component.get('traits');
+              const traits: any[] = component.get('traits') || [];
               
               // Ocultar todos los campos dependientes primero
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
                 if (['data-url', 'data-target', 'data-file-url', 'data-transaction-id', 'data-amount', 'data-custom-function', 'data-new-tab'].includes(traitName)) {
-                  trait.set('visible', false);
+                  trait?.set?.('visible', false);
                 }
               });
               
@@ -1581,42 +1763,116 @@ const GrapesEditor: React.FC = () => {
               if (actionType === 'link') {
                 const urlTrait = traits.find((t: any) => t.get('name') === 'data-url');
                 const targetTrait = traits.find((t: any) => t.get('name') === 'data-target');
-                if (urlTrait) urlTrait.set('visible', true);
-                if (targetTrait) targetTrait.set('visible', true);
+                urlTrait?.set?.('visible', true);
+                targetTrait?.set?.('visible', true);
               } else if (actionType === 'download' || actionType === 'open_pdf') {
                 const fileUrlTrait = traits.find((t: any) => t.get('name') === 'data-file-url');
-                if (fileUrlTrait) fileUrlTrait.set('visible', true);
+                fileUrlTrait?.set?.('visible', true);
               } else if (actionType === 'go_to_payment') {
                 const txTrait = traits.find((t: any) => t.get('name') === 'data-transaction-id');
                 const amountTrait = traits.find((t: any) => t.get('name') === 'data-amount');
-                if (txTrait) txTrait.set('visible', true);
-                if (amountTrait) amountTrait.set('visible', true);
+                txTrait?.set?.('visible', true);
+                amountTrait?.set?.('visible', true);
               } else if (actionType === 'execute-function') {
                 const functionTrait = traits.find((t: any) => t.get('name') === 'data-custom-function');
-                if (functionTrait) functionTrait.set('visible', true);
+                functionTrait?.set?.('visible', true);
               }
               
               // Forzar re-renderizado del panel de traits
-              gEditor.TraitManager.render();
+              gEditor.TraitManager?.render?.();
               console.log(`✅ Traits dinámicos actualizados para acción: ${actionType}`);
             }
+            // Sincronizar contenido visible con el trait "Texto" (data-label)
+            try {
+              const compType = component.get('type');
+              if (compType === 'action-button' || compType === 'button') {
+                const labelTrait = component.get('traits').find((t: any) => t.get('name') === 'data-label');
+                const labelVal = labelTrait ? labelTrait.get('value') : undefined;
+                if (typeof labelVal === 'string') {
+                  // Actualiza el modelo para que getHtml() refleje el texto en la página pública
+                  component.set('content', labelVal);
+                }
+              }
+            } catch {}
           } catch (e) {
              console.warn('Error actualizando traits dinámicos:', e);
+           }
+         });
+
+         // COMPONENTE 1: Sincronizar contenido visual y data-label cuando cambia 'content'
+         gEditor.on('component:update:content', (component: any) => {
+           try {
+             const type = component.get('type');
+             if (type !== 'button' && type !== 'action-button') return;
+
+             const newContent = component.get('content');
+             if (!newContent || (typeof newContent === 'string' && !newContent.trim())) return;
+
+             // Actualizar contenido visual (inner text como hijo)
+             component.components(newContent);
+
+             // Actualizar atributo data-label para compatibilidad
+             if (typeof component.addAttributes === 'function') {
+               component.addAttributes({ 'data-label': newContent });
+             } else {
+               const attrs = component.get('attributes') || {};
+               attrs['data-label'] = newContent;
+               component.set('attributes', attrs);
+             }
+
+             setHasUnsavedChanges(true);
+             scheduleAutoSave();
+           } catch (e) {
+             console.warn('Error en component:update:content:', e);
+           }
+         });
+
+         // COMPONENTE 2: Fallback desde trait 'content' para mantener sincronización
+         gEditor.on('trait:update', (trait: any) => {
+           try {
+             const name = trait?.get?.('name');
+             if (name !== 'content') return;
+
+             const component = gEditor.getSelected?.();
+             if (!component) return;
+             const type = component.get('type');
+             if (type !== 'button' && type !== 'action-button') return;
+
+             const newValue = trait?.get?.('value');
+             if (!newValue || (typeof newValue === 'string' && !newValue.trim())) return;
+
+             // Actualizar contenido visual
+             component.components(newValue);
+
+             // Actualizar data-label
+             if (typeof component.addAttributes === 'function') {
+               component.addAttributes({ 'data-label': newValue });
+             } else {
+               const attrs = component.get('attributes') || {};
+               attrs['data-label'] = newValue;
+               component.set('attributes', attrs);
+             }
+
+             setHasUnsavedChanges(true);
+             scheduleAutoSave();
+           } catch (e) {
+             console.warn('Error en trait:update:', e);
            }
          });
          
          // Evento para sincronizar cambios de traits con el Style Manager
          gEditor.on('component:update:traits', (component: any) => {
-           try {
-            const sm = gEditor.StyleManager;
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-            
-            if (configSector && configSector.get('visible')) {
-              const traits = component.get('traits');
+          try {
+           const sm = gEditor.StyleManager;
+           const sectors = sm.getSectors();
+           const configSector = sectors.find((s: any) => {
+             const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
+             return id === 'button-config' || s.get('name') === '⚙️ Configuración';
+           });
+           
+           if (configSector && configSector.get('visible')) {
+              const traits: any[] = component.get('traits') || [];
+              const properties = (configSector.get('properties') as any[]) || [];
               
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
@@ -1624,23 +1880,85 @@ const GrapesEditor: React.FC = () => {
                 
                 // Actualizar la propiedad correspondiente en el Style Manager
                 const propertyName = traitName.startsWith('data-') ? traitName : `data-${traitName}`;
-                const property = configSector.get('properties').find((p: any) => p.get('property') === propertyName);
+                const property = properties.find((p: any) => p.get('property') === propertyName);
                 
                 if (property && traitValue !== undefined) {
-                  property.set('value', traitValue);
+                  property?.set?.('value', traitValue);
                   console.log(`✅ Style Manager actualizado desde trait ${traitName}:`, traitValue);
                 }
               });
               
               // Forzar re-renderizado del Style Manager
-              sm.render();
+              sm.render?.();
             }
           } catch (e) {
             console.warn('Error sincronizando traits con Style Manager:', e);
           }
         });
         
-        gEditor.on('component:selected', () => {});
+        // COMPONENTE 3: Al seleccionar, cargar desde data-label > innerText > content
+        gEditor.on('component:selected', (component: any) => {
+          try {
+            const type = component?.get?.('type');
+            if (type !== 'button' && type !== 'action-button') return;
+
+            const el = component.view?.el as HTMLElement | undefined;
+            const attrs = typeof component.getAttributes === 'function'
+              ? component.getAttributes()
+              : (component.get('attributes') || {});
+
+            const dataLabel = attrs?.['data-label'];
+            const innerText = el?.innerText?.trim?.() || '';
+            const currentText = dataLabel || innerText || component.get('content') || 'Botón';
+
+            // Sincronizar todos los lugares
+            component.set({ content: currentText }, { silent: true });
+            component.components(currentText);
+            if (typeof component.addAttributes === 'function') {
+              component.addAttributes({ 'data-label': currentText });
+            } else {
+              attrs['data-label'] = currentText;
+              component.set('attributes', attrs);
+            }
+
+            const contentTrait = component.getTrait?.('content');
+            if (contentTrait) contentTrait.set?.('value', currentText);
+          } catch (e) {
+            console.warn('Error en component:selected:', e);
+          }
+        });
+
+        // COMPONENTE 4: Inicializar botones existentes al cargar
+        gEditor.on('load', () => {
+          try {
+            const wrapper = gEditor.DomComponents?.getWrapper?.();
+            if (!wrapper) return;
+            const allButtons = wrapper.find('button, a');
+            allButtons.forEach((btn: any) => {
+              try {
+                const attrs = typeof btn.getAttributes === 'function'
+                  ? btn.getAttributes()
+                  : (btn.get('attributes') || {});
+                const dataLabel = attrs?.['data-label'];
+                const content = btn.get('content');
+
+                if (dataLabel && typeof dataLabel === 'string') {
+                  btn.set({ content: dataLabel }, { silent: true });
+                  btn.components(dataLabel);
+                } else if (content && typeof content === 'string') {
+                  if (typeof btn.addAttributes === 'function') {
+                    btn.addAttributes({ 'data-label': content });
+                  } else {
+                    attrs['data-label'] = content;
+                    btn.set('attributes', attrs);
+                  }
+                }
+              } catch {}
+            });
+          } catch (e) {
+            console.warn('Error inicializando botones en load:', e);
+          }
+        });
       } catch {}
 
 
@@ -2522,6 +2840,12 @@ const GrapesEditor: React.FC = () => {
             attributes: { href: '#', type: 'button' },
             traits: [
               {
+                type: 'text',
+                label: 'Texto',
+                name: 'data-label',
+                placeholder: 'Texto del botón',
+              },
+              {
                 type: 'select',
                 label: 'Acción',
                 name: 'data-action',
@@ -2533,7 +2857,7 @@ const GrapesEditor: React.FC = () => {
                   { id: 'go_to_payment', name: 'Ir a pago' },
                   { id: 'execute-function', name: 'Ejecutar función' }
                 ],
-                changeProp: 1,
+                changeProp: true,
               },
               {
                 type: 'text',
@@ -2569,7 +2893,25 @@ const GrapesEditor: React.FC = () => {
                 placeholder: 'console.log("Hola mundo");',
               }
             ],
-            script() {
+            script(this: HTMLElement) {
+               // Sincronizar etiqueta visible con el trait "Texto" (data-label)
+               const updateLabel = () => {
+                 const lbl = this.getAttribute('data-label');
+                 if (typeof lbl === 'string') {
+                   this.textContent = lbl;
+                 }
+               };
+               // Inicializar etiqueta si existe atributo
+               updateLabel();
+               // Observar cambios de atributos para data-label
+               const mo = new MutationObserver(muts => {
+                 for (const m of muts) {
+                   if (m.type === 'attributes' && m.attributeName === 'data-label') {
+                     updateLabel();
+                   }
+                 }
+               });
+               mo.observe(this, { attributes: true, attributeFilter: ['data-label'] });
                // 🚫 NO ejecutar en el contexto del editor GrapesJS
                // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
                if (checkEditorContext()) {
@@ -2589,7 +2931,7 @@ const GrapesEditor: React.FC = () => {
 
                if (!finalAction) return;
 
-               function handleClick(e: Event) {
+               function handleClick(this: HTMLElement, e: Event) {
                  // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
                  if (checkEditorContext()) {
                    console.log('🎯 Acción de action-button interceptada por el editor');
@@ -2649,6 +2991,7 @@ const GrapesEditor: React.FC = () => {
              },
              // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
              scriptProps: [
+               'data-label',
                'data-action',
                'data-url', 
                'data-target',
@@ -2789,8 +3132,30 @@ const GrapesEditor: React.FC = () => {
          if (wrapper) {
            wrapper.find('a, button').forEach(btn => {
              btn.set({ type: 'action-button' });
+             try {
+               const anyBtn: any = btn as any;
+               const currentText: string = (anyBtn.view?.el?.textContent || '').trim();
+               if (currentText) {
+                 btn.addAttributes({ 'data-label': currentText });
+                 // Mantener sincronizado el contenido del modelo para exportar HTML correcto
+                 btn.set('content', currentText);
+               }
+             } catch {}
            });
          }
+
+        // Asegurar data-label al agregar nuevos botones
+        gEditor.on('component:add', (comp: any) => {
+          try {
+            if (comp?.get?.('type') === 'action-button') {
+              const currentText: string = (comp.view?.el?.textContent || '').trim();
+              if (currentText) {
+                comp.addAttributes({ 'data-label': currentText });
+                comp.set('content', currentText);
+              }
+            }
+          } catch {}
+        });
 
         // Renombrar etiquetas de bloques de plugins a español
         try {
@@ -3321,25 +3686,141 @@ const GrapesEditor: React.FC = () => {
         bm.add('ui-button-primary', {
           label: '🔘 Botón Primario',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#007bff; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Primario</button>'
+          content: {
+            type: 'button',
+            content: 'Botón Primario',
+            attributes: {
+              style: 'padding:12px 24px; background:#007bff; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;'
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
+          }
         });
 
         bm.add('ui-button-secondary', {
           label: '🔘 Botón Secundario',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:transparent; color:#6c757d; border:2px solid #6c757d; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Botón Secundario</button>'
+          content: {
+            type: 'button',
+            content: 'Botón Secundario',
+            attributes: {
+              style: 'padding:12px 24px; background:transparent; color:#6c757d; border:2px solid #6c757d; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;'
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
+          }
         });
 
         bm.add('ui-button-success', {
-          label: '✅ Botón Éxito',
+          label: '🔘 Botón Éxito',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Éxito</button>'
+          content: {
+            type: 'button',
+            content: 'Botón Éxito',
+            attributes: {
+              style: 'padding:12px 24px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;'
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
+          }
         });
 
         bm.add('ui-button-danger', {
-          label: '❌ Botón Peligro',
+          label: '🔘 Botón Peligro',
           category: '🎨 UI Elements',
-          content: '<button style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;">Peligro</button>'
+          content: {
+            type: 'button',
+            content: 'Botón Peligro',
+            attributes: {
+              style: 'padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:500; cursor:pointer; transition:all 0.3s;'
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
+          }
         });
 
         bm.add('ui-card-basic', {
@@ -3735,7 +4216,30 @@ const GrapesEditor: React.FC = () => {
               class: 'btn btn-primary',
               style: 'display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; border: none; font-weight: 600; cursor: pointer;',
               'data-action-type': 'none'
-            }
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
           }
         });
 
@@ -3750,7 +4254,30 @@ const GrapesEditor: React.FC = () => {
               class: 'btn btn-secondary',
               style: 'display: inline-block; padding: 12px 24px; background: transparent; color: #3b82f6; border: 2px solid #3b82f6; border-radius: 8px; font-weight: 600; cursor: pointer;',
               'data-action-type': 'none'
-            }
+            },
+            traits: [
+              {
+                type: 'text',
+                label: 'Texto del Botón',
+                name: 'content',
+                changeProp: true
+              },
+              {
+                type: 'text',
+                label: 'URL',
+                name: 'href',
+                placeholder: '#'
+              },
+              {
+                type: 'select',
+                label: 'Abrir en',
+                name: 'target',
+                options: [
+                  { id: '', name: 'Misma ventana' },
+                  { id: '_blank', name: 'Nueva pestaña' }
+                ]
+              }
+            ]
           }
         });
 
@@ -4110,6 +4637,23 @@ const GrapesEditor: React.FC = () => {
         // Cierre del ciclo de carga
         setContentLoaded(true);
         console.log('✅ gjsComponents/gjsStyles cargados exitosamente');
+        return;
+      }
+
+      // PRIORIDAD 4: Si es una página nueva (sin ID), crear contenido por defecto
+      if (!pageData.id && pageData.content) {
+        console.log('📝 Creando contenido por defecto para página nueva');
+        
+        editorInstanceRef.current.setComponents(pageData.content);
+        if (pageData.css) {
+          editorInstanceRef.current.setStyle(pageData.css);
+          latestCssRef.current = pageData.css;
+        }
+        latestHtmlRef.current = pageData.content;
+        
+        // Cierre del ciclo de carga
+        setContentLoaded(true);
+        console.log('✅ Contenido por defecto cargado para página nueva');
         return;
       }
 
@@ -4565,6 +5109,39 @@ const GrapesEditor: React.FC = () => {
           font-size: 14px !important;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
+        
+        /* Estilos para el panel de traits personalizado */
+        #traits-container {
+          border-left: 1px solid #e2e8f0 !important;
+          z-index: 25 !important;
+        }
+        #traits-container .gjs-trt-traits {
+          padding: 0 !important;
+        }
+        #traits-container .gjs-trt-trait {
+          padding: 12px 16px !important;
+          border-bottom: 1px solid #f1f5f9 !important;
+          margin: 0 !important;
+        }
+        #traits-container .gjs-trt-trait:last-child {
+          border-bottom: none !important;
+        }
+        #traits-container .gjs-trt-label {
+          font-size: 13px !important;
+          color: #374151 !important;
+          margin-bottom: 6px !important;
+          font-weight: 500 !important;
+        }
+        #traits-container .gjs-field {
+          border: 1px solid #d1d5db !important;
+          border-radius: 6px !important;
+          padding: 8px 12px !important;
+          font-size: 14px !important;
+        }
+        #traits-container .gjs-field:focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+        }
       `}</style>
       {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}
       <div className="bg-white shadow-md px-4 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-[100]">
@@ -4701,6 +5278,33 @@ const GrapesEditor: React.FC = () => {
             style={{ height: 'calc(100vh - 85px)', overflow: 'auto', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
             className="w-full"
           />
+          
+          {/* Contenedor oculto para traits - se mostrará cuando se seleccione un componente */}
+          <div id="traits-container" className="fixed top-[85px] right-0 w-80 h-full bg-white shadow-lg z-20 transform translate-x-full transition-transform duration-300" style={{ display: 'none' }}>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-800">Configuración del Componente</h3>
+              <button 
+                onClick={() => {
+                  const container = document.getElementById('traits-container');
+                  if (container) {
+                    container.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                      container.style.display = 'none';
+                    }, 300);
+                  }
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto" style={{ height: 'calc(100% - 60px)' }}>
+              {/* Los traits se renderizarán aquí */}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
