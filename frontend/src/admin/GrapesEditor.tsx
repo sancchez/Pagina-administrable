@@ -1923,6 +1923,38 @@ const GrapesEditor: React.FC = () => {
 
             const contentTrait = component.getTrait?.('content');
             if (contentTrait) contentTrait.set?.('value', currentText);
+            
+            // Sincronizar URL/Acción/Target desde atributos existentes (href/target)
+            try {
+              const href = el?.getAttribute?.('href') || (attrs as any)?.href || '';
+              const targetAttr = el?.getAttribute?.('target') || (attrs as any)?.target || '';
+              const dataUrl = (attrs as any)?.['data-url'] || '';
+              const dataAction = (attrs as any)?.['data-action'] || '';
+              const updates: Record<string, string> = {};
+              if (href && !dataUrl) {
+                updates['data-url'] = href;
+                if (!dataAction) updates['data-action'] = 'link';
+              }
+              if (targetAttr && !(attrs as any)['data-target']) {
+                updates['data-target'] = targetAttr;
+              }
+              if (Object.keys(updates).length) {
+                if (typeof component.addAttributes === 'function') {
+                  component.addAttributes(updates);
+                } else {
+                  Object.assign(attrs as any, updates);
+                  component.set('attributes', attrs);
+                }
+                // Actualizar UI de traits
+                const urlTrait = component.getTrait?.('data-url');
+                const actionTrait = component.getTrait?.('data-action');
+                const targetTrait = component.getTrait?.('data-target');
+                if (urlTrait) urlTrait.set?.('value', updates['data-url'] || dataUrl);
+                if (actionTrait) actionTrait.set?.('value', updates['data-action'] || dataAction);
+                if (targetTrait) targetTrait.set?.('value', updates['data-target'] || (attrs as any)['data-target'] || '');
+                gEditor.TraitManager?.render?.();
+              }
+            } catch {}
           } catch (e) {
             console.warn('Error en component:selected:', e);
           }
@@ -2920,7 +2952,7 @@ const GrapesEditor: React.FC = () => {
                }
                
                const action = this.getAttribute('data-action');
-               const url = this.getAttribute('data-url');
+               const url = this.getAttribute('data-url') || this.getAttribute('href');
                const target = this.getAttribute('data-target') || '_self';
                const transactionId = this.getAttribute('data-transaction-id');
                const amount = this.getAttribute('data-amount');
@@ -3140,6 +3172,24 @@ const GrapesEditor: React.FC = () => {
                  // Mantener sincronizado el contenido del modelo para exportar HTML correcto
                  btn.set('content', currentText);
                }
+                // Mapear atributos existentes (href/target) a traits de configuración
+                const attrs = typeof btn.getAttributes === 'function'
+                  ? btn.getAttributes()
+                  : (btn.get('attributes') || {});
+                const el: HTMLElement | undefined = anyBtn.view?.el as HTMLElement | undefined;
+                const hrefAttr = (attrs && (attrs as any).href) || el?.getAttribute?.('href') || '';
+                const targetAttr = (attrs && (attrs as any).target) || el?.getAttribute?.('target') || '';
+                const dataUrlAttr = (attrs && (attrs as any)['data-url']) || '';
+                const dataActionAttr = (attrs && (attrs as any)['data-action']) || '';
+                const newAttrs: Record<string, string> = {};
+                if (hrefAttr && !dataUrlAttr) {
+                  newAttrs['data-url'] = hrefAttr;
+                  if (!dataActionAttr) newAttrs['data-action'] = 'link';
+                }
+                if (targetAttr && !(attrs && (attrs as any)['data-target'])) {
+                  newAttrs['data-target'] = targetAttr;
+                }
+                if (Object.keys(newAttrs).length) btn.addAttributes(newAttrs);
              } catch {}
            });
          }
