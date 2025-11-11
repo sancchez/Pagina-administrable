@@ -63,6 +63,53 @@ function sanitizeEditorScripts(html: string): string {
     .replace(/onload\s*=\s*["'][^"']*checkEditorContext[^"']*["']/gi, '');
 }
 
+// Remover duplicados de layout incrustados en HTML dinámico de Grapes (header/footer)
+function stripDuplicateLayout(html: string, slug: string): string {
+  if (!html) return html;
+  // No eliminar si estamos renderizando directamente las páginas especiales
+  if (slug === '_header' || slug === '_footer') return html;
+  try {
+    return html
+      // Quitar bloques <header> y <footer> completos (no codificados) del contenido dinámico
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '');
+  } catch {
+    return html;
+  }
+}
+
+// Prefijar selectores CSS para que apliquen solo dentro del contenedor de contenido
+function scopeCssToContent(css: string, containerSelector: string): string {
+  if (!css) return css;
+  try {
+    // Reemplazar inicio de bloques de selectores que no empiezan por '@'
+    // Ejemplo: h1, .class { ... }  =>  #page-content h1, #page-content .class { ... }
+    return css.replace(/(^|\})(\s*)([^@}{][^{]+)\{/g, (_m, p1, p2, selectors) => {
+      // Para cada selector separado por comas, prefijar el contenedor
+      const scoped = selectors
+        .split(',')
+        .map(s => `${containerSelector} ${s.trim()}`)
+        .join(', ');
+      return `${p1}${p2}${scoped}{`;
+    });
+  } catch {
+    return css;
+  }
+}
+
+// Detectar <style> internos y prefijar sus reglas al contenedor de contenido
+function scopeInlineStylesInHtml(html: string, containerSelector: string): string {
+  if (!html) return html;
+  try {
+    return html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_m, cssBlock: string) => {
+      const scoped = scopeCssToContent(cssBlock || '', containerSelector);
+      return `<style>${scoped}</style>`;
+    });
+  } catch {
+    return html;
+  }
+}
+
 const PageRenderer: React.FC = () => {
   const { slug = 'home' } = useParams<{ slug: string }>();
   const [dynamicPage, setDynamicPage] = useState<DynamicPageData | null>(null);
@@ -72,6 +119,10 @@ const PageRenderer: React.FC = () => {
   const [headerCss, setHeaderCss] = useState<string>('');
   const [footerHtml, setFooterHtml] = useState<string>('');
   const [footerCss, setFooterCss] = useState<string>('');
+  // Cache local de la última versión dinámica válida por slug
+  const [cachedDynamic, setCachedDynamic] = useState<{ html: string; css: string } | null>(null);
+  // Modo estricto: nunca usar cache local como contenido de la página
+  const strictRender = (import.meta as any)?.env?.VITE_STRICT_RENDER === 'false' ? false : true;
 
   // Priorizar contenido dinámico desde BD; usar estático solo como fallback
 
@@ -101,13 +152,44 @@ const PageRenderer: React.FC = () => {
           if (page && (page.html || page.publishedHtml)) {
             setDynamicPage(page);
             console.log('✅ [PageRenderer] Contenido cargado desde base de datos');
+            // Guardar en cache local la última versión válida
+            try {
+              const html = page.publishedHtml || page.html || page.gjsHtml || '';
+              const css = page.publishedCss || page.css || page.gjsCss || '';
+              setCachedDynamic({ html, css });
+              localStorage.setItem(`page_cache_${slug}`, JSON.stringify({ html, css, ts: Date.now() }));
+            } catch {}
           } else {
             console.log('📄 [PageRenderer] No hay contenido dinámico publicado');
             setDynamicPage(null);
+            // Intentar usar cache local si existe
+            if (!strictRender) {
+              try {
+                const raw = localStorage.getItem(`page_cache_${slug}`);
+                if (raw) {
+                  const obj = JSON.parse(raw);
+                  if (obj && typeof obj.html === 'string') {
+                    setCachedDynamic({ html: obj.html, css: obj.css || '' });
+                  }
+                }
+              } catch {}
+            }
           }
         } else if (response.status === 404) {
           console.log('📄 [PageRenderer] Página no encontrada en BD');
           setDynamicPage(null);
+          // Intentar usar cache local si existe
+          if (!strictRender) {
+            try {
+              const raw = localStorage.getItem(`page_cache_${slug}`);
+              if (raw) {
+                const obj = JSON.parse(raw);
+                if (obj && typeof obj.html === 'string') {
+                  setCachedDynamic({ html: obj.html, css: obj.css || '' });
+                }
+              }
+            } catch {}
+          }
         } else {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
@@ -115,6 +197,18 @@ const PageRenderer: React.FC = () => {
         console.error('❌ [PageRenderer] Error al cargar página:', err);
         setError(err instanceof Error ? err.message : 'Error desconocido');
         setDynamicPage(null);
+        // Intentar usar cache local si existe
+        if (!strictRender) {
+          try {
+            const raw = localStorage.getItem(`page_cache_${slug}`);
+            if (raw) {
+              const obj = JSON.parse(raw);
+              if (obj && typeof obj.html === 'string') {
+                setCachedDynamic({ html: obj.html, css: obj.css || '' });
+              }
+            }
+          } catch {}
+        }
       } finally {
         setIsLoading(false);
       }
@@ -200,12 +294,20 @@ const PageRenderer: React.FC = () => {
   }
 
   // 🎯 RENDERIZADO DE PÁGINA DINÁMICA (prioridad)
-  if (dynamicPage) {
-    const rawHtmlContent = dynamicPage.publishedHtml || dynamicPage.html || dynamicPage.gjsHtml || '';
-    const cssContent = dynamicPage.publishedCss || dynamicPage.css || dynamicPage.gjsCss || '';
+  if (dynamicPage || (!strictRender && cachedDynamic)) {
+    const rawHtmlContent = dynamicPage
+      ? (dynamicPage.publishedHtml || dynamicPage.html || dynamicPage.gjsHtml || '')
+      : (cachedDynamic?.html || '');
+    const cssContent = dynamicPage
+      ? (dynamicPage.publishedCss || dynamicPage.css || dynamicPage.gjsCss || '')
+      : (cachedDynamic?.css || '');
     
     // 🧼 Sanitizar scripts del editor antes de renderizar
-    const htmlContent = sanitizeEditorScripts(rawHtmlContent);
+    let htmlContent = sanitizeEditorScripts(rawHtmlContent);
+    // Remover header/footer duplicados del contenido dinámico (layout global está en <Layout>)
+    htmlContent = stripDuplicateLayout(htmlContent, slug);
+    // Prefijar estilos inline del HTML para que no afecten header/footer globales
+    htmlContent = scopeInlineStylesInHtml(htmlContent, '#page-content');
 
     console.log('🎬 [PageRenderer] Renderizando:', htmlContent ? 'DINÁMICO' : 'ESTÁTICO');
     console.log('📥 [PageRenderer] Datos recibidos de API', {
@@ -245,6 +347,36 @@ const PageRenderer: React.FC = () => {
             });
             
             console.log('🎯 Scripts ejecutados en página publicada:', scripts.length);
+
+            // 🔒 Fuerza navegación interna en misma ventana dentro del contenido dinámico
+            const container = contentRef.current;
+            const onClick = (ev: Event) => {
+              const target = ev.target as HTMLElement | null;
+              if (!target) return;
+              const anchor = target.closest('a') as HTMLAnchorElement | null;
+              if (!anchor) return;
+              const href = anchor.getAttribute('href') || '';
+              const isExternal = /^https?:\/\//i.test(href);
+              const isInternal = !isExternal && href.startsWith('/');
+              if (isInternal) {
+                // Normalizar atributos y evitar nueva pestaña
+                if (anchor.getAttribute('target') === '_blank') anchor.setAttribute('target', '_self');
+                if (anchor.getAttribute('data-target') === '_blank') anchor.setAttribute('data-target', '_self');
+                ev.preventDefault();
+                window.location.assign(href);
+              }
+            };
+            container.addEventListener('click', onClick, true);
+            // Normalizar atributos tras render
+            container.querySelectorAll('a').forEach((a) => {
+              const href = a.getAttribute('href') || '';
+              const isExternal = /^https?:\/\//i.test(href);
+              if (!isExternal && href.startsWith('/')) {
+                if (a.getAttribute('target') === '_blank') a.setAttribute('target', '_self');
+                if (a.getAttribute('data-target') === '_blank') a.setAttribute('data-target', '_self');
+              }
+            });
+            return () => container.removeEventListener('click', onClick, true);
           }
         }, []);
 
@@ -260,7 +392,7 @@ const PageRenderer: React.FC = () => {
         <Layout headerHtml={headerHtml} headerCss={headerCss} footerHtml={footerHtml} footerCss={footerCss}>
           {/* CSS de la página */}
           {cssContent && (
-            <style dangerouslySetInnerHTML={{ __html: cssContent }} />
+            <style dangerouslySetInnerHTML={{ __html: scopeCssToContent(cssContent, '#page-content') }} />
           )}
           {/* HTML de la página con scripts ejecutables */}
           <DynamicContent />

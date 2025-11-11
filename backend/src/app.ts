@@ -5,7 +5,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import { setupSwagger } from './config/swagger';
 import { errorHandler, notFound } from './middleware/errorHandler';
-import { generalLimiter } from './middleware/rateLimiter';
+import { adaptiveLimiter } from './middleware/rateLimiter';
 import { enhancedRequestLogger, developmentLogger, productionLogger } from './middleware/enhancedRequestLogger';
 import enhancedLogger from './utils/enhancedLogger';
 import path from 'path';
@@ -76,8 +76,8 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting global
-app.use(generalLimiter);
+// Rate limiting global adaptativo por endpoint
+app.use(adaptiveLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

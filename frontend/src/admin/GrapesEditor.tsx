@@ -1827,30 +1827,49 @@ const GrapesEditor: React.FC = () => {
            }
          });
 
-         // COMPONENTE 2: Fallback desde trait 'content' para mantener sincronización
+         // COMPONENTE 2: Sincronización de traits clave para edición estable
          gEditor.on('trait:update', (trait: any) => {
            try {
              const name = trait?.get?.('name');
-             if (name !== 'content') return;
-
              const component = gEditor.getSelected?.();
              if (!component) return;
              const type = component.get('type');
              if (type !== 'button' && type !== 'action-button') return;
-
              const newValue = trait?.get?.('value');
              if (!newValue || (typeof newValue === 'string' && !newValue.trim())) return;
 
-             // Actualizar contenido visual
-             component.components(newValue);
+             if (name === 'content') {
+               // Actualizar contenido visual
+               component.components(newValue);
 
-             // Actualizar data-label
-             if (typeof component.addAttributes === 'function') {
-               component.addAttributes({ 'data-label': newValue });
-             } else {
-               const attrs = component.get('attributes') || {};
-               attrs['data-label'] = newValue;
-               component.set('attributes', attrs);
+               // Actualizar data-label
+               if (typeof component.addAttributes === 'function') {
+                 component.addAttributes({ 'data-label': newValue });
+               } else {
+                 const attrs = component.get('attributes') || {};
+                 (attrs as any)['data-label'] = newValue;
+                 component.set('attributes', attrs);
+               }
+             } else if (name === 'data-url' || name === 'href') {
+               // Sincronizar URL entre data-url y href
+               if (typeof component.addAttributes === 'function') {
+                 component.addAttributes({ 'data-url': newValue, href: newValue });
+               } else {
+                 const attrs = component.get('attributes') || {};
+                 (attrs as any)['data-url'] = newValue;
+                 (attrs as any)['href'] = newValue;
+                 component.set('attributes', attrs);
+               }
+             } else if (name === 'data-target') {
+               // Sincronizar target entre data-target y target
+               if (typeof component.addAttributes === 'function') {
+                 component.addAttributes({ 'data-target': newValue, target: newValue });
+               } else {
+                 const attrs = component.get('attributes') || {};
+                 (attrs as any)['data-target'] = newValue;
+                 (attrs as any)['target'] = newValue;
+                 component.set('attributes', attrs);
+               }
              }
 
              setHasUnsavedChanges(true);
@@ -1911,9 +1930,14 @@ const GrapesEditor: React.FC = () => {
             const innerText = el?.innerText?.trim?.() || '';
             const currentText = dataLabel || innerText || component.get('content') || 'Botón';
 
-            // Sincronizar todos los lugares
+            // Sincronizar contenido sin forzar re-render innecesario
+            const prevText = el?.textContent?.trim?.() || '';
             component.set({ content: currentText }, { silent: true });
-            component.components(currentText);
+            // Solo reescribir hijos si no hay elementos anidados y el texto cambió
+            const hasNested = el ? (el.childElementCount > 0) : false;
+            if (!hasNested && currentText !== prevText) {
+              component.components(currentText);
+            }
             if (typeof component.addAttributes === 'function') {
               component.addAttributes({ 'data-label': currentText });
             } else {
@@ -3053,21 +3077,26 @@ const GrapesEditor: React.FC = () => {
         const frameEl = gEditor.Canvas.getFrameEl();  // iframe donde se ve la página
         const panelsEl = document.querySelector('.gjs-pn-views-container') as HTMLElement; // panel derecho (propiedades)
 
+        let _rafId: number | null = null;
+        let _lastPanelW = -1;
         function adjustCanvasWidth() {
           if (!canvasElement || !frameEl || !panelsEl) return;
-
-          const panelWidth = panelsEl.offsetWidth;
-          const editorEl = gEditor.getEl();
-          if (!editorEl) return;
-          
-          const editorWidth = editorEl.offsetWidth;
-          const canvasWidth = editorWidth - panelWidth;
-
-          canvasElement.style.width = `${canvasWidth}px`;
-          frameEl.style.width = '100%';
-          frameEl.style.margin = '0 auto';
-          
-          console.log('🎯 Canvas ajustado - Panel:', panelWidth, 'Editor:', editorWidth, 'Canvas:', canvasWidth);
+          const apply = () => {
+            const panelWidth = panelsEl.offsetWidth;
+            // Evitar recalcular si el ancho del panel no cambió significativamente
+            if (_lastPanelW !== -1 && Math.abs(panelWidth - _lastPanelW) < 2) return;
+            _lastPanelW = panelWidth;
+            const editorEl = gEditor.getEl();
+            if (!editorEl) return;
+            const editorWidth = editorEl.offsetWidth;
+            const canvasWidth = Math.max(0, editorWidth - panelWidth);
+            canvasElement.style.width = `${canvasWidth}px`;
+            frameEl.style.width = '100%';
+            frameEl.style.margin = '0 auto';
+            console.log('🎯 Canvas ajustado - Panel:', panelWidth, 'Editor:', editorWidth, 'Canvas:', canvasWidth);
+          };
+          if (_rafId) cancelAnimationFrame(_rafId);
+          _rafId = requestAnimationFrame(apply);
         }
 
         // Ajustar al cargar
@@ -3089,8 +3118,9 @@ const GrapesEditor: React.FC = () => {
         // 🎯 PASO 3: Event listeners para recalcular posiciones en cambios responsivos
         gEditor.on('device:change canvas:resize', () => {
           console.log('🎯 Recalculando posiciones por cambio de dispositivo/canvas');
-          gEditor.refresh();
-          gEditor.trigger('canvas:refresh');
+          // Evitar refrescos redundantes que causan parpadeos
+          try { adjustCanvasWidth(); } catch {}
+          try { gEditor.trigger('canvas:refresh'); } catch {}
           
           // Recorregir escalado después del cambio
           setTimeout(() => {
@@ -3150,8 +3180,8 @@ const GrapesEditor: React.FC = () => {
           }
         };
 
-        // Aplicar sincronización en eventos de selección y cambios
-        gEditor.on('component:selected component:deselected canvas:refresh device:change', syncSelectionOverlay);
+        // Aplicar sincronización en eventos del canvas (evitar ejecutarlo en selección para reducir jitter)
+        gEditor.on('canvas:refresh device:change', syncSelectionOverlay);
         
         // Sincronizar también en scroll del canvas
         const canvasEl = gEditor.Canvas.getElement();

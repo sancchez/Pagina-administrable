@@ -47,21 +47,31 @@ export const generalLimiter = rateLimit({
 });
 
 // Rate limiter para autenticación (más restrictivo)
+const isDev = (process.env.NODE_ENV || 'development') !== 'production';
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 intentos de login por IP
+  windowMs: isDev ? (5 * 60 * 1000) : (15 * 60 * 1000), // 5 min en dev, 15 min prod
+  max: isDev ? 30 : 10, // más permisivo en dev
   message: (req: Request) => {
     logRateLimit(req, 'Authentication rate limit exceeded');
     return createRateLimitMessage(
-      'Demasiados intentos de inicio de sesión, intenta de nuevo en 15 minutos.',
-      15 * 60
+      isDev
+        ? 'Demasiados intentos de inicio de sesión, intenta de nuevo en 5 minutos.'
+        : 'Demasiados intentos de inicio de sesión, intenta de nuevo en 15 minutos.',
+      isDev ? (5 * 60) : (15 * 60)
     );
   },
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // No contar requests exitosos
   keyGenerator: (req: Request) => {
-    return networkUtils.getClientIP(req);
+    // Combinar IP y email para granularidad (evita bloquear por IP compartida)
+    try {
+      const ip = networkUtils.getClientIP(req);
+      const email = (req.body && typeof req.body.email === 'string') ? req.body.email.toLowerCase().trim() : '';
+      return email ? `login:${email}@${ip}` : ip;
+    } catch {
+      return networkUtils.getClientIP(req);
+    }
   },
 });
 

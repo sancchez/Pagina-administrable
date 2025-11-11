@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 interface LayoutProps {
@@ -10,13 +10,105 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footerHtml, footerCss }) => {
+  // Cargar header/footer dinámicos si no fueron proporcionados
+  const [loadedHeaderHtml, setLoadedHeaderHtml] = useState<string>('');
+  const [loadedHeaderCss, setLoadedHeaderCss] = useState<string>('');
+  const [loadedFooterHtml, setLoadedFooterHtml] = useState<string>('');
+  const [loadedFooterCss, setLoadedFooterCss] = useState<string>('');
+
+  // Mantener el HTML tal cual; no forzar comportamiento desde aquí
+  const sanitizeTargets = (html: string) => (html || '');
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadHeaderFooter = async () => {
+      try {
+        if (!headerHtml) {
+          const hRes = await fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          if (hRes.ok) {
+            const hJson = await hRes.json();
+            const hPage = hJson?.data?.page || hJson?.data || {};
+            const hHtml = hPage.publishedHtml || hPage.gjsHtml || hPage.html || '';
+            const hCss = hPage.publishedCss || hPage.gjsCss || hPage.css || '';
+            if (!cancelled) {
+              setLoadedHeaderHtml(sanitizeTargets(hHtml));
+              setLoadedHeaderCss(hCss);
+            }
+          }
+        }
+        if (!footerHtml) {
+          const fRes = await fetch('/api/pages/public/_footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          if (fRes.ok) {
+            const fJson = await fRes.json();
+            const fPage = fJson?.data?.page || fJson?.data || {};
+            const fHtml = fPage.publishedHtml || fPage.gjsHtml || fPage.html || '';
+            const fCss = fPage.publishedCss || fPage.gjsCss || fPage.css || '';
+            if (!cancelled) {
+              setLoadedFooterHtml(fHtml);
+              setLoadedFooterCss(fCss);
+            }
+          }
+        }
+      } catch (e) {
+        // Silenciar errores para no afectar render
+      }
+    };
+    loadHeaderFooter();
+    return () => { cancelled = true; };
+  }, [headerHtml, footerHtml]);
+
+  const effectiveHeaderHtml = sanitizeTargets(headerHtml || loadedHeaderHtml);
+  const effectiveHeaderCss = headerCss || loadedHeaderCss;
+  const effectiveFooterHtml = footerHtml || loadedFooterHtml;
+  const effectiveFooterCss = footerCss || loadedFooterCss;
+
+  // Ajuste suave: establecer target por defecto en enlaces internos si falta
+  useEffect(() => {
+    try {
+      const container = document.getElementById('site-header');
+      if (!container) return;
+      container.querySelectorAll('a').forEach((a) => {
+        const href = a.getAttribute('href') || '';
+        const isExternal = /^https?:\/\//i.test(href);
+        const isInternal = !isExternal && href.startsWith('/');
+        const hasTarget = a.hasAttribute('target') || a.hasAttribute('data-target');
+        if (isInternal && !hasTarget) a.setAttribute('target', '_self');
+      });
+    } catch {}
+  }, [effectiveHeaderHtml]);
+
+  // Enlaces internos del header: navegar en la misma ventana salvo que se haya configurado explícitamente "Nueva ventana"
+  useEffect(() => {
+    try {
+      const container = document.getElementById('site-header');
+      if (!container) return;
+      const onClick = (ev: Event) => {
+        const target = ev.target as HTMLElement | null;
+        const anchor = target?.closest('a') as HTMLAnchorElement | null;
+        if (!anchor) return;
+        const href = anchor.getAttribute('href') || '';
+        const isExternal = /^https?:\/\//i.test(href);
+        const isInternal = !isExternal && href.startsWith('/');
+        const dt = anchor.getAttribute('data-target');
+        const tg = anchor.getAttribute('target');
+        const explicitBlank = dt === '_blank' || tg === '_blank';
+        if (isInternal && !explicitBlank) {
+          ev.preventDefault();
+          anchor.setAttribute('target', '_self');
+          window.location.assign(href);
+        }
+      };
+      container.addEventListener('click', onClick, true);
+      return () => container.removeEventListener('click', onClick, true);
+    } catch {}
+  }, [effectiveHeaderHtml]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}
-      {headerHtml ? (
+      {effectiveHeaderHtml ? (
         <>
-          {headerCss && <style dangerouslySetInnerHTML={{ __html: headerCss }} />}
-          <div id="site-header" dangerouslySetInnerHTML={{ __html: headerHtml }} />
+          {effectiveHeaderCss && <style dangerouslySetInnerHTML={{ __html: effectiveHeaderCss }} />}
+          <div id="site-header" dangerouslySetInnerHTML={{ __html: effectiveHeaderHtml }} />
         </>
       ) : (
         <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100">
@@ -84,10 +176,10 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       </main>
 
       {/* Footer */}
-      {footerHtml ? (
+      {effectiveFooterHtml ? (
         <>
-          {footerCss && <style dangerouslySetInnerHTML={{ __html: footerCss }} />}
-          <div id="site-footer" dangerouslySetInnerHTML={{ __html: footerHtml }} />
+          {effectiveFooterCss && <style dangerouslySetInnerHTML={{ __html: effectiveFooterCss }} />}
+          <div id="site-footer" dangerouslySetInnerHTML={{ __html: effectiveFooterHtml }} />
         </>
       ) : (
         <footer className="bg-gradient-to-r from-blue-900 to-green-900 text-white">

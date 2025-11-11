@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
-import { authLimiter, registerLimiter } from '../middleware/rateLimiter';
+// Limiter adaptativo global aplicado en app.ts gestionará límites por endpoint
 
 const router = Router();
 
@@ -125,7 +125,7 @@ const router = Router();
  *       429:
  *         description: Demasiados intentos de inicio de sesión
  */
-router.post('/login', authLimiter, AuthController.login);
+router.post('/login', AuthController.login);
 
 /**
  * @swagger
@@ -153,7 +153,7 @@ router.post('/login', authLimiter, AuthController.login);
  *       429:
  *         description: Demasiados intentos de registro
  */
-router.post('/register', registerLimiter, AuthController.register);
+router.post('/register', AuthController.register);
 
 /**
  * @swagger
