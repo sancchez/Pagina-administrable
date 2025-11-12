@@ -4464,7 +4464,7 @@ const GrapesEditor: React.FC = () => {
     }
   }, [scheduleAutoSave]);
 
-  // Inicializar editor: depende SOLO de slug y no reinicia si ya existe
+  // Inicializar editor: espera activa por contenedor antes de iniciar GrapesJS
   useEffect(() => {
     console.log('🔄 useEffect [init editor][slug]');
     if (!slug) return;
@@ -4476,11 +4476,32 @@ const GrapesEditor: React.FC = () => {
       }
       return;
     }
-    const timer = setTimeout(() => {
+
+    let cancelled = false;
+    const waitForContainer = async () => {
+      let container: HTMLElement | null = null;
+      let retries = 0;
+      while (!container && retries < 50 && !cancelled) { // ≈5s
+        container = editorContainerRef.current || document.getElementById('gjs');
+        if (!container) {
+          if (retries === 0) console.warn('⚠️ Esperando a que el contenedor del editor esté listo...');
+          await new Promise(r => setTimeout(r, 100));
+          retries++;
+        }
+      }
+      if (cancelled) return;
+      if (!container) {
+        console.error('❌ No se encontró el contenedor del editor después de esperar.');
+        return;
+      }
+      console.log('✅ Contenedor listo, inicializando GrapesJS...');
       initializeEditor();
-    }, 100); // Pequeño delay para asegurar que el DOM esté listo
+    };
+
+    waitForContainer();
+
     return () => {
-      clearTimeout(timer);
+      cancelled = true;
       try {
         const ed = editorInstanceRef.current;
         if (ed) {
