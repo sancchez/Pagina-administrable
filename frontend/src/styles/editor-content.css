@@ -1,0 +1,114 @@
+/* --- NORMALIZACIÓN GENERAL PARA QUE TODO EL CONTENIDO SE VEA IGUAL --- */
+
+/* Aplica a contenido que viene del editor y a contenido viejo */
+.editor-content,
+.prose,
+.contenido,
+.post-body {
+  font-family: system-ui, sans-serif !important;
+  line-height: 1.6 !important;
+  font-size: 1rem;
+  color: #222;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+/* Títulos */
+.editor-content h1,
+.contenido h1,
+.post-body h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 1.5rem 0 1rem;
+}
+
+.editor-content h2,
+.contenido h2,
+.post-body h2 {
+  font-size: 1.7rem;
+  font-weight: 600;
+  margin: 1.2rem 0 .8rem;
+}
+
+/* Párrafos */
+.editor-content p,
+.contenido p,
+.post-body p {
+  margin: .8rem 0;
+}
+
+/* Imágenes: arregla lo que dices que se iban abajo o se agrandaban */
+.editor-content img,
+.contenido img,
+.post-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem auto;
+  border-radius: 8px; /* puedes quitarlo si no lo quieres */
+}
+
+/* Listas */
+.editor-content ul,
+.contenido ul,
+.post-body ul {
+  padding-left: 1.2rem;
+  margin: .8rem 0;
+}
+
+.editor-content ol,
+.contenido ol,
+.post-body ol {
+  padding-left: 1.4rem;
+  margin: .8rem 0;
+}
+
+/* Bloques citados */
+.editor-content blockquote,
+.contenido blockquote,
+.post-body blockquote {
+  border-left: 4px solid #ccc;
+  padding-left: 1rem;
+  color: #555;
+  font-style: italic;
+  margin: 1rem 0;
+}
+
+/* Enlaces */
+.editor-content a,
+.contenido a,
+.post-body a {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+/* Botones añadidos por el editor */
+.editor-content button {
+  padding: .5rem 1rem;
+  border-radius: 4px;
+  border: none;
+  background: #444;
+  color: white;
+  cursor: pointer;
+}
+
+/* TABLAS */
+.editor-content table,
+.contenido table,
+.post-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.editor-content table th,
+.editor-content table td {
+  border: 1px solid #ccc;
+  padding: .5rem;
+}
+
+/* MOBILE FIX */
+@media (max-width: 768px) {
+  .editor-content h1 { font-size: 1.6rem; }
+  .editor-content h2 { font-size: 1.4rem; }
+}

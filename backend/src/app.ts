@@ -105,7 +105,9 @@ try {
   const uploadsDir = path.isAbsolute(config.upload.path)
     ? config.upload.path
     : path.join(process.cwd(), config.upload.path);
+  // Servir tanto bajo /api/uploads (existente) como /uploads para uso directo en HTML
   app.use('/api/uploads', express.static(uploadsDir));
+  app.use('/uploads', express.static(uploadsDir));
 } catch (e) {
   appLogger.warn('No se pudo montar estáticos de uploads', { error: (e as any)?.message });
 }

@@ -113,13 +113,25 @@ const GrapesEditor: React.FC = () => {
         else console.warn('⚠️ Documento del canvas no disponible para estilos');
         return;
       }
-      const href = '/tailwind.css';
-      if (!doc.querySelector(`link[rel="stylesheet"][href="${href}"]`)) {
+      // Preferir CSS de Vite en desarrollo
+      const devHref = '/src/index.css';
+      const builtHref = '/tailwind.css'; // fallback si has generado public/tailwind.css
+      const existingDev = doc.querySelector(`link[rel="stylesheet"][href="${devHref}"]`);
+      const existingBuilt = doc.querySelector(`link[rel="stylesheet"][href="${builtHref}"]`);
+      if (!existingDev && !existingBuilt) {
         const link = doc.createElement('link');
         link.rel = 'stylesheet';
-        link.href = href;
+        link.href = devHref;
         doc.head.appendChild(link);
-        console.log('🎨 Tailwind CSS inyectado en canvas');
+        console.log('🎨 Tailwind (src/index.css) inyectado en canvas');
+      }
+      const fontHref = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap';
+      if (!doc.querySelector(`link[rel="stylesheet"][href="${fontHref}"]`)) {
+        const fontLink = doc.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = fontHref;
+        doc.head.appendChild(fontLink);
+        console.log('🔤 Fuente Inter inyectada en canvas');
       }
     } catch (e) {
       console.warn('No se pudo inyectar Tailwind en canvas:', e);
@@ -282,6 +294,17 @@ const GrapesEditor: React.FC = () => {
         styles: typeof styles === 'string' ? JSON.parse(styles) : styles || []
       };
 
+      // Generar grapesData completo desde el editor (store/getProjectData) de forma tolerante
+      let grapesDataObj: any = null;
+      try {
+        grapesDataObj = inst.store ? inst.store() : (typeof inst.getProjectData === 'function' ? inst.getProjectData() : null);
+      } catch (e) {
+        console.warn('No se pudo generar grapesData con store/getProjectData', e);
+        grapesDataObj = null;
+      }
+      // Usar el objeto completo si existe; si no, caer al básico armado arriba
+      const grapesDataStr: string = grapesDataObj ? JSON.stringify(grapesDataObj) : JSON.stringify(grapesJsData);
+
       // Si es una página nueva (sin ID), crearla primero
       let currentPageData = pageData;
       if (!pageData.id) {
@@ -309,7 +332,7 @@ const GrapesEditor: React.FC = () => {
       // Solo enviar los campos permitidos por el backend
       const payload: any = {
         // Clave principal esperada por el backend
-        grapesData: JSON.stringify(grapesJsData),
+        grapesData: grapesDataStr,
         // Campos en camelCase que sí están permitidos según el error
         gjsHtml: html,
         gjsCss: css,
@@ -503,6 +526,18 @@ const GrapesEditor: React.FC = () => {
         container: editorContainerRef.current,
         height: '100vh',
         width: 'auto',
+        allowScripts: true,
+        fromElement: true,
+        // Configuración para coherencia con Tailwind y evitar estilos inline
+        avoidInlineStyle: true,
+        protectedCss: '',
+        storageManager: { type: 'local' },
+        canvas: {
+          styles: [
+            '/src/index.css',
+            'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap'
+          ]
+        },
         panels: {
           defaults: [
             {
@@ -937,18 +972,7 @@ const GrapesEditor: React.FC = () => {
             { id: "Wide", name: "Ancho", width: "1024px" }
           ]
         },
-        // Posicionamiento libre removido: 'canvasOffset' no es parte de EditorConfig tipado
-        // Configuración adicional removida para cumplir tipos de DomComponents
-        storageManager: false,
-        avoidInlineStyle: true,
-        canvas: {
-          styles: [
-            // 🎯 URLs de hojas de estilo externas
-            '/tailwind.css',
-            'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css'
-          ],
-          scripts: []
-        }
+        // (claves duplicadas removidas: storageManager, avoidInlineStyle y canvas ya definidos arriba)
       });
 
     // ====== SINCRONIZACIÓN DE TEXTO EN BOTONES (SETTINGS - TUERCA) ======
@@ -1043,6 +1067,29 @@ const GrapesEditor: React.FC = () => {
         setTimeout(() => {
           gEditor.TraitManager.render();
         }, 300);
+      });
+
+      // Inyectar fuentes globales y asegurar estilos en iframe
+      gEditor.on('load', () => {
+        const frame = gEditor.Canvas.getFrameEl();
+        const doc = frame?.contentDocument || gEditor.Canvas.getDocument();
+        try {
+          if (doc?.head) {
+            // Fuente Inter (opcional)
+            const fontHref = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap';
+            if (!doc.head.querySelector(`link[rel="stylesheet"][href="${fontHref}"]`)) {
+              const linkFont = doc.createElement('link');
+              linkFont.rel = 'stylesheet';
+              linkFont.href = fontHref;
+              doc.head.appendChild(linkFont);
+              console.log('🔡 Fuente Inter inyectada en canvas');
+            }
+            // Asegurar Tailwind
+            injectTailwindIntoCanvas();
+          }
+        } catch (e) {
+          console.warn('No se pudieron inyectar estilos/fuentes en iframe:', e);
+        }
       });
 
       // ======================================================
@@ -1984,7 +2031,7 @@ const GrapesEditor: React.FC = () => {
           }
         });
 
-        // COMPONENTE 4: Inicializar botones existentes al cargar
+        // COMPONENTE 4: Inicializar y normalizar botones existentes al cargar
         gEditor.on('load', () => {
           try {
             const wrapper = gEditor.DomComponents?.getWrapper?.();
@@ -1995,24 +2042,58 @@ const GrapesEditor: React.FC = () => {
                 const attrs = typeof btn.getAttributes === 'function'
                   ? btn.getAttributes()
                   : (btn.get('attributes') || {});
-                const dataLabel = attrs?.['data-label'];
-                const content = btn.get('content');
+                const elTag = (btn.view?.el?.tagName || '').toUpperCase();
+                const currentText = (btn.view?.el?.textContent || '').trim();
+                const dataLabel = (attrs as any)['data-label'] || currentText || btn.get('content') || '';
 
-                if (dataLabel && typeof dataLabel === 'string') {
-                  btn.set({ content: dataLabel }, { silent: true });
-                  btn.components(dataLabel);
-                } else if (content && typeof content === 'string') {
-                  if (typeof btn.addAttributes === 'function') {
-                    btn.addAttributes({ 'data-label': content });
-                  } else {
-                    attrs['data-label'] = content;
-                    btn.set('attributes', attrs);
+                // Convertir <a> en <button> manteniendo clases y mapeando href/target a traits
+                if (elTag === 'A') {
+                  const hrefAttr = (attrs as any).href || btn.view?.el?.getAttribute?.('href') || '';
+                  const targetAttr = (attrs as any).target || btn.view?.el?.getAttribute?.('target') || '';
+                  // Mapear a traits
+                  const newAttrs: Record<string, string> = {};
+                  if (hrefAttr) {
+                    newAttrs['data-url'] = hrefAttr;
+                    if (!(attrs as any)['data-action']) newAttrs['data-action'] = 'link';
                   }
+                  if (targetAttr && !(attrs as any)['data-target']) newAttrs['data-target'] = targetAttr;
+                  if (Object.keys(newAttrs).length) {
+                    if (typeof btn.addAttributes === 'function') btn.addAttributes(newAttrs);
+                    else btn.set('attributes', { ...(attrs as any), ...newAttrs });
+                  }
+                  // Eliminar href/target y cambiar tagName
+                  const filtered = { ...(attrs as any) };
+                  delete (filtered as any).href;
+                  delete (filtered as any).target;
+                  filtered.type = 'button';
+                  btn.set('tagName', 'button');
+                  btn.set('attributes', filtered);
+                }
+
+                // Asegurar texto único sin duplicados
+                if (typeof dataLabel === 'string' && dataLabel.length) {
+                  // Si el botón tiene hijos componentes de texto, actualizarlos y limpiar content
+                  const children = btn.components?.() || [];
+                  const onlyTextChildren = Array.isArray(children) && children.length > 0 && children.every((c: any) => (c?.get?.('type') === 'text'));
+                  if (onlyTextChildren) {
+                    // Actualiza el primer texto y elimina textos duplicados
+                    children.forEach((c: any, idx: number) => {
+                      if (idx === 0) c.set('content', dataLabel);
+                      else c.remove?.();
+                    });
+                    btn.set('content', '', { silent: true });
+                  } else {
+                    // Usar content si no hay hijos de texto
+                    btn.set('content', dataLabel, { silent: true });
+                  }
+                  // Persistir data-label
+                  if (typeof btn.addAttributes === 'function') btn.addAttributes({ 'data-label': dataLabel });
+                  else btn.set('attributes', { ...(btn.get('attributes') || {}), 'data-label': dataLabel });
                 }
               } catch {}
             });
           } catch (e) {
-            console.warn('Error inicializando botones en load:', e);
+            console.warn('Error inicializando/normalizando botones en load:', e);
           }
         });
       } catch {}
@@ -2892,8 +2973,8 @@ const GrapesEditor: React.FC = () => {
         },
         model: {
           defaults: {
-            tagName: 'a',
-            attributes: { href: '#', type: 'button' },
+            tagName: 'button',
+            attributes: { type: 'button' },
             traits: [
               {
                 type: 'text',
@@ -3196,6 +3277,7 @@ const GrapesEditor: React.FC = () => {
              btn.set({ type: 'action-button' });
              try {
                const anyBtn: any = btn as any;
+               const elTag = (anyBtn.view?.el?.tagName || '').toUpperCase();
                const currentText: string = (anyBtn.view?.el?.textContent || '').trim();
                if (currentText) {
                  btn.addAttributes({ 'data-label': currentText });
@@ -3220,6 +3302,16 @@ const GrapesEditor: React.FC = () => {
                   newAttrs['data-target'] = targetAttr;
                 }
                 if (Object.keys(newAttrs).length) btn.addAttributes(newAttrs);
+
+                // Convertir anclas existentes en <button> y limpiar href/target
+                if (elTag === 'A') {
+                  const filtered = { ...(attrs as any) };
+                  delete (filtered as any).href;
+                  delete (filtered as any).target;
+                  filtered.type = 'button';
+                  btn.set('tagName', 'button');
+                  btn.set('attributes', filtered);
+                }
              } catch {}
            });
          }
@@ -3228,6 +3320,18 @@ const GrapesEditor: React.FC = () => {
         gEditor.on('component:add', (comp: any) => {
           try {
             if (comp?.get?.('type') === 'action-button') {
+              const elTag = (comp.view?.el?.tagName || '').toUpperCase();
+              if (elTag === 'A') {
+                const attrs = typeof comp.getAttributes === 'function'
+                  ? comp.getAttributes()
+                  : (comp.get('attributes') || {});
+                const filtered = { ...(attrs as any) };
+                delete (filtered as any).href;
+                delete (filtered as any).target;
+                filtered.type = 'button';
+                comp.set('tagName', 'button');
+                comp.set('attributes', filtered);
+              }
               const currentText: string = (comp.view?.el?.textContent || '').trim();
               if (currentText) {
                 comp.addAttributes({ 'data-label': currentText });
@@ -4582,6 +4686,42 @@ const GrapesEditor: React.FC = () => {
     console.log('🔍 pageData recibido:', pageData);
 
     try {
+      // PRIORIDAD 0: Usar gjsComponents/gjsStyles como fuente prioritaria
+      // Esta vía preserva la semántica interna de GrapesJS y evita interpretaciones desde HTML
+      if (pageData.gjsComponents && pageData.gjsStyles) {
+        console.log('✅ Cargando desde gjsComponents/gjsStyles (prioritario)');
+
+        let components = pageData.gjsComponents;
+        let styles = pageData.gjsStyles;
+
+        try {
+          if (typeof components === 'string') components = JSON.parse(components);
+        } catch (e) {
+          console.warn('gjsComponents no parseable', e);
+        }
+        try {
+          if (typeof styles === 'string') styles = JSON.parse(styles);
+        } catch (e) {
+          console.warn('gjsStyles no parseable', e);
+        }
+
+        editorInstanceRef.current.setComponents(components);
+        editorInstanceRef.current.setStyle(styles);
+
+        // Actualizar referencias para preview/post-load
+        try {
+          const htmlNow = editorInstanceRef.current.getHtml();
+          latestHtmlRef.current = htmlNow || latestHtmlRef.current;
+        } catch {}
+        if (typeof styles === 'string') latestCssRef.current = styles;
+
+        // Marcar como cargado e inyectar Tailwind en el canvas
+        setContentLoaded(true);
+        try { injectTailwindIntoCanvas(); } catch {}
+
+        return;
+      }
+
       // PRIORIDAD 1: Usar gjsHtml con carga correcta en GrapesJS
       if (pageData.gjsHtml) {
         console.log('✅ Cargando desde gjsHtml con método correcto');

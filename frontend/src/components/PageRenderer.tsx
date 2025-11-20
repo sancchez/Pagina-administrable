@@ -123,6 +123,8 @@ const PageRenderer: React.FC = () => {
   const [cachedDynamic, setCachedDynamic] = useState<{ html: string; css: string } | null>(null);
   // Modo estricto: nunca usar cache local como contenido de la página
   const strictRender = (import.meta as any)?.env?.VITE_STRICT_RENDER === 'false' ? false : true;
+  // Estado para disponibilidad del backend (evita intentos de fetch cuando está caído)
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
 
   // Priorizar contenido dinámico desde BD; usar estático solo como fallback
 
@@ -219,7 +221,22 @@ const PageRenderer: React.FC = () => {
 
   // Cargar header y footer dinámicos
   useEffect(() => {
+    // Comprobación simple de disponibilidad del backend (evita spam de errores cuando está caído)
+    const checkBackend = async () => {
+      try {
+        const res = await fetch('/api', { cache: 'no-store' });
+        setBackendAvailable(res.ok);
+      } catch {
+        setBackendAvailable(false);
+      }
+    };
+    checkBackend();
+
     const loadHeaderFooter = async () => {
+      // Cargar header/footer SOLO cuando backendAvailable sea true
+      if (backendAvailable !== true) {
+        return; // Aún no confirmado backend, evitar intentos que generan errores de proxy
+      }
       try {
         const [hRes, fRes] = await Promise.all([
           fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
@@ -260,7 +277,7 @@ const PageRenderer: React.FC = () => {
       }
     };
     loadHeaderFooter();
-  }, []);
+  }, [backendAvailable]);
 
   // Mostrar loading
   if (isLoading) {
@@ -382,6 +399,7 @@ const PageRenderer: React.FC = () => {
 
         return (
           <div 
+            id="page-content"
             ref={contentRef}
             dangerouslySetInnerHTML={{ __html: htmlContent }} 
           />
@@ -390,12 +408,15 @@ const PageRenderer: React.FC = () => {
 
       return (
         <Layout headerHtml={headerHtml} headerCss={headerCss} footerHtml={footerHtml} footerCss={footerCss}>
+          <link rel="stylesheet" href="https://unpkg.com/grapesjs/dist/css/grapes.min.css" />
           {/* CSS de la página */}
           {cssContent && (
             <style dangerouslySetInnerHTML={{ __html: scopeCssToContent(cssContent, '#page-content') }} />
           )}
-          {/* HTML de la página con scripts ejecutables */}
-          <DynamicContent />
+          {/* HTML de la página con scripts ejecutables, envuelto para scoping correcto */}
+          <div className="editor-content">
+            <DynamicContent />
+          </div>
         </Layout>
       );
     }

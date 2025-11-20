@@ -2,6 +2,7 @@ import { Page, PageBackup, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { PageDataManager, GrapesJSData } from '../types/pageTypes';
+import { MigrationService } from './migrationService';
 import DOMPurify from 'isomorphic-dompurify';
 import { VersionService } from './versionService';
 
@@ -312,8 +313,21 @@ export class PageService {
       }
 
       // Resolver HTML/CSS con múltiples claves posibles
-      const htmlToSave = html ?? grapesData['gjs-html'] ?? grapesData.html ?? generatedContent?.html ?? '';
-      const cssToSave = css ?? grapesData['gjs-css'] ?? grapesData.css ?? generatedContent?.css ?? '';
+      let htmlToSave = html ?? grapesData['gjs-html'] ?? grapesData.html ?? generatedContent?.html ?? '';
+      let cssToSave = css ?? grapesData['gjs-css'] ?? grapesData.css ?? generatedContent?.css ?? '';
+
+      // Fallback robusto: si el CSS está vacío pero existen components/styles, generar CSS
+      if ((!cssToSave || cssToSave.trim() === '') && (grapesData?.components || grapesData?.['gjs-components'])) {
+        try {
+          const comps = grapesData?.components ?? grapesData?.['gjs-components'] ?? [];
+          const stylesArr = grapesData?.styles ?? grapesData?.['gjs-styles'] ?? [];
+          const gen = await MigrationService.generateHtmlCssFromGrapes({ components: comps, styles: stylesArr });
+          cssToSave = gen?.css || cssToSave || '';
+        } catch (e) {
+          console.warn('[PageService.saveGrapesData] CSS fallback generation failed', e);
+        }
+      }
+
       console.log('[PageService.saveGrapesData] resolved content lengths', { htmlLen: (htmlToSave || '').length, cssLen: (cssToSave || '').length });
 
       
@@ -402,7 +416,7 @@ export class PageService {
 
     // CASCADA: Usar gjsHtml primero, sino html legacy y luego content
     let htmlToPublish = page.gjsHtml || page.html || page.content || '';
-    const cssToPublish = page.gjsCss || page.css || '';
+    let cssToPublish = page.gjsCss || page.css || '';
 
     console.log('🚀 Publicando:', slug);
     console.log('  - Origen gjsHtml:', page.gjsHtml?.length || 0);
@@ -410,6 +424,22 @@ export class PageService {
 
     if (!htmlToPublish) {
       throw new Error('No hay contenido para publicar');
+    }
+
+    // Fallback robusto: si el CSS está vacío, intentar generarlo desde grapesData
+    if ((!cssToPublish || cssToPublish.trim() === '') && page.id) {
+      try {
+        const full = await prisma.page.findUnique({ where: { slug }, select: { grapesData: true } });
+        if (full?.grapesData) {
+          const gd = JSON.parse(full.grapesData);
+          const comps = gd?.components ?? gd?.['gjs-components'] ?? [];
+          const stylesArr = gd?.styles ?? gd?.['gjs-styles'] ?? [];
+          const gen = await MigrationService.generateHtmlCssFromGrapes({ components: comps, styles: stylesArr });
+          cssToPublish = gen?.css || cssToPublish || '';
+        }
+      } catch (e) {
+        console.warn('[PageService.publishPage] CSS fallback generation failed', e);
+      }
     }
 
     // Limpiar solo los scripts inline de GrapesJS que contienen handleClick

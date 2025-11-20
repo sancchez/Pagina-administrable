@@ -199,8 +199,13 @@ export const adaptiveLimiter = (req: Request, res: Response, next: NextFunction)
     return registerLimiter(req, res, next);
   }
   
-  if (path.includes('/upload') || (method === 'post' && path.includes('/files'))) {
+  // Uploads: aplicar limiter SOLO a operaciones de subida (POST), no a estáticos GET /uploads o /api/uploads
+  if (method === 'post' && (path.includes('/upload') || path.includes('/files'))) {
     return uploadLimiter(req, res, next);
+  }
+  // Asegurar que requests GET a archivos estáticos no sean penalizados por el limiter de uploads
+  if (method === 'get' && (path.startsWith('/api/uploads') || path.startsWith('/uploads'))) {
+    return next();
   }
   
   if (path.includes('/search') || path.includes('/query')) {
