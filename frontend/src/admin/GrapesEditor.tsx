@@ -611,7 +611,6 @@ const GrapesEditor: React.FC = () => {
                 }
               },
               traitManager: {
-                appendTo: '#traits-container',
                 empty: 'Selecciona un elemento para ver sus propiedades',
                 label: 'Configuración del componente',
                 traits: {
@@ -984,25 +983,10 @@ const GrapesEditor: React.FC = () => {
         try {
           const type = component.get('type');
           if (type !== 'button' && type !== 'link') {
-            // Ocultar el panel de traits si no es un botón o enlace
-            const traitsContainer = document.getElementById('traits-container');
-            if (traitsContainer) {
-              traitsContainer.style.transform = 'translateX(100%)';
-              setTimeout(() => {
-                traitsContainer.style.display = 'none';
-              }, 300);
-            }
             return;
           }
-          
+
           console.log('👆 Componente seleccionado, tipo:', type);
-          
-          // Mostrar el panel de traits
-          const traitsContainer = document.getElementById('traits-container');
-          if (traitsContainer) {
-            traitsContainer.style.display = 'block';
-            traitsContainer.style.transform = 'translateX(0)';
-          }
           
           // Pequeño timeout para asegurar que el componente esté completamente renderizado
           setTimeout(() => {
@@ -1011,9 +995,15 @@ const GrapesEditor: React.FC = () => {
               console.warn('⚠️ No se encontró elemento HTML del componente');
               return;
             }
+            // Convertir a action-button si no lo es aún (solo el seleccionado)
+            try {
+              if (component.get('type') !== 'action-button') {
+                component.set({ type: 'action-button' });
+              }
+            } catch {}
             
             // Obtener el texto actual del componente
-            const currentText = el.innerText.trim() || component.get('content') || type === 'button' ? 'Botón' : 'Enlace';
+            const currentText = el.innerText.trim() || component.get('content') || (type === 'button' ? 'Botón' : 'Enlace');
             console.log('📖 Texto actual:', currentText);
             
             // Actualizar el trait 'content' con el texto actual
@@ -1049,12 +1039,29 @@ const GrapesEditor: React.FC = () => {
           const newValue = trait.get('value');
           if (newValue !== null && newValue !== undefined) {
             console.log('✏️ Texto actualizado desde Settings:', newValue);
-            component.components(String(newValue));
+            // Actualizar el contenido visible del botón/enlace sin alterar estructura
+            component.set('content', String(newValue));
+            // Sincronizar atributo data-label para usos públicos
+            component.addAttributes({ 'data-label': String(newValue) });
             setHasUnsavedChanges(true);
             scheduleAutoSave();
           }
         } catch (error) {
           console.error('❌ Error al actualizar desde Settings:', error);
+        }
+      });
+
+      // 🔧 FIX sugerido: actualizar desde data-label también, garantizando edición independiente
+      gEditor.on('trait:change:data-label', (component: any, trait: any) => {
+        try {
+          const v = trait?.get?.('value') || '';
+          if (!component) return;
+          component.set('content', String(v));
+          component.addAttributes({ 'data-label': String(v) });
+          setHasUnsavedChanges(true);
+          scheduleAutoSave();
+        } catch (e) {
+          console.warn('No se pudo actualizar desde data-label', e);
         }
       });
 
@@ -1121,6 +1128,7 @@ const GrapesEditor: React.FC = () => {
 
         const frameWin = frame.contentWindow;
         const frameDoc = frameWin.document;
+        try { (frameWin as any).__GJS_IS_EDITOR = true; } catch {}
 
         // Asegurar viewport correcto en el iframe
         let viewportMeta = frameDoc.querySelector('meta[name="viewport"]');
@@ -1131,6 +1139,35 @@ const GrapesEditor: React.FC = () => {
         }
         viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, shrink-to-fit=no');
         console.log('🎯 Viewport meta configurado en iframe del canvas');
+
+        // 🔒 Interceptar eventos en el iframe del canvas para evitar navegación/acciones en modo edición,
+        //     sin impedir la selección/edición de componentes por GrapesJS
+        try {
+          const intercept = (e: Event) => {
+            const target = e.target as HTMLElement | null;
+            const anchor = target?.closest('a');
+            const submitEl = target?.closest('form, input[type="submit"]');
+            if (anchor) {
+              // Evitar navegación de enlaces dentro del editor pero permitir selección/edición
+              e.preventDefault();
+              console.log('⛔ Navegación de <a> bloqueada en editor');
+            } else if (submitEl) {
+              // Bloquear envío de formularios en el editor
+              e.preventDefault();
+              console.log('⛔ Submit bloqueado en editor');
+            }
+          };
+          frameDoc.addEventListener('click', intercept, true);
+          frameDoc.addEventListener('submit', intercept, true);
+          // No bloquear dblclick ni keydown para permitir edición de texto
+          (gEditor as any)._cleanupIntercept = () => {
+            frameDoc.removeEventListener('click', intercept, true);
+            frameDoc.removeEventListener('submit', intercept, true);
+            // dblclick y keydown no fueron registrados
+          };
+        } catch (e) {
+          console.warn('No se pudo interceptar eventos en iframe:', e);
+        }
 
         // 🎯 Aplicar estilos CSS al canvas del iframe
         const canvasStyles = `
@@ -2031,71 +2068,7 @@ const GrapesEditor: React.FC = () => {
           }
         });
 
-        // COMPONENTE 4: Inicializar y normalizar botones existentes al cargar
-        gEditor.on('load', () => {
-          try {
-            const wrapper = gEditor.DomComponents?.getWrapper?.();
-            if (!wrapper) return;
-            const allButtons = wrapper.find('button, a');
-            allButtons.forEach((btn: any) => {
-              try {
-                const attrs = typeof btn.getAttributes === 'function'
-                  ? btn.getAttributes()
-                  : (btn.get('attributes') || {});
-                const elTag = (btn.view?.el?.tagName || '').toUpperCase();
-                const currentText = (btn.view?.el?.textContent || '').trim();
-                const dataLabel = (attrs as any)['data-label'] || currentText || btn.get('content') || '';
-
-                // Convertir <a> en <button> manteniendo clases y mapeando href/target a traits
-                if (elTag === 'A') {
-                  const hrefAttr = (attrs as any).href || btn.view?.el?.getAttribute?.('href') || '';
-                  const targetAttr = (attrs as any).target || btn.view?.el?.getAttribute?.('target') || '';
-                  // Mapear a traits
-                  const newAttrs: Record<string, string> = {};
-                  if (hrefAttr) {
-                    newAttrs['data-url'] = hrefAttr;
-                    if (!(attrs as any)['data-action']) newAttrs['data-action'] = 'link';
-                  }
-                  if (targetAttr && !(attrs as any)['data-target']) newAttrs['data-target'] = targetAttr;
-                  if (Object.keys(newAttrs).length) {
-                    if (typeof btn.addAttributes === 'function') btn.addAttributes(newAttrs);
-                    else btn.set('attributes', { ...(attrs as any), ...newAttrs });
-                  }
-                  // Eliminar href/target y cambiar tagName
-                  const filtered = { ...(attrs as any) };
-                  delete (filtered as any).href;
-                  delete (filtered as any).target;
-                  filtered.type = 'button';
-                  btn.set('tagName', 'button');
-                  btn.set('attributes', filtered);
-                }
-
-                // Asegurar texto único sin duplicados
-                if (typeof dataLabel === 'string' && dataLabel.length) {
-                  // Si el botón tiene hijos componentes de texto, actualizarlos y limpiar content
-                  const children = btn.components?.() || [];
-                  const onlyTextChildren = Array.isArray(children) && children.length > 0 && children.every((c: any) => (c?.get?.('type') === 'text'));
-                  if (onlyTextChildren) {
-                    // Actualiza el primer texto y elimina textos duplicados
-                    children.forEach((c: any, idx: number) => {
-                      if (idx === 0) c.set('content', dataLabel);
-                      else c.remove?.();
-                    });
-                    btn.set('content', '', { silent: true });
-                  } else {
-                    // Usar content si no hay hijos de texto
-                    btn.set('content', dataLabel, { silent: true });
-                  }
-                  // Persistir data-label
-                  if (typeof btn.addAttributes === 'function') btn.addAttributes({ 'data-label': dataLabel });
-                  else btn.set('attributes', { ...(btn.get('attributes') || {}), 'data-label': dataLabel });
-                }
-              } catch {}
-            });
-          } catch (e) {
-            console.warn('Error inicializando/normalizando botones en load:', e);
-          }
-        });
+        // COMPONENTE 4: (Eliminado) No se realizará normalización masiva en 'load' para evitar tocar múltiples botones a la vez
       } catch {}
 
 
@@ -2966,10 +2939,11 @@ const GrapesEditor: React.FC = () => {
 
       // Registrar tipo personalizado para botones con traits
       gEditor.DomComponents.addType('action-button', {
-        isComponent: (el) => {
-          if (el.tagName === 'A' || el.tagName === 'BUTTON') {
-            return { type: 'action-button' };
-          }
+        isComponent: (el: HTMLElement) => {
+          const tag = (el.tagName || '').toUpperCase();
+          // Todos los <button> y <a> se mapean a action-button
+          if (tag === 'BUTTON' || tag === 'A') return { type: 'action-button' };
+          return false;
         },
         model: {
           defaults: {
@@ -3031,6 +3005,12 @@ const GrapesEditor: React.FC = () => {
               }
             ],
             script(this: HTMLElement) {
+               // No ejecutar acciones en el editor: detectar contexto y salir
+               try {
+                 const isEditorCtx = (window as any).__GJS_IS_EDITOR ||
+                   (!!(window.top && (window.top as any).grapesjs));
+                 if (isEditorCtx) return;
+               } catch {}
                // Sincronizar etiqueta visible con el trait "Texto" (data-label)
                const updateLabel = () => {
                  const lbl = this.getAttribute('data-label');
@@ -3270,51 +3250,7 @@ const GrapesEditor: React.FC = () => {
           canvasEl.addEventListener('scroll', syncSelectionOverlay);
         }
 
-        // Convertir botones existentes al tipo action-button
-         const wrapper = gEditor.getWrapper();
-         if (wrapper) {
-           wrapper.find('a, button').forEach(btn => {
-             btn.set({ type: 'action-button' });
-             try {
-               const anyBtn: any = btn as any;
-               const elTag = (anyBtn.view?.el?.tagName || '').toUpperCase();
-               const currentText: string = (anyBtn.view?.el?.textContent || '').trim();
-               if (currentText) {
-                 btn.addAttributes({ 'data-label': currentText });
-                 // Mantener sincronizado el contenido del modelo para exportar HTML correcto
-                 btn.set('content', currentText);
-               }
-                // Mapear atributos existentes (href/target) a traits de configuración
-                const attrs = typeof btn.getAttributes === 'function'
-                  ? btn.getAttributes()
-                  : (btn.get('attributes') || {});
-                const el: HTMLElement | undefined = anyBtn.view?.el as HTMLElement | undefined;
-                const hrefAttr = (attrs && (attrs as any).href) || el?.getAttribute?.('href') || '';
-                const targetAttr = (attrs && (attrs as any).target) || el?.getAttribute?.('target') || '';
-                const dataUrlAttr = (attrs && (attrs as any)['data-url']) || '';
-                const dataActionAttr = (attrs && (attrs as any)['data-action']) || '';
-                const newAttrs: Record<string, string> = {};
-                if (hrefAttr && !dataUrlAttr) {
-                  newAttrs['data-url'] = hrefAttr;
-                  if (!dataActionAttr) newAttrs['data-action'] = 'link';
-                }
-                if (targetAttr && !(attrs && (attrs as any)['data-target'])) {
-                  newAttrs['data-target'] = targetAttr;
-                }
-                if (Object.keys(newAttrs).length) btn.addAttributes(newAttrs);
-
-                // Convertir anclas existentes en <button> y limpiar href/target
-                if (elTag === 'A') {
-                  const filtered = { ...(attrs as any) };
-                  delete (filtered as any).href;
-                  delete (filtered as any).target;
-                  filtered.type = 'button';
-                  btn.set('tagName', 'button');
-                  btn.set('attributes', filtered);
-                }
-             } catch {}
-           });
-         }
+        // Eliminada conversión masiva de 'a, button' a 'action-button' para evitar efectos colaterales sobre otros botones.
 
         // Asegurar data-label al agregar nuevos botones
         gEditor.on('component:add', (comp: any) => {
@@ -3405,10 +3341,10 @@ const GrapesEditor: React.FC = () => {
           content: '<p>Texto editable</p>'
         });
 
-        bm.add('button-link', {
+        bm.add('button', {
           label: '🔘 Botón',
           category: '📌 Básico',
-          content: '<a href="#" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">Botón</a>'
+          content: '<button type="button" style="display:inline-block; padding:12px 24px; border-radius:8px; cursor:pointer;">Botón</button>'
         });
 
         bm.add('image-block', {
@@ -3418,11 +3354,7 @@ const GrapesEditor: React.FC = () => {
         });
 
         // Elementos adicionales
-        bm.add('cta-button', {
-          label: '🔔 Botón CTA',
-          category: '🧩 Elementos',
-          content: '<a class="px-4 py-2 rounded bg-blue-600 text-white inline-block" href="#">Llamada a la acción</a>'
-        });
+        // Eliminado: Botón CTA para evitar múltiples variantes; se mantiene solo el botón básico
 
         bm.add('card-simple', {
           label: '🃏 Tarjeta Simple',
@@ -3867,6 +3799,7 @@ const GrapesEditor: React.FC = () => {
         });
 
         // 🎨 CATEGORÍA: ELEMENTOS UI
+        /* Eliminados: variantes UI de botones para evitar confusión y mantener solo el básico
         bm.add('ui-button-primary', {
           label: '🔘 Botón Primario',
           category: '🎨 UI Elements',
@@ -4006,6 +3939,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
+        */
 
         bm.add('ui-card-basic', {
           label: '🃏 Tarjeta Básica',
@@ -4389,6 +4323,7 @@ const GrapesEditor: React.FC = () => {
           content: '<div style="background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 24px; max-width: 400px;"><h3 style="font-size: 24px; font-weight: bold; margin-bottom: 12px;">Título</h3><p style="color: #6b7280;">Descripción de la tarjeta</p></div>'
         });
 
+        /* Eliminados: botones primario/secundario en categoría Componentes para dejar solo el botón básico
         bm.add('button-primary', {
           label: 'Botón Primario',
           category: 'Componentes',
@@ -4464,6 +4399,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
+        */
 
         // Texto con Gradiente
         bm.add('text-gradient', {
@@ -5351,38 +5287,6 @@ const GrapesEditor: React.FC = () => {
           border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
         
-        /* Estilos para el panel de traits personalizado */
-        #traits-container {
-          border-left: 1px solid #e2e8f0 !important;
-          z-index: 25 !important;
-        }
-        #traits-container .gjs-trt-traits {
-          padding: 0 !important;
-        }
-        #traits-container .gjs-trt-trait {
-          padding: 12px 16px !important;
-          border-bottom: 1px solid #f1f5f9 !important;
-          margin: 0 !important;
-        }
-        #traits-container .gjs-trt-trait:last-child {
-          border-bottom: none !important;
-        }
-        #traits-container .gjs-trt-label {
-          font-size: 13px !important;
-          color: #374151 !important;
-          margin-bottom: 6px !important;
-          font-weight: 500 !important;
-        }
-        #traits-container .gjs-field {
-          border: 1px solid #d1d5db !important;
-          border-radius: 6px !important;
-          padding: 8px 12px !important;
-          font-size: 14px !important;
-        }
-        #traits-container .gjs-field:focus {
-          border-color: #6366f1 !important;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
-        }
       `}</style>
       {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}
       <div className="bg-white shadow-md px-4 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-[100]">
@@ -5520,31 +5424,8 @@ const GrapesEditor: React.FC = () => {
             className="w-full"
           />
           
-          {/* Contenedor oculto para traits - se mostrará cuando se seleccione un componente */}
-          <div id="traits-container" className="fixed top-[85px] right-0 w-80 h-full bg-white shadow-lg z-20 transform translate-x-full transition-transform duration-300" style={{ display: 'none' }}>
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800">Configuración del Componente</h3>
-              <button 
-                onClick={() => {
-                  const container = document.getElementById('traits-container');
-                  if (container) {
-                    container.style.transform = 'translateX(100%)';
-                    setTimeout(() => {
-                      container.style.display = 'none';
-                    }, 300);
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto" style={{ height: 'calc(100% - 60px)' }}>
-              {/* Los traits se renderizarán aquí */}
-            </div>
-          </div>
+          {/* Panel de traits nativo de GrapesJS se gestiona desde el panel derecho ('open-tm').
+              Se eliminó el contenedor personalizado de configuración para evitar barras laterales duplicadas. */}
 
         </div>
       </div>
