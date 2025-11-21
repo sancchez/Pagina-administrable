@@ -406,12 +406,12 @@ const GrapesEditor: React.FC = () => {
           });
         }
 
-        // Redirigir con timestamp para evitar caché
+        // Abrir página publicada en nueva pestaña (evita reiniciar el editor)
         setTimeout(() => {
           const target = `/${pageData.slug}?t=${Date.now()}`;
-          console.log('🔄 [GrapesEditor.handlePublish] redirecting to', target);
-          window.location.href = target;
-        }, 1500);
+          console.log('🔄 [GrapesEditor.handlePublish] opening new tab', target);
+          window.open(target, '_blank', 'noopener,noreferrer');
+        }, 500);
       }
     } catch (error) {
       console.error('❌ Error al publicar página:', error);
@@ -5070,10 +5070,9 @@ const GrapesEditor: React.FC = () => {
       console.log('Respuesta de publicación:', result);
       
       if (result && result.success === true) {
-        alert('✅ Página publicada exitosamente. Redirigiendo en 2s...');
-        setTimeout(() => {
-          window.location.href = `/${slug}`;
-        }, 2000);
+        alert('✅ Página publicada. Abriendo en una nueva pestaña...');
+        const target = `/${slug}?t=${Date.now()}`;
+        window.open(target, '_blank', 'noopener,noreferrer');
       } else {
         alert('❌ Error: ' + (result?.message || result?.error || 'Error desconocido'));
       }
