@@ -448,6 +448,21 @@ const GrapesEditor: React.FC = () => {
       const dataAny: any = response.data as any;
       const page: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
       console.log('📥 Página cargada para editar:', page.slug);
+      // Si la página existe pero viene sin contenido, establecer un contenido por defecto visual
+      const hasAnyContent = !!(page?.gjsComponents || page?.gjsHtml || page?.html || page?.content);
+      if (!hasAnyContent) {
+        const defaultContent = `
+          <div class="gjs-row" style="padding: 24px;">
+            <div class="gjs-cell">
+              <h1 style="margin-bottom: 12px;">${page.title || (slug.charAt(0).toUpperCase() + slug.slice(1))}</h1>
+              <p style="color:#666;">Esta página no tiene contenido aún. Usa el panel de bloques para empezar.</p>
+            </div>
+            <div class="gjs-cell">
+              <img src="https://via.placeholder.com/600x300?text=${encodeURIComponent(page.title || slug)}" alt="Imagen de ejemplo" style="max-width:100%; height:auto;" />
+            </div>
+          </div>`;
+        page.content = defaultContent;
+      }
       setPageData(page);
     } catch (error) {
       console.error('❌ Error al cargar página:', error);
@@ -4624,38 +4639,42 @@ const GrapesEditor: React.FC = () => {
     try {
       // PRIORIDAD 0: Usar gjsComponents/gjsStyles como fuente prioritaria
       // Esta vía preserva la semántica interna de GrapesJS y evita interpretaciones desde HTML
-      if (pageData.gjsComponents && pageData.gjsStyles) {
-        console.log('✅ Cargando desde gjsComponents/gjsStyles (prioritario)');
+      if (pageData.gjsComponents) {
+        console.log('✅ Intentando cargar proyecto desde gjsComponents/gjsStyles (prioritario)');
 
         let components = pageData.gjsComponents;
-        let styles = pageData.gjsStyles;
+        let styles = pageData.gjsStyles || [];
 
         try {
           if (typeof components === 'string') components = JSON.parse(components);
         } catch (e) {
           console.warn('gjsComponents no parseable', e);
+          components = [];
         }
         try {
           if (typeof styles === 'string') styles = JSON.parse(styles);
         } catch (e) {
           console.warn('gjsStyles no parseable', e);
+          styles = [];
         }
 
-        editorInstanceRef.current.setComponents(components);
-        editorInstanceRef.current.setStyle(styles);
-
-        // Actualizar referencias para preview/post-load
-        try {
-          const htmlNow = editorInstanceRef.current.getHtml();
-          latestHtmlRef.current = htmlNow || latestHtmlRef.current;
-        } catch {}
-        if (typeof styles === 'string') latestCssRef.current = styles;
-
-        // Marcar como cargado e inyectar Tailwind en el canvas
-        setContentLoaded(true);
-        try { injectTailwindIntoCanvas(); } catch {}
-
-        return;
+        const compsLen = Array.isArray(components) ? components.length : 0;
+        if (compsLen > 0) {
+          try {
+            editorInstanceRef.current.loadProjectData({ components, styles });
+            const htmlNow = editorInstanceRef.current.getHtml();
+            latestHtmlRef.current = htmlNow || latestHtmlRef.current;
+            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch {}
+            setContentLoaded(true);
+            try { injectTailwindIntoCanvas(); } catch {}
+            console.log('✅ Proyecto cargado desde JSON (components/styles), componentes:', compsLen);
+            return;
+          } catch (e) {
+            console.warn('⚠️ loadProjectData falló con componentes válidos, se intentará fallback a gjsHtml/html', e);
+          }
+        } else {
+          console.warn('ℹ️ gjsComponents vacío; se usará fallback a gjsHtml/html');
+        }
       }
 
       // PRIORIDAD 1: Usar gjsHtml con carga correcta en GrapesJS
@@ -4790,31 +4809,26 @@ const GrapesEditor: React.FC = () => {
       }
 
       // PRIORIDAD 3: Fallback a gjsComponents/gjsStyles
-      if (pageData.gjsComponents && pageData.gjsStyles) {
-        console.log('🎯 Usando gjsComponents/gjsStyles como fallback');
-        
+      if (pageData.gjsComponents) {
+        console.log('🎯 Fallback: intentando cargar proyecto desde gjsComponents/gjsStyles');
         let components = pageData.gjsComponents;
-        let styles = pageData.gjsStyles;
-
-        if (typeof components === 'string') {
-          components = JSON.parse(components);
+        let styles = pageData.gjsStyles || [];
+        try { if (typeof components === 'string') components = JSON.parse(components); } catch {}
+        try { if (typeof styles === 'string') styles = JSON.parse(styles); } catch {}
+        const compsLenFb = Array.isArray(components) ? components.length : 0;
+        if (compsLenFb > 0) {
+          try {
+            editorInstanceRef.current.loadProjectData({ components, styles });
+            const htmlNow = editorInstanceRef.current.getHtml();
+            latestHtmlRef.current = htmlNow || latestHtmlRef.current;
+            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch {}
+            setContentLoaded(true);
+            console.log('✅ Proyecto cargado desde JSON en fallback, componentes:', compsLenFb);
+            return;
+          } catch {}
+        } else {
+          console.warn('ℹ️ Fallback: gjsComponents vacío, se continuará con gjsHtml/html si existen');
         }
-        if (typeof styles === 'string') {
-          styles = JSON.parse(styles);
-        }
-
-        editorInstanceRef.current.setComponents(components);
-        editorInstanceRef.current.setStyle(styles);
-        if (typeof styles === 'string') latestCssRef.current = styles;
-        try {
-          // Obtener HTML renderizado actual para análisis de scripts, si procede
-          const htmlNow = editorInstanceRef.current.getHtml();
-          latestHtmlRef.current = htmlNow || latestHtmlRef.current;
-        } catch {}
-        // Cierre del ciclo de carga
-        setContentLoaded(true);
-        console.log('✅ gjsComponents/gjsStyles cargados exitosamente');
-        return;
       }
 
       // PRIORIDAD 4: Si es una página nueva (sin ID), crear contenido por defecto
