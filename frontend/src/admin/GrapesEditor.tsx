@@ -1175,6 +1175,16 @@ const GrapesEditor: React.FC = () => {
           frameDoc.addEventListener('click', intercept, true);
           frameDoc.addEventListener('submit', intercept, true);
           // No bloquear dblclick ni keydown para permitir edición de texto
+          // Bloquear navegación específica en dropdown del editor
+          frameDoc.addEventListener('click', (e: any) => {
+            try {
+              const t = e.target as HTMLElement | null;
+              if (t && t.closest('.dropdown-content a')) {
+                e.preventDefault();
+                console.warn('⛔ Navegación de dropdown bloqueada en el editor');
+              }
+            } catch {}
+          }, true);
           (gEditor as any)._cleanupIntercept = () => {
             frameDoc.removeEventListener('click', intercept, true);
             frameDoc.removeEventListener('submit', intercept, true);
@@ -3136,6 +3146,77 @@ const GrapesEditor: React.FC = () => {
         },
       });
 
+      // Registrar tipo personalizado para dropdown-menu
+      gEditor.DomComponents.addType('dropdown-menu', {
+        isComponent: (el: HTMLElement) => {
+          try {
+            return (el?.hasAttribute && el.hasAttribute('data-dropdown-menu')) || el.classList?.contains('dropdown');
+          } catch { return false; }
+        },
+        model: {
+          defaults: {
+            tagName: 'div',
+            attributes: { 'data-dropdown-menu': 'true' },
+            droppable: false,
+            copyable: true,
+            stylable: true,
+            components: [
+              { type: 'button', attributes: { 'data-dropdown-toggle': 'true' }, content: 'Menú ▼' },
+              { type: 'list', attributes: { 'data-dropdown-list': 'true' }, components: [
+                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 1' }, content: 'Opción 1' },
+                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 2' }, content: 'Opción 2' },
+                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 3' }, content: 'Opción 3' },
+              ]},
+            ],
+            traits: [
+              { type: 'text', name: 'toggle-label', label: 'Texto del botón', changeProp: 1 },
+              { type: 'button', label: 'Agregar opción', command: 'add-dropdown-option' },
+            ],
+            script(this: HTMLElement) {
+              try {
+                const isEditorCtx = (window as any).__GJS_IS_EDITOR || (!!(window.top && (window.top as any).grapesjs));
+                if (isEditorCtx) return;
+              } catch {}
+              const toggle = this.querySelector('[data-dropdown-toggle]') as HTMLElement | null;
+              const list = this.querySelector('[data-dropdown-list]') as HTMLElement | null;
+              if (!toggle || !list) return;
+              list.style.display = 'none';
+              const onClick = (e: Event) => { e.preventDefault(); list.style.display = (list.style.display === 'none' ? 'block' : 'none'); };
+              toggle.addEventListener('click', onClick);
+              return { destroy() { toggle?.removeEventListener('click', onClick); } };
+            },
+            scriptProps: [],
+          },
+          init() {
+            try {
+              (this as any).on('change:toggle-label', (this as any).updateToggleLabel);
+              (this as any).updateToggleLabel();
+            } catch {}
+          },
+          updateToggleLabel() {
+            try {
+              const label = (this as any).get('toggle-label') || 'Menú ▼';
+              const toggle = (this as any).find?.('[data-dropdown-toggle]')?.[0];
+              if (toggle) toggle.set('content', label);
+            } catch {}
+          },
+        } as any,
+      });
+
+      // Comando para agregar opciones dinámicas al dropdown-menu
+      try {
+        gEditor.Commands.add('add-dropdown-option', {
+          run(editor: any) {
+            const comp = editor.getSelected();
+            if (!comp) return;
+            const list = comp.find?.('[data-dropdown-list]')?.[0];
+            if (!list) return;
+            list.append({ type: 'link', attributes: { href: '#', 'data-label': 'Nueva opción' }, content: 'Nueva opción' });
+            editor.trigger('component:update', { component: list });
+          }
+        });
+      } catch {}
+
       // Agregar sector de configuración al Style Manager
       gEditor.StyleManager.addSector('configuracion', {
         name: '⚙️ Configuración',
@@ -3216,9 +3297,14 @@ const GrapesEditor: React.FC = () => {
 
         // Event listener para cambios de ventana del navegador
         const handleWindowResize = () => {
-          console.log('🎯 Recalculando por resize de ventana');
-          gEditor.refresh();
-          gEditor.trigger('canvas:refresh');
+          try {
+            if (!gEditor || !(gEditor as any).Canvas) return;
+            console.log('🎯 Recalculando por resize de ventana');
+            try { gEditor.refresh?.(); } catch {}
+            try { gEditor.trigger?.('canvas:refresh'); } catch {}
+          } catch (e) {
+            console.warn('⚠️ Resize handler omitido por editor no listo:', e);
+          }
         };
         
         window.addEventListener('resize', handleWindowResize);
@@ -3366,6 +3452,22 @@ const GrapesEditor: React.FC = () => {
           label: '🖼️ Imagen',
           category: '📌 Básico',
           content: '<img src="https://via.placeholder.com/400x300" style="max-width: 100%;">'
+        });
+
+        // Dropdown reusable component block
+        bm.add('dropdown-menu', {
+          label: 'Dropdown Menu',
+          category: 'Navegación',
+          content: `
+            <div class="dropdown" data-gjs-type="dropdown-menu">
+              <button class="dropdown-btn" data-gjs-editable="true">Menú ▼</button>
+              <div class="dropdown-content">
+                <a href="#" data-gjs-editable="true">Opción 1</a>
+                <a href="#" data-gjs-editable="true">Opción 2</a>
+                <a href="#" data-gjs-editable="true">Opción 3</a>
+              </div>
+            </div>
+          `,
         });
 
         // Elementos adicionales
@@ -4521,8 +4623,13 @@ const GrapesEditor: React.FC = () => {
 
   // Inicializar editor: espera activa por contenedor antes de iniciar GrapesJS
   useEffect(() => {
-    console.log('🔄 useEffect [init editor][slug]');
+    console.log('🔄 useEffect [init editor][slug/loading]', { slug, loading });
     if (!slug) return;
+    if (loading) {
+      // Esperar a que pageData esté lista para renderizar el contenedor
+      console.log('⏳ Esperando datos de la página antes de inicializar el editor');
+      return;
+    }
     if (editorInstanceRef.current) {
       if (lastInitSlugRef.current === slug) {
         console.log('⏭️ Editor ya inicializado para este slug; no se reinicia');
@@ -4532,31 +4639,23 @@ const GrapesEditor: React.FC = () => {
       return;
     }
 
-    let cancelled = false;
-    const waitForContainer = async () => {
-      let container: HTMLElement | null = null;
-      let retries = 0;
-      while (!container && retries < 50 && !cancelled) { // ≈5s
-        container = editorContainerRef.current || document.getElementById('gjs');
-        if (!container) {
-          if (retries === 0) console.warn('⚠️ Esperando a que el contenedor del editor esté listo...');
-          await new Promise(r => setTimeout(r, 100));
-          retries++;
+    const container = editorContainerRef.current || document.getElementById('gjs');
+    if (!container) {
+      console.warn('⚠️ Contenedor no presente todavía; reintentando en 100ms');
+      const t = setTimeout(() => {
+        if (editorContainerRef.current || document.getElementById('gjs')) {
+          console.log('✅ Contenedor listo, inicializando GrapesJS...');
+          initializeEditor();
+        } else {
+          console.error('❌ No se encontró el contenedor del editor en reintento');
         }
-      }
-      if (cancelled) return;
-      if (!container) {
-        console.error('❌ No se encontró el contenedor del editor después de esperar.');
-        return;
-      }
-      console.log('✅ Contenedor listo, inicializando GrapesJS...');
-      initializeEditor();
-    };
-
-    waitForContainer();
+      }, 100);
+      return () => clearTimeout(t);
+    }
+    console.log('✅ Contenedor listo, inicializando GrapesJS...');
+    initializeEditor();
 
     return () => {
-      cancelled = true;
       try {
         const ed = editorInstanceRef.current;
         if (ed) {
@@ -4568,7 +4667,7 @@ const GrapesEditor: React.FC = () => {
         console.warn('No se pudo destruir editor en cleanup:', e);
       }
     };
-  }, [slug]);
+  }, [slug, loading]);
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -5299,6 +5398,13 @@ const GrapesEditor: React.FC = () => {
           font-size: 14px !important;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
+
+        /* Dropdown component styles */
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-btn { background: #fff; border: 1px solid #ddd; padding: 10px 15px; cursor: pointer; border-radius: 4px; }
+        .dropdown-content { display: none; position: absolute; background: white; min-width: 150px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10; }
+        .dropdown-content a { display: block; padding: 10px; text-decoration: none; color: #333; }
+        .dropdown:hover .dropdown-content { display: block; }
         
       `}</style>
       {/* Header - Estilo minimalista y moderno - Fijo en la parte superior */}

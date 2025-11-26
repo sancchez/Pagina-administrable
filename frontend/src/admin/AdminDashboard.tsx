@@ -61,11 +61,22 @@ export default function AdminDashboard() {
     activePQR: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  // Crear página: estados del modal (deben estar ANTES de cualquier return condicional)
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newSlug, setNewSlug] = useState('');
+  const slugify = (s: string) => s
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 64);
 
   useEffect(() => {
-    fetchStats();
-    fetchRecentActivity();
-    setIsLoading(false);
+    (async () => {
+      await Promise.all([fetchStats(), fetchRecentActivity(), fetchPages()]);
+      setIsLoading(false);
+    })();
   }, []);
 
   const fetchStats = async () => {
@@ -78,6 +89,17 @@ export default function AdminDashboard() {
       }));
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchPages = async () => {
+    try {
+      const resp: any = await HttpClient.get('/pages');
+      const list: Page[] = (resp?.data?.pages) || resp?.pages || [];
+      setPages(list);
+    } catch (error) {
+      console.error('Error fetching pages:', error);
+      setPages([]);
     }
   };
 
@@ -215,6 +237,23 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  const openCreateModal = () => { setShowCreateModal(true); setNewTitle(''); setNewSlug(''); };
+  const handleCreateSubmit = async () => {
+    try {
+      const title = newTitle.trim();
+      const slug = (newSlug.trim() || slugify(newTitle)).trim();
+      if (!title || !slug) { alert('Completa título y slug'); return; }
+      const resp: any = await HttpClient.post('/pages', { title, slug });
+      const created: Page = (resp?.data?.page) || resp?.page || resp;
+      setShowCreateModal(false);
+      await fetchPages();
+      navigate(`/editor/${created?.slug || slug}`);
+    } catch (e) {
+      console.error('Error creating page:', e);
+      alert('No se pudo crear la página');
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -402,7 +441,7 @@ export default function AdminDashboard() {
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Gestión de Páginas</h2>
           <button
-            onClick={createNewPage}
+            onClick={openCreateModal}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
@@ -432,50 +471,26 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {STATIC_PAGES.map((page) => (
-                <tr key={page.slug} className="hover:bg-gray-50">
+              {pages.map((page) => (
+                <tr key={page.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      {/* Badge para páginas especiales */}
-                      {String(page.slug || '').startsWith('_') && (
-                        <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">
-                          ⚙️ Sistema
-                        </span>
-                      )}
-                      <div className="font-medium text-gray-900">{page.title}</div>
-                    </div>
+                    <div className="font-medium text-gray-900">{page.title}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <code className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      /{page.slug}
-                    </code>
+                    <code className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">/{page.slug}</code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(page.status)}`}>
-                      {page.status === 'published' ? 'Publicada' : 'Borrador'}
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full border ${page.isPublished ? 'text-green-600 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200'}`}>
+                      {page.isPublished ? 'Publicada' : 'Borrador'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      Página Estática
-                    </span>
-                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Página dinámica</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => editPage(page.slug || '')}
-                        className="text-blue-600 hover:text-blue-700 transition-colors"
-                        title="Editar página"
-                      >
+                      <button onClick={() => editPage(page.slug)} className="text-blue-600 hover:text-blue-700" title="Editar">
                         ✏️
                       </button>
-                      <a
-                        href={`/${page.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-green-600 hover:text-green-700 transition-colors"
-                        title="Ver página"
-                      >
+                      <a href={`/${page.slug}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700" title="Ver">
                         <Eye className="h-4 w-4" />
                       </a>
                     </div>
@@ -486,6 +501,31 @@ export default function AdminDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Modal crear página */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Nueva página</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Título</label>
+                <input value={newTitle} onChange={(e)=>{setNewTitle(e.target.value); setNewSlug(slugify(e.target.value));}}
+                       className="w-full border rounded-md px-3 py-2" placeholder="Ej: Nosotros" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Slug</label>
+                <input value={newSlug} onChange={(e)=>setNewSlug(slugify(e.target.value))}
+                       className="w-full border rounded-md px-3 py-2" placeholder="nosotros" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={()=>setShowCreateModal(false)} className="px-3 py-2 bg-gray-100 rounded-md">Cancelar</button>
+                <button onClick={handleCreateSubmit} className="px-3 py-2 bg-indigo-600 text-white rounded-md">Crear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
