@@ -5553,3 +5553,23 @@ const GrapesEditor: React.FC = () => {
 };
 
 export default GrapesEditor;
+      // Sanitize invalid attribute names on components to avoid DOM InvalidCharacterError
+      const sanitizeAttrNames = (attrs: Record<string, any> | undefined) => {
+        const valid: Record<string, any> = {};
+        const re = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
+        Object.entries(attrs || {}).forEach(([k, v]) => {
+          if (k === 'class' || re.test(k)) valid[k] = v;
+          else console.warn('🧹 Atributo inválido removido:', k);
+        });
+        return valid;
+      };
+      gEditor.on('component:add', (comp: any) => {
+        try {
+          const attrs = typeof comp.getAttributes === 'function' ? comp.getAttributes() : (comp.get('attributes') || {});
+          const cleaned = sanitizeAttrNames(attrs);
+          // Solo aplicar si hubo cambios
+          const changed = Object.keys(cleaned).length !== Object.keys(attrs || {}).length ||
+                          Object.keys(cleaned).some(k => (attrs as any)[k] !== cleaned[k]);
+          if (changed) comp.set('attributes', cleaned);
+        } catch (e) { console.warn('No se pudo sanitizar atributos del componente', e); }
+      });
