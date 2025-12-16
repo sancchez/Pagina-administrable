@@ -38,7 +38,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'auto-saving';
 const GrapesEditor: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  
+
   // Referencias para evitar re-renders infinitos
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
@@ -49,7 +49,7 @@ const GrapesEditor: React.FC = () => {
   const perfStartRef = useRef<number | null>(null);
   const initializationAttempted = useRef(false);
   const lastInitSlugRef = useRef<string | null>(null);
-  
+
   // Estados
   const [pageData, setPageData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -231,15 +231,15 @@ const GrapesEditor: React.FC = () => {
 
       await HttpClient.post(`/pages/${pageData.id}/grapes-data`, payload);
       console.log('✅ [GrapesEditor.savePageData] posted', { len: JSON.stringify(payload).length });
-      
+
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
-      
+
       if (isAutoSave) {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       }
-      
+
       console.log('✅ Datos guardados exitosamente');
     } catch (error) {
       console.error('❌ Error guardando datos:', error);
@@ -315,7 +315,7 @@ const GrapesEditor: React.FC = () => {
           content: html || pageData.content,
           css: css || pageData.css
         };
-        
+
         const createResult = await HttpClient.post<ApiResponse<{ page: PageData }>>('/pages', createPayload);
         if (createResult?.success && createResult.data) {
           const createdPage = (('page' in createResult.data)
@@ -370,7 +370,7 @@ const GrapesEditor: React.FC = () => {
   // Publicar página (guardar si hay cambios y llamar endpoint de publish)
   const handlePublish = useCallback(async () => {
     if (!pageData) return;
-    
+
     try {
       setIsPublishing(true);
       setPublishStatus('publishing');
@@ -428,7 +428,7 @@ const GrapesEditor: React.FC = () => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
-    
+
     autoSaveTimeoutRef.current = setTimeout(() => {
       if (hasUnsavedChanges && editorInstanceRef.current) {
         console.log('🔄 Auto-guardado activado');
@@ -448,21 +448,7 @@ const GrapesEditor: React.FC = () => {
       const dataAny: any = response.data as any;
       const page: PageData = (dataAny && 'page' in dataAny) ? (dataAny.page as PageData) : (dataAny as PageData);
       console.log('📥 Página cargada para editar:', page.slug);
-      // Si la página existe pero viene sin contenido, establecer un contenido por defecto visual
-      const hasAnyContent = !!(page?.gjsComponents || page?.gjsHtml || page?.html || page?.content);
-      if (!hasAnyContent) {
-        const defaultContent = `
-          <div class="gjs-row" style="padding: 24px;">
-            <div class="gjs-cell">
-              <h1 style="margin-bottom: 12px;">${page.title || (slug.charAt(0).toUpperCase() + slug.slice(1))}</h1>
-              <p style="color:#666;">Esta página no tiene contenido aún. Usa el panel de bloques para empezar.</p>
-            </div>
-            <div class="gjs-cell">
-              <img src="https://via.placeholder.com/600x300?text=${encodeURIComponent(page.title || slug)}" alt="Imagen de ejemplo" style="max-width:100%; height:auto;" />
-            </div>
-          </div>`;
-        page.content = defaultContent;
-      }
+      // Dejar la página completamente vacía si no tiene contenido
       setPageData(page);
     } catch (error) {
       console.error('❌ Error al cargar página:', error);
@@ -473,8 +459,8 @@ const GrapesEditor: React.FC = () => {
           id: '',
           slug: slug,
           title: slug.charAt(0).toUpperCase() + slug.slice(1),
-          content: '<div class="container"><h1>' + slug.charAt(0).toUpperCase() + slug.slice(1) + '</h1><p>Contenido de la página.</p></div>',
-          css: 'body { font-family: Arial, sans-serif; }',
+          content: '',
+          css: '',
           grapesData: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -501,7 +487,7 @@ const GrapesEditor: React.FC = () => {
       console.log('⚠️ Container no está listo aún');
       return false;
     }
-    
+
     if (editorInstanceRef.current || initializationAttempted.current) {
       return true; // Ya inicializado o en proceso
     }
@@ -509,7 +495,7 @@ const GrapesEditor: React.FC = () => {
     console.log('🚀 Inicializando GrapesJS...');
     initializationAttempted.current = true;
     lastInitSlugRef.current = slug || null;
-    
+
     try {
       // Normalizar plugins por compatibilidad CJS/ESM
       const pluginBasic = (basicBlocks as any)?.default ?? basicBlocks;
@@ -521,22 +507,22 @@ const GrapesEditor: React.FC = () => {
           preset: typeof pluginPreset,
           forms: typeof pluginFormsFn,
         });
-      } catch {}
-      
+      } catch { }
+
       // 🎯 Función global única para detectar contexto del editor (evita declaraciones duplicadas)
       const checkEditorContext = () => {
         try {
-          return window.parent !== window || 
-                 document.querySelector('.gjs-cv-canvas') !== null ||
-                 window.location.pathname.includes('/admin/');
+          return window.parent !== window ||
+            document.querySelector('.gjs-cv-canvas') !== null ||
+            window.location.pathname.includes('/admin/');
         } catch (e) {
           return false;
         }
       };
-      
+
       // 🌐 Hacer la función accesible globalmente para los scripts de GrapesJS
       (window as any).checkEditorContext = checkEditorContext;
-      
+
       const gEditor = grapesjs.init({
         container: editorContainerRef.current,
         height: '100vh',
@@ -771,13 +757,15 @@ const GrapesEditor: React.FC = () => {
                   property: 'border',
                   properties: [
                     { type: 'number', units: ['px'], name: 'border-width' },
-                    { type: 'select', name: 'border-style', options: [
-                      { id: 'none', name: 'Ninguno' },
-                      { id: 'solid', name: 'Sólido' },
-                      { id: 'dashed', name: 'Discontinuo' },
-                      { id: 'dotted', name: 'Punteado' },
-                      { id: 'double', name: 'Doble' },
-                    ]},
+                    {
+                      type: 'select', name: 'border-style', options: [
+                        { id: 'none', name: 'Ninguno' },
+                        { id: 'solid', name: 'Sólido' },
+                        { id: 'dashed', name: 'Discontinuo' },
+                        { id: 'dotted', name: 'Punteado' },
+                        { id: 'double', name: 'Doble' },
+                      ]
+                    },
                     { type: 'color', name: 'border-color' },
                   ],
                 },
@@ -899,7 +887,7 @@ const GrapesEditor: React.FC = () => {
                 },
               ],
             },
-            
+
             {
               name: '🔄 Efectos',
               open: false,
@@ -937,6 +925,7 @@ const GrapesEditor: React.FC = () => {
                   type: 'select',
                   name: 'Abrir en',
                   property: 'data-target',
+                  changeProp: true,
                   options: [
                     { id: '_self', name: 'Misma ventana' },
                     { id: '_blank', name: 'Nueva ventana' }
@@ -989,7 +978,7 @@ const GrapesEditor: React.FC = () => {
         // (claves duplicadas removidas: storageManager, avoidInlineStyle y canvas ya definidos arriba)
       });
 
-    // ====== SINCRONIZACIÓN DE TEXTO EN BOTONES (SETTINGS - TUERCA) ======
+      // ====== SINCRONIZACIÓN DE TEXTO EN BOTONES (SETTINGS - TUERCA) ======
 
       console.log('🔧 Configurando edición de texto en botones para la pestaña Settings...');
 
@@ -1002,7 +991,7 @@ const GrapesEditor: React.FC = () => {
           }
 
           console.log('👆 Componente seleccionado, tipo:', type);
-          
+
           // Pequeño timeout para asegurar que el componente esté completamente renderizado
           setTimeout(() => {
             const el = component.view?.el as HTMLElement;
@@ -1015,12 +1004,12 @@ const GrapesEditor: React.FC = () => {
               if (component.get('type') !== 'action-button') {
                 component.set({ type: 'action-button' });
               }
-            } catch {}
-            
+            } catch { }
+
             // Obtener el texto actual del componente
             const currentText = el.innerText.trim() || component.get('content') || (type === 'button' ? 'Botón' : 'Enlace');
             console.log('📖 Texto actual:', currentText);
-            
+
             // Actualizar el trait 'content' con el texto actual
             const contentTrait = component.getTrait('content');
             if (contentTrait) {
@@ -1031,7 +1020,7 @@ const GrapesEditor: React.FC = () => {
             } else {
               console.warn('⚠️ No se encontró el trait "content"');
             }
-            
+
             // Renderizar el TraitManager para mostrar los traits en la pestaña Settings
             setTimeout(() => {
               gEditor.TraitManager.render();
@@ -1047,10 +1036,10 @@ const GrapesEditor: React.FC = () => {
       gEditor.on('trait:change', (component: any, trait: any) => {
         try {
           if (!component || !trait || trait.get('name') !== 'content') return;
-          
+
           const type = component.get('type');
           if (type !== 'button' && type !== 'link') return;
-          
+
           const newValue = trait.get('value');
           if (newValue !== null && newValue !== undefined) {
             console.log('✏️ Texto actualizado desde Settings:', newValue);
@@ -1082,7 +1071,7 @@ const GrapesEditor: React.FC = () => {
 
       // Guardar instancia y configurar logs
       editorInstanceRef.current = gEditor;
-      try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; } catch(e) {}
+      try { (window as any).editor = gEditor; (window as any).__gjs = gEditor; } catch (e) { }
 
       // Inicializar TraitManager después de cargar
       gEditor.on('load', () => {
@@ -1143,7 +1132,7 @@ const GrapesEditor: React.FC = () => {
 
         const frameWin = frame.contentWindow;
         const frameDoc = frameWin.document;
-        try { (frameWin as any).__GJS_IS_EDITOR = true; } catch {}
+        try { (frameWin as any).__GJS_IS_EDITOR = true; } catch { }
 
         // Asegurar viewport correcto en el iframe
         let viewportMeta = frameDoc.querySelector('meta[name="viewport"]');
@@ -1183,7 +1172,7 @@ const GrapesEditor: React.FC = () => {
                 e.preventDefault();
                 console.warn('⛔ Navegación de dropdown bloqueada en el editor');
               }
-            } catch {}
+            } catch { }
           }, true);
           (gEditor as any)._cleanupIntercept = () => {
             frameDoc.removeEventListener('click', intercept, true);
@@ -1203,7 +1192,7 @@ const GrapesEditor: React.FC = () => {
           .gjs-selected { outline: 2px solid #3b82f6 !important; outline-offset: -2px !important; }
           .gjs-hovered { outline: 1px dashed #8b5cf6 !important; outline-offset: -1px !important; }
         `;
-        
+
         let styleElement = frameDoc.querySelector('#grapes-canvas-styles');
         if (!styleElement) {
           styleElement = frameDoc.createElement('style');
@@ -1219,23 +1208,23 @@ const GrapesEditor: React.FC = () => {
         frameDoc.addEventListener("click", (e: MouseEvent) => {
           const target = e.target as HTMLElement;
           if (!target) return;
-          
+
           const tag = target.tagName.toLowerCase();
           const interactiveTags = ["a", "button", "input", "video", "form", "iframe"];
-          
+
           if (interactiveTags.includes(tag)) {
             // Verificar si tiene traits interactivos
-            const hasInteractiveTraits = target.hasAttribute('data-action-type') || 
-                                       target.hasAttribute('data-url') || 
-                                       target.hasAttribute('href') || 
-                                       target.hasAttribute('onclick') ||
-                                       target.hasAttribute('data-file-url');
-            
+            const hasInteractiveTraits = target.hasAttribute('data-action-type') ||
+              target.hasAttribute('data-url') ||
+              target.hasAttribute('href') ||
+              target.hasAttribute('onclick') ||
+              target.hasAttribute('data-file-url');
+
             if (hasInteractiveTraits) {
               // Solo prevenir la acción por defecto (navegación, submit, etc.)
               e.preventDefault();
               console.log("🚫 Bloqueado clic interactivo en editor:", tag);
-              
+
               // NO usar stopPropagation para permitir que GrapesJS maneje la selección
               // GrapesJS necesita que el evento burbujee para detectar la selección
             }
@@ -1251,19 +1240,19 @@ const GrapesEditor: React.FC = () => {
       try {
         const dc: any = (gEditor as any).DomComponents;
         if (dc && dc.addType) {
-          
+
           // =================== BOTÓN ===================
           dc.addType('button', {
             isComponent: (el: any) => {
               if (!el || !el.tagName) return false;
               const tagName = el.tagName.toLowerCase();
               return tagName === 'button' ||
-                     (tagName === 'a' && (
-                       el.style?.display?.includes('block') ||
-                       el.style?.padding ||
-                       el.className?.includes('btn') ||
-                       el.className?.includes('button')
-                     ));
+                (tagName === 'a' && (
+                  el.style?.display?.includes('block') ||
+                  el.style?.padding ||
+                  el.className?.includes('btn') ||
+                  el.className?.includes('button')
+                ));
             },
             extend: 'button',
             model: {
@@ -1272,7 +1261,7 @@ const GrapesEditor: React.FC = () => {
                 draggable: true,
                 droppable: false,
                 editable: true,
-                
+
                 traits: [
                   // Trait para cambiar el texto
                   {
@@ -1315,6 +1304,7 @@ const GrapesEditor: React.FC = () => {
                     type: 'select',
                     label: 'Abrir en',
                     name: 'data-target',
+                    changeProp: true,
                     options: [
                       { id: '_self', name: 'Misma ventana' },
                       { id: '_blank', name: 'Nueva ventana' }
@@ -1354,10 +1344,10 @@ const GrapesEditor: React.FC = () => {
                     valueFalse: 'false',
                   },
                 ],
-                
-                script: function() {
+
+                script: function () {
                   const el = this as unknown as HTMLElement;
-                  
+
                   function doAction(e: Event) {
                     try {
                       // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
@@ -1365,21 +1355,28 @@ const GrapesEditor: React.FC = () => {
                         console.log('🎯 Acción de button interceptada por el editor');
                         return; // No hacer nada, GrapesJS manejará el evento
                       }
-                      
+
                       // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
                       if (el.hasAttribute('data-grapes-editing')) {
                         console.log('🎯 Button en modo edición - acción bloqueada');
                         return;
                       }
-                      
+
                       const act = (el.getAttribute('data-action-type') || 'none');
                       if (act === 'none') return;
-                      
-                      const url = el.getAttribute('data-file-url') || el.getAttribute('href');
+
+                      const url = el.getAttribute('data-url') || el.getAttribute('data-file-url') || el.getAttribute('href');
                       const newTabAttr = el.getAttribute('data-new-tab');
-                      const newTab = (newTabAttr === 'true' || newTabAttr === '1');
-                      
+                      const targetAttr = el.getAttribute('data-target') || el.getAttribute('target');
+
+                      // Lógica corregida: Priorizar explícitamente _blank o _self
+                      let newTab = false;
+                      if (targetAttr === '_blank') newTab = true;
+                      else if (targetAttr === '_self') newTab = false;
+                      else if (newTabAttr === 'true' || newTabAttr === '1') newTab = true;
+
                       if (act === 'link' && url) {
+                        console.log('🔗 [Script 2] Abriendo enlace - target:', targetAttr, 'newTab:', newTab, 'URL:', url);
                         newTab ? window.open(url, '_blank') : (window.location.href = url);
                       } else if (act === 'open_pdf' && url) {
                         window.open(url, '_blank');
@@ -1398,25 +1395,25 @@ const GrapesEditor: React.FC = () => {
                           'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
                         newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
                       }
-                      
+
                       if (e && e.preventDefault) e.preventDefault();
-                    } catch(err) {
+                    } catch (err) {
                       console.warn('button action error', err);
                     }
                   }
-                  
+
                   el.addEventListener('click', doAction);
                   return {
-                    destroy: function() {
+                    destroy: function () {
                       el.removeEventListener('click', doAction);
                     }
                   };
                 },
-                
+
                 // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
                 scriptProps: [
                   'data-action-type',
-                  'data-file-url', 
+                  'data-file-url',
                   'data-transaction-id',
                   'data-amount',
                   'data-new-tab',
@@ -1442,7 +1439,7 @@ const GrapesEditor: React.FC = () => {
                 draggable: true,
                 droppable: true,
                 editable: true,
-                
+
                 traits: [
                   {
                     type: 'text',
@@ -1497,17 +1494,17 @@ const GrapesEditor: React.FC = () => {
                     name: 'data-amount',
                   },
                 ],
-                
-                script: function() {
+
+                script: function () {
                   const el = this as unknown as HTMLElement;
-                  
+
                   // 🚫 NO ejecutar en el contexto del editor GrapesJS
                   // Solo ejecutar si NO estamos en el editor
                   if (checkEditorContext()) {
                     console.log('🎯 Script de link deshabilitado en el editor');
-                    return { destroy: function() {} };
+                    return { destroy: function () { } };
                   }
-                  
+
                   function onClick(e: Event) {
                     try {
                       // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
@@ -1515,18 +1512,22 @@ const GrapesEditor: React.FC = () => {
                         console.log('🎯 Acción de link interceptada por el editor');
                         return; // No hacer nada, GrapesJS manejará el evento
                       }
-                      
+
                       // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
                       if (el.hasAttribute('data-grapes-editing')) {
                         console.log('🎯 Link en modo edición - acción bloqueada');
                         return;
                       }
-                      
+
                       const act = (el.getAttribute('data-action-type') || 'link');
                       const url = el.getAttribute('href') || el.getAttribute('data-file-url');
-                      const targetAttr = el.getAttribute('target');
-                      const newTab = targetAttr === '_blank';
-                      
+                      const targetAttr = el.getAttribute('target') || el.getAttribute('data-target');
+
+                      // Lógica corregida para links
+                      let newTab = false;
+                      if (targetAttr === '_blank') newTab = true;
+                      else if (targetAttr === '_self') newTab = false;
+
                       if (act === 'link' && url) {
                         newTab ? window.open(url, '_blank') : (window.location.href = url);
                       } else if (act === 'open_pdf' && url) {
@@ -1546,21 +1547,21 @@ const GrapesEditor: React.FC = () => {
                           'tx=' + encodeURIComponent(tx) + '&amount=' + encodeURIComponent(amount);
                         newTab ? window.open(finalUrl, '_blank') : (window.location.href = finalUrl);
                       }
-                      
+
                       if (e && e.preventDefault) e.preventDefault();
-                    } catch(err) {
+                    } catch (err) {
                       console.warn('link action error', err);
                     }
                   }
-                  
+
                   el.addEventListener('click', onClick);
                   return {
-                    destroy: function() {
+                    destroy: function () {
                       el.removeEventListener('click', onClick);
                     }
                   };
                 },
-                
+
                 // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
                 scriptProps: [
                   'data-action-type',
@@ -1575,7 +1576,7 @@ const GrapesEditor: React.FC = () => {
               },
             },
           });
-          
+
           console.log('✅ Traits personalizados registrados para button y link');
         }
       } catch (e) {
@@ -1586,15 +1587,15 @@ const GrapesEditor: React.FC = () => {
       // ESTO VA DESPUÉS DEL BLOQUE TRY-CATCH DE LOS TRAITS
       gEditor.on('component:selected', (component: any) => {
         const type = component.get('type');
-        
+
         console.log('🎯 Componente seleccionado:', type);
-        
+
         // Obtener el Style Manager
         const sm = gEditor.StyleManager;
-        
+
         if (type === 'button' || type === 'link') {
           console.log(`🎯 ${type} seleccionado, mostrando sección de configuración...`);
-          
+
           // Mostrar la sección de configuración para botones y enlaces
           try {
             const sectors = sm.getSectors();
@@ -1602,16 +1603,16 @@ const GrapesEditor: React.FC = () => {
               const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
               return id === 'button-config' || s.get('name') === '⚙️ Configuración';
             });
-            
+
             if (configSector) {
               // Hacer visible la sección pero mantenerla colapsada hasta que el usuario haga clic
               configSector.set('visible', true);
               configSector.set('open', false); // Colapsada por defecto
               console.log('✅ Sección de configuración mostrada (colapsada)');
-              
+
               // Sincronizar los valores de los traits con las propiedades del Style Manager
               (gEditor as any).syncTraitsWithStyleManager(component, sm, type);
-              
+
               // Forzar re-renderizado del Style Manager
               sm.render();
             } else {
@@ -1628,11 +1629,11 @@ const GrapesEditor: React.FC = () => {
               const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
               return id === 'button-config' || s.get('name') === '⚙️ Configuración';
             });
-            
+
             if (configSector) {
               configSector.set('visible', false);
               configSector.set('open', false);
-              
+
               // Forzar re-renderizado del Style Manager
               sm.render();
             }
@@ -1650,25 +1651,25 @@ const GrapesEditor: React.FC = () => {
             const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
             return id === 'button-config' || s.get('name') === '⚙️ Configuración';
           });
-          
+
           if (configSector) {
             const properties = configSector.get('properties');
-            
+
             // Obtener los traits del componente
             const traits = component.get('traits');
-            
+
             // Sincronizar cada propiedad
             traits.forEach((trait: any) => {
               const traitName = trait.get('name');
               const traitValue = trait.get('value') || component.get(traitName);
-              
+
               // Buscar la propiedad correspondiente en el Style Manager
-              const property = properties.find((p: any) => 
-                p.property === traitName || 
+              const property = properties.find((p: any) =>
+                p.property === traitName ||
                 p.property === `data-${traitName}` ||
                 p.id === `${type}-${traitName}`
               );
-              
+
               if (property && traitValue) {
                 // Aplicar el valor al Style Manager
                 sm.addProperty(configSector.get('id'), {
@@ -1733,36 +1734,36 @@ const GrapesEditor: React.FC = () => {
                       if (isAbs) {
                         (this as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
                       } else if (isFlexParent) {
-                        try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch { }
                         (this as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
                       } else if (isGridParent) {
                         (this as any).addStyle({ 'justify-self': 'center' });
                       } else {
-                        try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch { }
                         (this as any).addStyle({ display: 'inline-block' });
                       }
                     } else if (value === 'right') {
                       if (isAbs) {
                         (this as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
                       } else if (isFlexParent) {
-                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch { }
                         (this as any).addStyle({ display: 'block' });
                       } else if (isGridParent) {
                         (this as any).addStyle({ 'justify-self': 'end' });
                       } else {
-                        try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch { }
                         (this as any).addStyle({ display: 'inline-block' });
                       }
                     } else {
                       if (isAbs) {
                         (this as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
                       } else if (isFlexParent) {
-                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch { }
                         (this as any).addStyle({ display: 'block' });
                       } else if (isGridParent) {
                         (this as any).addStyle({ 'justify-self': 'start' });
                       } else {
-                        try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                        try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch { }
                         (this as any).addStyle({ display: 'inline-block' });
                       }
                     }
@@ -1780,16 +1781,16 @@ const GrapesEditor: React.FC = () => {
       // Eventos para sincronización de traits con Style Manager
       try {
         gEditor.on('load', () => console.log('🎯 Editor load'));
-        
+
         // Evento para sincronizar cambios del Style Manager con los traits
         gEditor.on('style:property:update', (property: any) => {
           try {
             const selected = gEditor.getSelected();
             if (!selected) return;
-            
+
             const propertyName = property.get('property');
             const propertyValue = property.get('value');
-            
+
             // Lógica para campos dependientes en la configuración de botones
             if (propertyName === 'data-action-type') {
               const sm = gEditor.StyleManager;
@@ -1798,17 +1799,17 @@ const GrapesEditor: React.FC = () => {
                 const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
                 return id === 'button-config' || s.get('name') === '⚙️ Configuración';
               });
-              
+
               if (configSector) {
                 const properties = (configSector.get('properties') as any[]) || [];
-                
+
                 // Ocultar todos los campos dependientes primero
                 properties.forEach((prop: any) => {
                   if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes(prop.get('id'))) {
                     prop?.set?.('visible', false);
                   }
                 });
-                
+
                 // Mostrar campos según la acción seleccionada
                 if (propertyValue === 'go-to-page') {
                   // Mostrar URL y selector "Abrir en"
@@ -1827,13 +1828,13 @@ const GrapesEditor: React.FC = () => {
                   const customFunctionProp = properties.find((p: any) => p.get('id') === 'custom-function');
                   customFunctionProp?.set?.('visible', true);
                 }
-                
+
                 // Forzar re-renderizado del Style Manager
                 sm.render?.();
                 console.log(`✅ Campos dependientes actualizados para acción: ${propertyValue}`);
               }
             }
-            
+
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {
               const traitName = propertyName.replace('data-', '');
@@ -1841,7 +1842,7 @@ const GrapesEditor: React.FC = () => {
               const trait = traitsCollection && typeof traitsCollection.find === 'function'
                 ? traitsCollection.find((t: any) => t.get('name') === traitName)
                 : null;
-              
+
               if (trait) {
                 trait.set('value', propertyValue);
                 selected.set(propertyName, propertyValue);
@@ -1852,14 +1853,14 @@ const GrapesEditor: React.FC = () => {
             console.warn('Error sincronizando Style Manager con traits:', e);
           }
         });
-        
+
         // Evento para manejar cambios en traits y actualizar campos dependientes
         gEditor.on('component:update:traits', (component: any) => {
           try {
             if (component.get('type') === 'button') {
               const actionType = component.get('data-action-type');
               const traits: any[] = component.get('traits') || [];
-              
+
               // Ocultar todos los campos dependientes primero
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
@@ -1867,7 +1868,7 @@ const GrapesEditor: React.FC = () => {
                   trait?.set?.('visible', false);
                 }
               });
-              
+
               // Mostrar campos según la acción seleccionada
               if (actionType === 'link') {
                 const urlTrait = traits.find((t: any) => t.get('name') === 'data-url');
@@ -1886,7 +1887,7 @@ const GrapesEditor: React.FC = () => {
                 const functionTrait = traits.find((t: any) => t.get('name') === 'data-custom-function');
                 functionTrait?.set?.('visible', true);
               }
-              
+
               // Forzar re-renderizado del panel de traits
               gEditor.TraitManager?.render?.();
               console.log(`✅ Traits dinámicos actualizados para acción: ${actionType}`);
@@ -1902,120 +1903,120 @@ const GrapesEditor: React.FC = () => {
                   component.set('content', labelVal);
                 }
               }
-            } catch {}
+            } catch { }
           } catch (e) {
-             console.warn('Error actualizando traits dinámicos:', e);
-           }
-         });
+            console.warn('Error actualizando traits dinámicos:', e);
+          }
+        });
 
-         // COMPONENTE 1: Sincronizar contenido visual y data-label cuando cambia 'content'
-         gEditor.on('component:update:content', (component: any) => {
-           try {
-             const type = component.get('type');
-             if (type !== 'button' && type !== 'action-button') return;
-
-             const newContent = component.get('content');
-             if (!newContent || (typeof newContent === 'string' && !newContent.trim())) return;
-
-             // Actualizar contenido visual (inner text como hijo)
-             component.components(newContent);
-
-             // Actualizar atributo data-label para compatibilidad
-             if (typeof component.addAttributes === 'function') {
-               component.addAttributes({ 'data-label': newContent });
-             } else {
-               const attrs = component.get('attributes') || {};
-               attrs['data-label'] = newContent;
-               component.set('attributes', attrs);
-             }
-
-             setHasUnsavedChanges(true);
-             scheduleAutoSave();
-           } catch (e) {
-             console.warn('Error en component:update:content:', e);
-           }
-         });
-
-         // COMPONENTE 2: Sincronización de traits clave para edición estable
-         gEditor.on('trait:update', (trait: any) => {
-           try {
-             const name = trait?.get?.('name');
-             const component = gEditor.getSelected?.();
-             if (!component) return;
-             const type = component.get('type');
-             if (type !== 'button' && type !== 'action-button') return;
-             const newValue = trait?.get?.('value');
-             if (!newValue || (typeof newValue === 'string' && !newValue.trim())) return;
-
-             if (name === 'content') {
-               // Actualizar contenido visual
-               component.components(newValue);
-
-               // Actualizar data-label
-               if (typeof component.addAttributes === 'function') {
-                 component.addAttributes({ 'data-label': newValue });
-               } else {
-                 const attrs = component.get('attributes') || {};
-                 (attrs as any)['data-label'] = newValue;
-                 component.set('attributes', attrs);
-               }
-             } else if (name === 'data-url' || name === 'href') {
-               // Sincronizar URL entre data-url y href
-               if (typeof component.addAttributes === 'function') {
-                 component.addAttributes({ 'data-url': newValue, href: newValue });
-               } else {
-                 const attrs = component.get('attributes') || {};
-                 (attrs as any)['data-url'] = newValue;
-                 (attrs as any)['href'] = newValue;
-                 component.set('attributes', attrs);
-               }
-             } else if (name === 'data-target') {
-               // Sincronizar target entre data-target y target
-               if (typeof component.addAttributes === 'function') {
-                 component.addAttributes({ 'data-target': newValue, target: newValue });
-               } else {
-                 const attrs = component.get('attributes') || {};
-                 (attrs as any)['data-target'] = newValue;
-                 (attrs as any)['target'] = newValue;
-                 component.set('attributes', attrs);
-               }
-             }
-
-             setHasUnsavedChanges(true);
-             scheduleAutoSave();
-           } catch (e) {
-             console.warn('Error en trait:update:', e);
-           }
-         });
-         
-         // Evento para sincronizar cambios de traits con el Style Manager
-         gEditor.on('component:update:traits', (component: any) => {
+        // COMPONENTE 1: Sincronizar contenido visual y data-label cuando cambia 'content'
+        gEditor.on('component:update:content', (component: any) => {
           try {
-           const sm = gEditor.StyleManager;
-           const sectors = sm.getSectors();
-           const configSector = sectors.find((s: any) => {
-             const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-             return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-           });
-           
-           if (configSector && configSector.get('visible')) {
+            const type = component.get('type');
+            if (type !== 'button' && type !== 'action-button') return;
+
+            const newContent = component.get('content');
+            if (!newContent || (typeof newContent === 'string' && !newContent.trim())) return;
+
+            // Actualizar contenido visual (inner text como hijo)
+            component.components(newContent);
+
+            // Actualizar atributo data-label para compatibilidad
+            if (typeof component.addAttributes === 'function') {
+              component.addAttributes({ 'data-label': newContent });
+            } else {
+              const attrs = component.get('attributes') || {};
+              attrs['data-label'] = newContent;
+              component.set('attributes', attrs);
+            }
+
+            setHasUnsavedChanges(true);
+            scheduleAutoSave();
+          } catch (e) {
+            console.warn('Error en component:update:content:', e);
+          }
+        });
+
+        // COMPONENTE 2: Sincronización de traits clave para edición estable
+        gEditor.on('trait:update', (trait: any) => {
+          try {
+            const name = trait?.get?.('name');
+            const component = gEditor.getSelected?.();
+            if (!component) return;
+            const type = component.get('type');
+            if (type !== 'button' && type !== 'action-button') return;
+            const newValue = trait?.get?.('value');
+            if (!newValue || (typeof newValue === 'string' && !newValue.trim())) return;
+
+            if (name === 'content') {
+              // Actualizar contenido visual
+              component.components(newValue);
+
+              // Actualizar data-label
+              if (typeof component.addAttributes === 'function') {
+                component.addAttributes({ 'data-label': newValue });
+              } else {
+                const attrs = component.get('attributes') || {};
+                (attrs as any)['data-label'] = newValue;
+                component.set('attributes', attrs);
+              }
+            } else if (name === 'data-url' || name === 'href') {
+              // Sincronizar URL entre data-url y href
+              if (typeof component.addAttributes === 'function') {
+                component.addAttributes({ 'data-url': newValue, href: newValue });
+              } else {
+                const attrs = component.get('attributes') || {};
+                (attrs as any)['data-url'] = newValue;
+                (attrs as any)['href'] = newValue;
+                component.set('attributes', attrs);
+              }
+            } else if (name === 'data-target') {
+              // Sincronizar target entre data-target y target
+              if (typeof component.addAttributes === 'function') {
+                component.addAttributes({ 'data-target': newValue, target: newValue });
+              } else {
+                const attrs = component.get('attributes') || {};
+                (attrs as any)['data-target'] = newValue;
+                (attrs as any)['target'] = newValue;
+                component.set('attributes', attrs);
+              }
+            }
+
+            setHasUnsavedChanges(true);
+            scheduleAutoSave();
+          } catch (e) {
+            console.warn('Error en trait:update:', e);
+          }
+        });
+
+        // Evento para sincronizar cambios de traits con el Style Manager
+        gEditor.on('component:update:traits', (component: any) => {
+          try {
+            const sm = gEditor.StyleManager;
+            const sectors = sm.getSectors();
+            const configSector = sectors.find((s: any) => {
+              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
+              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
+            });
+
+            if (configSector && configSector.get('visible')) {
               const traits: any[] = component.get('traits') || [];
               const properties = (configSector.get('properties') as any[]) || [];
-              
+
               traits.forEach((trait: any) => {
                 const traitName = trait.get('name');
                 const traitValue = trait.get('value');
-                
+
                 // Actualizar la propiedad correspondiente en el Style Manager
                 const propertyName = traitName.startsWith('data-') ? traitName : `data-${traitName}`;
                 const property = properties.find((p: any) => p.get('property') === propertyName);
-                
+
                 if (property && traitValue !== undefined) {
                   property?.set?.('value', traitValue);
                   console.log(`✅ Style Manager actualizado desde trait ${traitName}:`, traitValue);
                 }
               });
-              
+
               // Forzar re-renderizado del Style Manager
               sm.render?.();
             }
@@ -2023,7 +2024,7 @@ const GrapesEditor: React.FC = () => {
             console.warn('Error sincronizando traits con Style Manager:', e);
           }
         });
-        
+
         // COMPONENTE 3: Al seleccionar, cargar desde data-label > innerText > content
         gEditor.on('component:selected', (component: any) => {
           try {
@@ -2056,7 +2057,7 @@ const GrapesEditor: React.FC = () => {
 
             const contentTrait = component.getTrait?.('content');
             if (contentTrait) contentTrait.set?.('value', currentText);
-            
+
             // Sincronizar URL/Acción/Target desde atributos existentes (href/target)
             try {
               const href = el?.getAttribute?.('href') || (attrs as any)?.href || '';
@@ -2087,14 +2088,14 @@ const GrapesEditor: React.FC = () => {
                 if (targetTrait) targetTrait.set?.('value', updates['data-target'] || (attrs as any)['data-target'] || '');
                 gEditor.TraitManager?.render?.();
               }
-            } catch {}
+            } catch { }
           } catch (e) {
             console.warn('Error en component:selected:', e);
           }
         });
 
         // COMPONENTE 4: (Eliminado) No se realizará normalización masiva en 'load' para evitar tocar múltiples botones a la vez
-      } catch {}
+      } catch { }
 
 
 
@@ -2103,7 +2104,7 @@ const GrapesEditor: React.FC = () => {
       // Registrar tipo personalizado 'gradient' en StyleManager
       try {
         const sm = gEditor.StyleManager as any;
-        
+
         // Funciones auxiliares para el gradiente
         const setColorsToUI = (root: HTMLElement, colors: string[], positions?: number[]) => {
           const list = root.querySelector('.gjs-grad-list') as HTMLElement;
@@ -2160,7 +2161,7 @@ const GrapesEditor: React.FC = () => {
             return { color: isValidColor(color) ? color : '#ffffff', pos: !isNaN(pos as any) ? pos : null };
           });
         };
-        
+
         // Esta función ya está definida arriba
 
         // Esta función ya está definida arriba
@@ -2280,7 +2281,7 @@ const GrapesEditor: React.FC = () => {
               if (propId === 'text-gradient' || propName === 'color') {
                 modeSel.value = 'text';
               }
-            } catch {}
+            } catch { }
 
             const syncAngle = (v: number) => {
               angleRange.value = String(v);
@@ -2467,7 +2468,7 @@ const GrapesEditor: React.FC = () => {
                     } else {
                       modeSel.value = 'background';
                     }
-                  } catch {}
+                  } catch { }
                 } catch {
                   setColorsToUI(root, ['#ffffff']);
                 }
@@ -2501,7 +2502,7 @@ const GrapesEditor: React.FC = () => {
             if (!exists) {
               sm.addProperty(aparienciaId, { id: 'background-gradient', type: 'gradient', property: 'background', label: 'Gradiente de fondo', defaults: '' });
             }
-            try { aparienciaSector?.set('open', true); } catch {}
+            try { aparienciaSector?.set('open', true); } catch { }
           } else {
             console.warn('No se encontró sector "🎨 Apariencia"');
           }
@@ -2512,7 +2513,7 @@ const GrapesEditor: React.FC = () => {
             if (!existsT) {
               sm.addProperty(textoId, { id: 'text-gradient', type: 'gradient', property: 'color', label: 'Gradiente de texto', defaults: '' });
             }
-            try { textoSector?.set('open', true); } catch {}
+            try { textoSector?.set('open', true); } catch { }
           } else {
             console.warn('No se encontró sector "📝 Texto"');
           }
@@ -2551,7 +2552,7 @@ const GrapesEditor: React.FC = () => {
             const value = (target?.dataset?.value as 'left' | 'center' | 'right') || 'left';
             try {
               args?.property?.setValue?.(value);
-            } catch {}
+            } catch { }
             const ed = (window as any).editor || editorInstanceRef.current;
             const sel = ed?.getSelected?.();
             if (!sel) return;
@@ -2574,14 +2575,14 @@ const GrapesEditor: React.FC = () => {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
                 } else if (isFlexParent) {
                   // Centrado en contenedor flex: usar justify-content en el padre
-                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch { }
                   (sel as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
                 } else if (isGridParent) {
                   // Centrado en grid: justificar el ítem
                   (sel as any).addStyle({ 'justify-self': 'center' });
                 } else if (isInline || isSvg) {
                   // Elementos inline/SVG: centrar vía text-align del padre
-                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   // Bloque normal: margen auto
@@ -2591,12 +2592,12 @@ const GrapesEditor: React.FC = () => {
                 if (isAbs) {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
                 } else if (isFlexParent) {
-                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch { }
                   (sel as any).addStyle({ display: 'block' });
                 } else if (isGridParent) {
                   (sel as any).addStyle({ 'justify-self': 'end' });
                 } else if (isInline || isSvg) {
-                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': '0' });
@@ -2606,12 +2607,12 @@ const GrapesEditor: React.FC = () => {
                 if (isAbs) {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
                 } else if (isFlexParent) {
-                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch { }
                   (sel as any).addStyle({ display: 'block' });
                 } else if (isGridParent) {
                   (sel as any).addStyle({ 'justify-self': 'start' });
                 } else if (isInline || isSvg) {
-                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   (sel as any).addStyle({ display: 'block', 'margin-left': '0', 'margin-right': 'auto' });
@@ -2641,12 +2642,12 @@ const GrapesEditor: React.FC = () => {
                 if (isAbs) {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', left: '50%', right: '', transform: 'translateX(-50%)', 'margin-left': '', 'margin-right': '' });
                 } else if (isFlexParent) {
-                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'center' }); } catch { }
                   (sel as any).addStyle({ 'margin-left': '', 'margin-right': '', display: 'block' });
                 } else if (isGridParent) {
                   (sel as any).addStyle({ 'justify-self': 'center' });
                 } else if (isInline || isSvg) {
-                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'center' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': 'auto' });
@@ -2655,12 +2656,12 @@ const GrapesEditor: React.FC = () => {
                 if (isAbs) {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', right: '0', left: '', transform: '' });
                 } else if (isFlexParent) {
-                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-end' }); } catch { }
                   (sel as any).addStyle({ display: 'block' });
                 } else if (isGridParent) {
                   (sel as any).addStyle({ 'justify-self': 'end' });
                 } else if (isInline || isSvg) {
-                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'right' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   (sel as any).addStyle({ display: 'block', 'margin-left': 'auto', 'margin-right': '0' });
@@ -2669,12 +2670,12 @@ const GrapesEditor: React.FC = () => {
                 if (isAbs) {
                   (sel as any).addStyle({ position: cs?.position || 'absolute', left: '0', right: '', transform: '' });
                 } else if (isFlexParent) {
-                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'justify-content': 'flex-start' }); } catch { }
                   (sel as any).addStyle({ display: 'block' });
                 } else if (isGridParent) {
                   (sel as any).addStyle({ 'justify-self': 'start' });
                 } else if (isInline || isSvg) {
-                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch {}
+                  try { parentComp?.addStyle?.({ 'text-align': 'left' }); } catch { }
                   (sel as any).addStyle({ display: 'inline-block' });
                 } else {
                   (sel as any).addStyle({ display: 'block', 'margin-left': '0', 'margin-right': 'auto' });
@@ -2698,7 +2699,7 @@ const GrapesEditor: React.FC = () => {
               else if (mr.includes('auto')) current = 'left';
               const btn = el.querySelector(`button[data-value="${current}"]`);
               if (btn) btn.classList.add('bg-gray-200');
-            } catch {}
+            } catch { }
           },
         });
       } catch (e) { console.warn('Registro de tipo align falló', e); }
@@ -2722,8 +2723,8 @@ const GrapesEditor: React.FC = () => {
                   }
                   const comp = (targetSel as any).append(html) as any;
                   const added = Array.isArray(comp) ? comp[comp.length - 1] : comp;
-                  try { added?.set?.({ resizable: true }); } catch {}
-                  try { gEditor.select(added); } catch {}
+                  try { added?.set?.({ resizable: true }); } catch { }
+                  try { gEditor.select(added); } catch { }
                 } catch (err) { console.warn('append error', err); }
               };
               // Archivos (imagen/video)
@@ -2786,7 +2787,7 @@ const GrapesEditor: React.FC = () => {
                         e.preventDefault();
                         return;
                       }
-                    } catch {}
+                    } catch { }
                   });
                 }
               }
@@ -2823,8 +2824,8 @@ const GrapesEditor: React.FC = () => {
             }
             const comp = (targetSel as any).append(html) as any;
             const added = Array.isArray(comp) ? comp[comp.length - 1] : comp;
-            try { added?.set?.({ resizable: true }); } catch {}
-            try { ed.select(added); } catch {}
+            try { added?.set?.({ resizable: true }); } catch { }
+            try { ed.select(added); } catch { }
           } catch (err) { console.warn('append error', err); }
         };
 
@@ -2862,7 +2863,7 @@ const GrapesEditor: React.FC = () => {
                   }
                   return;
                 }
-              } catch {}
+              } catch { }
             }
           } catch (err) {
             console.warn('clipboard.read falló, intento texto', err);
@@ -2885,12 +2886,12 @@ const GrapesEditor: React.FC = () => {
           console.warn('readText falló', err);
         }
       };
-      try { (window as any).pasteFromClipboard = pasteFromClipboard; } catch {}
+      try { (window as any).pasteFromClipboard = pasteFromClipboard; } catch { }
 
       // Habilitar resizable en selección de imágenes, videos y SVG
       try {
         gEditor.on('component:selected', (comp: any) => {
-          try { comp?.set?.({ resizable: true }); } catch {}
+          try { comp?.set?.({ resizable: true }); } catch { }
           try {
             const sm: any = gEditor.StyleManager;
             const sectors = sm.getSectors?.() || [];
@@ -2930,7 +2931,7 @@ const GrapesEditor: React.FC = () => {
           try {
             const arr = (pageData as any)?.scripts as string[] | undefined;
             (arr || []).forEach((s) => externalSrcs.add(s));
-          } catch {}
+          } catch { }
           parsed.querySelectorAll('script[src]').forEach((el) => {
             const src = el.getAttribute('src');
             if (src) externalSrcs.add(src);
@@ -3005,6 +3006,7 @@ const GrapesEditor: React.FC = () => {
                 type: 'select',
                 label: 'Abrir en',
                 name: 'data-target',
+                changeProp: true,
                 options: [
                   { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva ventana' },
@@ -3030,118 +3032,126 @@ const GrapesEditor: React.FC = () => {
               }
             ],
             script(this: HTMLElement) {
-               // No ejecutar acciones en el editor: detectar contexto y salir
-               try {
-                 const isEditorCtx = (window as any).__GJS_IS_EDITOR ||
-                   (!!(window.top && (window.top as any).grapesjs));
-                 if (isEditorCtx) return;
-               } catch {}
-               // Sincronizar etiqueta visible con el trait "Texto" (data-label)
-               const updateLabel = () => {
-                 const lbl = this.getAttribute('data-label');
-                 if (typeof lbl === 'string') {
-                   this.textContent = lbl;
-                 }
-               };
-               // Inicializar etiqueta si existe atributo
-               updateLabel();
-               // Observar cambios de atributos para data-label
-               const mo = new MutationObserver(muts => {
-                 for (const m of muts) {
-                   if (m.type === 'attributes' && m.attributeName === 'data-label') {
-                     updateLabel();
-                   }
-                 }
-               });
-               mo.observe(this, { attributes: true, attributeFilter: ['data-label'] });
-               // 🚫 NO ejecutar en el contexto del editor GrapesJS
-               // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-               if (checkEditorContext()) {
-                 console.log('🎯 Script de action-button deshabilitado en el editor');
-                 return { destroy: function() {} };
-               }
-               
-               const action = this.getAttribute('data-action');
-               const url = this.getAttribute('data-url') || this.getAttribute('href');
-               const target = this.getAttribute('data-target') || '_self';
-               const transactionId = this.getAttribute('data-transaction-id');
-               const amount = this.getAttribute('data-amount');
-               const customFunction = this.getAttribute('data-custom-function');
+              // No ejecutar acciones en el editor: detectar contexto y salir
+              try {
+                const isEditorCtx = (window as any).__GJS_IS_EDITOR ||
+                  (!!(window.top && (window.top as any).grapesjs));
+                if (isEditorCtx) return;
+              } catch { }
+              // Sincronizar etiqueta visible con el trait "Texto" (data-label)
+              const updateLabel = () => {
+                const lbl = this.getAttribute('data-label');
+                if (typeof lbl === 'string') {
+                  this.textContent = lbl;
+                }
+              };
+              // Inicializar etiqueta si existe atributo
+              updateLabel();
+              // Observar cambios de atributos para data-label
+              const mo = new MutationObserver(muts => {
+                for (const m of muts) {
+                  if (m.type === 'attributes' && m.attributeName === 'data-label') {
+                    updateLabel();
+                  }
+                }
+              });
+              mo.observe(this, { attributes: true, attributeFilter: ['data-label'] });
+              // 🚫 NO ejecutar en el contexto del editor GrapesJS
+              // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+              if (checkEditorContext()) {
+                console.log('🎯 Script de action-button deshabilitado en el editor');
+                return { destroy: function () { } };
+              }
 
-               // Si no hay acción pero hay URL, asumir que es un enlace
-               const finalAction = action || (url ? 'link' : null);
+              const action = this.getAttribute('data-action');
 
-               if (!finalAction) return;
+              // Si no hay acción pero hay URL, asumir que es un enlace
+              const finalAction = action || ((this.getAttribute('data-url') || this.getAttribute('href')) ? 'link' : null);
 
-               function handleClick(this: HTMLElement, e: Event) {
-                 // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                 if (checkEditorContext()) {
-                   console.log('🎯 Acción de action-button interceptada por el editor');
-                   return; // No hacer nada, GrapesJS manejará el evento
-                 }
-                 
-                 // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
-                 if (this.hasAttribute('data-grapes-editing')) {
-                   console.log('🎯 Action-button en modo edición - acción bloqueada');
-                   return;
-                 }
-                 
-                 e.preventDefault();
-                 
-                 switch (finalAction) {
-                   case 'link':
-                     if (url) {
-                       // Limpiar la URL de backticks si los tiene
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, target);
-                     }
-                     break;
-                   case 'download':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       const a = document.createElement('a');
-                       a.href = cleanUrl;
-                       a.download = cleanUrl.split('/').pop() || 'download';
-                       a.click();
-                     }
-                     break;
-                   case 'open_pdf':
-                     if (url) {
-                       const cleanUrl = url.replace(/`/g, '').trim();
-                       window.open(cleanUrl, '_blank');
-                     }
-                     break;
-                   case 'go_to_payment':
-                     if (transactionId && amount) {
-                       console.log('Procesando pago:', { transactionId, amount });
-                       // Aquí iría la lógica de pago
-                     }
-                     break;
-                   case 'execute-function':
-                     if (customFunction) {
-                       try {
-                         new Function(customFunction)();
-                       } catch (error) {
-                         console.error('Error ejecutando función personalizada:', error);
-                       }
-                     }
-                     break;
-                 }
-               }
+              if (!finalAction) return;
 
-               this.addEventListener('click', handleClick);
-             },
-             // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
-             scriptProps: [
-               'data-label',
-               'data-action',
-               'data-url', 
-               'data-target',
-               'data-transaction-id',
-               'data-amount',
-               'data-custom-function',
-               'href'
-             ],
+              function handleClick(this: HTMLElement, e: Event) {
+                // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
+                if (checkEditorContext()) {
+                  console.log('🎯 Acción de action-button interceptada por el editor');
+                  return; // No hacer nada, GrapesJS manejará el evento
+                }
+
+                // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
+                if (this.hasAttribute('data-grapes-editing')) {
+                  console.log('🎯 Action-button en modo edición - acción bloqueada');
+                  return;
+                }
+
+                e.preventDefault();
+
+                // Leer los atributos en el momento del click para obtener valores actualizados
+                const url = this.getAttribute('data-url') || this.getAttribute('href');
+                const target = this.getAttribute('data-target') || this.getAttribute('target') || '_self';
+                const transactionId = this.getAttribute('data-transaction-id');
+                const amount = this.getAttribute('data-amount');
+                const customFunction = this.getAttribute('data-custom-function');
+
+                switch (finalAction) {
+                  case 'link':
+                    if (url) {
+                      // Limpiar la URL de backticks si los tiene
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      // Respetar la configuración de target
+                      console.log('🔗 Abriendo enlace con target:', target, 'URL:', cleanUrl);
+                      if (target === '_blank') {
+                        window.open(cleanUrl, '_blank');
+                      } else {
+                        window.location.href = cleanUrl;
+                      }
+                    }
+                    break;
+                  case 'download':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      const a = document.createElement('a');
+                      a.href = cleanUrl;
+                      a.download = cleanUrl.split('/').pop() || 'download';
+                      a.click();
+                    }
+                    break;
+                  case 'open_pdf':
+                    if (url) {
+                      const cleanUrl = url.replace(/`/g, '').trim();
+                      window.open(cleanUrl, '_blank');
+                    }
+                    break;
+                  case 'go_to_payment':
+                    if (transactionId && amount) {
+                      console.log('Procesando pago:', { transactionId, amount });
+                      // Aquí iría la lógica de pago
+                    }
+                    break;
+                  case 'execute-function':
+                    if (customFunction) {
+                      try {
+                        new Function(customFunction)();
+                      } catch (error) {
+                        console.error('Error ejecutando función personalizada:', error);
+                      }
+                    }
+                    break;
+                }
+              }
+
+              this.addEventListener('click', handleClick);
+            },
+            // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
+            scriptProps: [
+              'data-label',
+              'data-action',
+              'data-url',
+              'data-target',
+              'data-transaction-id',
+              'data-amount',
+              'data-custom-function',
+              'href'
+            ],
           },
         },
       });
@@ -3162,11 +3172,13 @@ const GrapesEditor: React.FC = () => {
             stylable: true,
             components: [
               { type: 'button', attributes: { 'data-dropdown-toggle': 'true' }, content: 'Menú ▼' },
-              { type: 'list', attributes: { 'data-dropdown-list': 'true' }, components: [
-                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 1' }, content: 'Opción 1' },
-                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 2' }, content: 'Opción 2' },
-                { type: 'link', attributes: { href: '#', 'data-label': 'Opción 3' }, content: 'Opción 3' },
-              ]},
+              {
+                type: 'list', attributes: { 'data-dropdown-list': 'true' }, components: [
+                  { type: 'link', attributes: { href: '#', 'data-label': 'Opción 1' }, content: 'Opción 1' },
+                  { type: 'link', attributes: { href: '#', 'data-label': 'Opción 2' }, content: 'Opción 2' },
+                  { type: 'link', attributes: { href: '#', 'data-label': 'Opción 3' }, content: 'Opción 3' },
+                ]
+              },
             ],
             traits: [
               { type: 'text', name: 'toggle-label', label: 'Texto del botón', changeProp: 1 },
@@ -3176,7 +3188,7 @@ const GrapesEditor: React.FC = () => {
               try {
                 const isEditorCtx = (window as any).__GJS_IS_EDITOR || (!!(window.top && (window.top as any).grapesjs));
                 if (isEditorCtx) return;
-              } catch {}
+              } catch { }
               const toggle = this.querySelector('[data-dropdown-toggle]') as HTMLElement | null;
               const list = this.querySelector('[data-dropdown-list]') as HTMLElement | null;
               if (!toggle || !list) return;
@@ -3191,14 +3203,14 @@ const GrapesEditor: React.FC = () => {
             try {
               (this as any).on('change:toggle-label', (this as any).updateToggleLabel);
               (this as any).updateToggleLabel();
-            } catch {}
+            } catch { }
           },
           updateToggleLabel() {
             try {
               const label = (this as any).get('toggle-label') || 'Menú ▼';
               const toggle = (this as any).find?.('[data-dropdown-toggle]')?.[0];
               if (toggle) toggle.set('content', label);
-            } catch {}
+            } catch { }
           },
         } as any,
       });
@@ -3215,7 +3227,7 @@ const GrapesEditor: React.FC = () => {
             editor.trigger('component:update', { component: list });
           }
         });
-      } catch {}
+      } catch { }
 
       // Agregar sector de configuración al Style Manager
       gEditor.StyleManager.addSector('configuracion', {
@@ -3276,9 +3288,9 @@ const GrapesEditor: React.FC = () => {
         gEditor.on('device:change canvas:resize', () => {
           console.log('🎯 Recalculando posiciones por cambio de dispositivo/canvas');
           // Evitar refrescos redundantes que causan parpadeos
-          try { adjustCanvasWidth(); } catch {}
-          try { gEditor.trigger('canvas:refresh'); } catch {}
-          
+          try { adjustCanvasWidth(); } catch { }
+          try { gEditor.trigger('canvas:refresh'); } catch { }
+
           // Recorregir escalado después del cambio
           setTimeout(() => {
             const frame = gEditor.Canvas.getFrameEl();
@@ -3286,7 +3298,7 @@ const GrapesEditor: React.FC = () => {
               frame.style.transform = 'none';
               frame.style.zoom = '1';
             }
-            
+
             const canvasWrapper = document.querySelector('.gjs-cv-canvas') as HTMLElement;
             if (canvasWrapper) {
               canvasWrapper.style.transform = 'none';
@@ -3300,15 +3312,15 @@ const GrapesEditor: React.FC = () => {
           try {
             if (!gEditor || !(gEditor as any).Canvas) return;
             console.log('🎯 Recalculando por resize de ventana');
-            try { gEditor.refresh?.(); } catch {}
-            try { gEditor.trigger?.('canvas:refresh'); } catch {}
+            try { gEditor.refresh?.(); } catch { }
+            try { gEditor.trigger?.('canvas:refresh'); } catch { }
           } catch (e) {
             console.warn('⚠️ Resize handler omitido por editor no listo:', e);
           }
         };
-        
+
         window.addEventListener('resize', handleWindowResize);
-        
+
         // Cleanup function para remover el listener (se manejará en useEffect cleanup)
         (gEditor as any)._windowResizeCleanup = () => {
           window.removeEventListener('resize', handleWindowResize);
@@ -3319,23 +3331,23 @@ const GrapesEditor: React.FC = () => {
           try {
             const frame = gEditor.Canvas.getFrameEl();
             if (!frame) return;
-            
+
             const frameRect = frame.getBoundingClientRect();
             const offsetY = frameRect.top;
             const offsetX = frameRect.left;
-            
+
             // Sincronizar highlighter (caja de selección azul)
             const highlighter = document.querySelector('.gjs-highlighter') as HTMLElement;
             if (highlighter) {
               highlighter.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
             }
-            
+
             // Sincronizar herramientas de selección
             const tools = document.querySelector('.gjs-tools') as HTMLElement;
             if (tools) {
               tools.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
             }
-            
+
             console.log('🎯 Overlay sincronizado - offsetX:', offsetX, 'offsetY:', offsetY);
           } catch (e) {
             console.warn('Error sincronizando overlay:', e);
@@ -3344,7 +3356,7 @@ const GrapesEditor: React.FC = () => {
 
         // Aplicar sincronización en eventos del canvas (evitar ejecutarlo en selección para reducir jitter)
         gEditor.on('canvas:refresh device:change', syncSelectionOverlay);
-        
+
         // Sincronizar también en scroll del canvas
         const canvasEl = gEditor.Canvas.getElement();
         if (canvasEl) {
@@ -3375,7 +3387,7 @@ const GrapesEditor: React.FC = () => {
                 comp.set('content', currentText);
               }
             }
-          } catch {}
+          } catch { }
         });
 
         // Renombrar etiquetas de bloques de plugins a español
@@ -3434,7 +3446,7 @@ const GrapesEditor: React.FC = () => {
 
         // Bloques personalizados
         const bm = gEditor.BlockManager;
-        
+
         // PASO 1: Bloques básicos
         bm.add('text-simple', {
           label: '📝 Texto',
@@ -3942,9 +3954,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -3977,9 +3990,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -4012,9 +4026,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -4047,9 +4062,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -4469,9 +4485,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -4507,9 +4524,10 @@ const GrapesEditor: React.FC = () => {
               {
                 type: 'select',
                 label: 'Abrir en',
-                name: 'target',
+                name: 'data-target',
+                changeProp: true,
                 options: [
-                  { id: '', name: 'Misma ventana' },
+                  { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva pestaña' }
                 ]
               }
@@ -4544,7 +4562,7 @@ const GrapesEditor: React.FC = () => {
       // El frame del canvas está listo; validar ancho antes de marcar canvasReady
       gEditor.on('canvas:frame:load', () => {
         console.log('🖼️ Canvas frame listo');
-        
+
         // 🔧 PARCHE: Evitar errores de checkEditorContext en iframes
         try {
           const frame = gEditor.Canvas.getFrameEl();
@@ -4552,7 +4570,7 @@ const GrapesEditor: React.FC = () => {
             // Evita errores si scripts antiguos llaman esta función
             frame.contentWindow.checkEditorContext = () => false;
             console.log('✅ Parche checkEditorContext aplicado al iframe');
-            
+
             // También prevenir errores relacionados con checkEditorContext
             frame.contentWindow.addEventListener('error', (e) => {
               if (e.message && e.message.includes('checkEditorContext')) {
@@ -4564,7 +4582,7 @@ const GrapesEditor: React.FC = () => {
         } catch (e) {
           console.warn('⚠️ No se pudo aplicar parche checkEditorContext:', e);
         }
-        
+
         const checkWidthAndReady = () => {
           try {
             const frame = gEditor.Canvas.getFrameEl();
@@ -4573,39 +4591,39 @@ const GrapesEditor: React.FC = () => {
             const finalWidth = Math.max(width, bodyWidth);
             if (finalWidth > 0) {
               console.log('📏 Ancho del iframe del canvas:', finalWidth);
-              try { perfStartRef.current = performance.now(); console.log('⏱️ t0 Canvas listo'); } catch {}
+              try { perfStartRef.current = performance.now(); console.log('⏱️ t0 Canvas listo'); } catch { }
               setCanvasReady(true);
               // Inyectar estilos globales cuando el canvas está listo
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { injectTailwindIntoCanvas(); } catch { }
+              try { injectPageStyles(); } catch { }
               return true;
             }
-          } catch {}
+          } catch { }
           return false;
         };
         if (!checkWidthAndReady()) {
           console.warn('⏳ Canvas sin ancho medible aún; iniciando reintentos cada 100ms');
           if (readyIntervalRef.current) {
-            try { clearInterval(readyIntervalRef.current); } catch {}
+            try { clearInterval(readyIntervalRef.current); } catch { }
             readyIntervalRef.current = null;
           }
           const startTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           readyIntervalRef.current = setInterval(() => {
             if (checkWidthAndReady()) {
               if (readyIntervalRef.current) {
-                try { clearInterval(readyIntervalRef.current); } catch {}
+                try { clearInterval(readyIntervalRef.current); } catch { }
                 readyIntervalRef.current = null;
               }
               // Asegurar inyección tras medir correctamente
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { injectTailwindIntoCanvas(); } catch { }
+              try { injectPageStyles(); } catch { }
               return;
             }
             const nowTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
             if (nowTs - startTs > 60000) {
               console.warn('⏰ Timeout esperando canvas medible (>60s). Deteniendo reintentos.');
               if (readyIntervalRef.current) {
-                try { clearInterval(readyIntervalRef.current); } catch {}
+                try { clearInterval(readyIntervalRef.current); } catch { }
                 readyIntervalRef.current = null;
               }
             }
@@ -4686,7 +4704,7 @@ const GrapesEditor: React.FC = () => {
         }
         // Destruir editor solo en desmontaje real del componente
         if (editorInstanceRef.current) {
-          try { 
+          try {
             // Llamar cleanup functions si existen
             if ((editorInstanceRef.current as any)._windowResizeCleanup) {
               (editorInstanceRef.current as any)._windowResizeCleanup();
@@ -4694,8 +4712,8 @@ const GrapesEditor: React.FC = () => {
             if ((editorInstanceRef.current as any)._canvasResizeCleanup) {
               (editorInstanceRef.current as any)._canvasResizeCleanup();
             }
-            editorInstanceRef.current.destroy(); 
-          } catch {}
+            editorInstanceRef.current.destroy();
+          } catch { }
           editorInstanceRef.current = null;
         }
       } catch (e) {
@@ -4763,9 +4781,9 @@ const GrapesEditor: React.FC = () => {
             editorInstanceRef.current.loadProjectData({ components, styles });
             const htmlNow = editorInstanceRef.current.getHtml();
             latestHtmlRef.current = htmlNow || latestHtmlRef.current;
-            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch {}
+            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch { }
             setContentLoaded(true);
-            try { injectTailwindIntoCanvas(); } catch {}
+            try { injectTailwindIntoCanvas(); } catch { }
             console.log('✅ Proyecto cargado desde JSON (components/styles), componentes:', compsLen);
             return;
           } catch (e) {
@@ -4823,27 +4841,27 @@ const GrapesEditor: React.FC = () => {
           latestHtmlRef.current = cleanHtml;
           // Cierre del ciclo de carga
           setContentLoaded(true);
-        try {
-          const t0 = perfStartRef.current;
-          const t1 = performance.now();
-          if (t0) {
-            console.log(`✅ Editor completamente cargado (Δ ${(t1 - t0).toFixed(0)} ms)`);
-          } else {
+          try {
+            const t0 = perfStartRef.current;
+            const t1 = performance.now();
+            if (t0) {
+              console.log(`✅ Editor completamente cargado (Δ ${(t1 - t0).toFixed(0)} ms)`);
+            } else {
+              console.log('✅ Editor completamente cargado');
+            }
+          } catch {
             console.log('✅ Editor completamente cargado');
           }
-        } catch {
-          console.log('✅ Editor completamente cargado');
-        }
           try {
             const root = editorInstanceRef.current.getComponents();
             const first = root?.at ? root.at(0) : (Array.isArray(root) ? root[0] : null);
             if (first) editorInstanceRef.current.select(first);
-          } catch(e) { console.warn("No se pudo seleccionar componente inicial", e); }
+          } catch (e) { console.warn("No se pudo seleccionar componente inicial", e); }
           setTimeout(() => {
             try {
               // Inyección de estilos en post-load
-              try { injectTailwindIntoCanvas(); } catch {}
-              try { injectPageStyles(); } catch {}
+              try { injectTailwindIntoCanvas(); } catch { }
+              try { injectPageStyles(); } catch { }
               const doc = editorInstanceRef.current?.Canvas.getDocument();
               if (doc?.body) console.log('Body del iframe:', doc.body.innerHTML.substring(0, 200));
               // Intentar inyectar scripts tras establecer HTML
@@ -4891,16 +4909,16 @@ const GrapesEditor: React.FC = () => {
       // PRIORIDAD 2: Usar HTML/CSS simple
       if (pageData.html && pageData.css) {
         console.log('✅ Cargando desde HTML/CSS simple');
-        
+
         const parser = new DOMParser();
         const doc = parser.parseFromString(pageData.html, 'text/html');
         const bodyContent = doc.body.innerHTML;
-        
+
         editorInstanceRef.current.setComponents(bodyContent);
         editorInstanceRef.current.setStyle(pageData.css);
         latestCssRef.current = pageData.css;
         latestHtmlRef.current = bodyContent;
-        
+
         // Cierre del ciclo de carga
         setContentLoaded(true);
         console.log('✅ Contenido HTML/CSS cargado exitosamente');
@@ -4912,19 +4930,19 @@ const GrapesEditor: React.FC = () => {
         console.log('🎯 Fallback: intentando cargar proyecto desde gjsComponents/gjsStyles');
         let components = pageData.gjsComponents;
         let styles = pageData.gjsStyles || [];
-        try { if (typeof components === 'string') components = JSON.parse(components); } catch {}
-        try { if (typeof styles === 'string') styles = JSON.parse(styles); } catch {}
+        try { if (typeof components === 'string') components = JSON.parse(components); } catch { }
+        try { if (typeof styles === 'string') styles = JSON.parse(styles); } catch { }
         const compsLenFb = Array.isArray(components) ? components.length : 0;
         if (compsLenFb > 0) {
           try {
             editorInstanceRef.current.loadProjectData({ components, styles });
             const htmlNow = editorInstanceRef.current.getHtml();
             latestHtmlRef.current = htmlNow || latestHtmlRef.current;
-            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch {}
+            try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch { }
             setContentLoaded(true);
             console.log('✅ Proyecto cargado desde JSON en fallback, componentes:', compsLenFb);
             return;
-          } catch {}
+          } catch { }
         } else {
           console.warn('ℹ️ Fallback: gjsComponents vacío, se continuará con gjsHtml/html si existen');
         }
@@ -4933,14 +4951,14 @@ const GrapesEditor: React.FC = () => {
       // PRIORIDAD 4: Si es una página nueva (sin ID), crear contenido por defecto
       if (!pageData.id && pageData.content) {
         console.log('📝 Creando contenido por defecto para página nueva');
-        
+
         editorInstanceRef.current.setComponents(pageData.content);
         if (pageData.css) {
           editorInstanceRef.current.setStyle(pageData.css);
           latestCssRef.current = pageData.css;
         }
         latestHtmlRef.current = pageData.content;
-        
+
         // Cierre del ciclo de carga
         setContentLoaded(true);
         console.log('✅ Contenido por defecto cargado para página nueva');
@@ -4948,7 +4966,7 @@ const GrapesEditor: React.FC = () => {
       }
 
       console.warn('⚠️ No se encontró contenido válido para cargar');
-      
+
     } catch (error) {
       console.error('❌ Error al cargar contenido:', error);
     }
@@ -4969,7 +4987,7 @@ const GrapesEditor: React.FC = () => {
         loadContentIntoEditor(pageData);
         return;
       }
-    } catch {}
+    } catch { }
 
     // Listener de iframe desactivado temporalmente
     // Reintentos de medición si aún no es medible
@@ -4991,7 +5009,7 @@ const GrapesEditor: React.FC = () => {
           loadContentIntoEditor(pageData);
           return;
         }
-      } catch {}
+      } catch { }
       const nowTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       if (canvasReady || (nowTs - startTs) > 20000) {
         console.warn('⏰ Timeout o canvasReady alcanzado; deteniendo reintentos de contenido');
@@ -5077,11 +5095,11 @@ const GrapesEditor: React.FC = () => {
   // Previsualizar página
   const handlePreview = () => {
     if (!editorInstanceRef.current) return;
-    
+
     const html = editorInstanceRef.current.getHtml();
     const css = editorInstanceRef.current.getCss();
     const styles = editorInstanceRef.current.getStyle();
-    
+
     const previewWindow = window.open('', '_blank');
     if (previewWindow) {
       previewWindow.document.write(`
@@ -5118,32 +5136,32 @@ const GrapesEditor: React.FC = () => {
               
               /* Estilos para componentes GrapesJS */
               ${(() => {
-                try {
-                  if (styles) {
-                    const stylesObj = typeof styles === 'string' ? JSON.parse(styles) : styles;
-                    if (Array.isArray(stylesObj) && stylesObj.length > 0) {
-                      return stylesObj.map(style => {
-                        if (style.selectors && style.style) {
-                          const selectors = Array.isArray(style.selectors) 
-                            ? style.selectors.join(', ') 
-                            : style.selectors;
-                          
-                          const styleProps = Object.entries(style.style)
-                            .map(([prop, value]) => `${prop}: ${value};`)
-                            .join(' ');
-                          
-                          return `${selectors} { ${styleProps} }`;
-                        }
-                        return '';
-                      }).join('\n');
-                    }
+          try {
+            if (styles) {
+              const stylesObj = typeof styles === 'string' ? JSON.parse(styles) : styles;
+              if (Array.isArray(stylesObj) && stylesObj.length > 0) {
+                return stylesObj.map(style => {
+                  if (style.selectors && style.style) {
+                    const selectors = Array.isArray(style.selectors)
+                      ? style.selectors.join(', ')
+                      : style.selectors;
+
+                    const styleProps = Object.entries(style.style)
+                      .map(([prop, value]) => `${prop}: ${value};`)
+                      .join(' ');
+
+                    return `${selectors} { ${styleProps} }`;
                   }
                   return '';
-                } catch (e) {
-                  console.error('Error parsing styles', e);
-                  return '';
-                }
-              })()}
+                }).join('\n');
+              }
+            }
+            return '';
+          } catch (e) {
+            console.error('Error parsing styles', e);
+            return '';
+          }
+        })()}
             </style>
           </head>
           <body>
@@ -5178,10 +5196,10 @@ const GrapesEditor: React.FC = () => {
 
     try {
       await handleSave();
-      
+
       const result = await HttpClient.post<ApiResponse<any>>(`/pages/${slug}/publish`, {});
       console.log('Respuesta de publicación:', result);
-      
+
       if (result && result.success === true) {
         alert('✅ Página publicada. Abriendo en una nueva pestaña...');
         const target = `/${slug}?t=${Date.now()}`;
@@ -5227,7 +5245,7 @@ const GrapesEditor: React.FC = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="text-red-600 text-lg mb-4">Error: {error.message}</div>
-          <button 
+          <button
             onClick={() => navigate('/admin/dashboard')}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
@@ -5423,7 +5441,7 @@ const GrapesEditor: React.FC = () => {
             {pageData?.title || "Editor de Página"}
           </h1>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           {/* Estado de guardado */}
           <div className="flex items-center space-x-2">
@@ -5464,19 +5482,19 @@ const GrapesEditor: React.FC = () => {
               try {
                 const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
                 sel.addStyle({ 'margin-left': '0', 'margin-right': 'auto' });
-              } catch {}
+              } catch { }
             }}>Izq</button>
             <button title="Centrar" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
               try {
                 const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
                 sel.addStyle({ 'margin-left': 'auto', 'margin-right': 'auto' });
-              } catch {}
+              } catch { }
             }}>Centro</button>
             <button title="Alinear derecha" className="px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
               try {
                 const ed = editorInstanceRef.current; const sel = ed?.getSelected(); if (!sel) return;
                 sel.addStyle({ 'margin-left': 'auto', 'margin-right': '0' });
-              } catch {}
+              } catch { }
             }}>Der</button>
             <button title="Convertir en círculo" className="ml-2 px-2 py-1 text-sm bg-gray-50 hover:bg-gray-100 rounded" onClick={() => {
               try {
@@ -5494,10 +5512,10 @@ const GrapesEditor: React.FC = () => {
                 }
                 if (!size || !isFinite(size)) size = 100;
                 sel.addStyle({ width: `${size}px`, height: `${size}px`, 'border-radius': '50%', overflow: 'hidden' });
-              } catch {}
+              } catch { }
             }}>Círculo</button>
           </div>
-          
+
           <button
             onClick={() => handleSave(false)}
             disabled={saveStatus === 'saving' || saveStatus === 'auto-saving'}
@@ -5505,7 +5523,7 @@ const GrapesEditor: React.FC = () => {
           >
             {saveStatus === 'saving' ? 'Guardando...' : 'Guardar'}
           </button>
-          
+
           <button
             onClick={handlePreview}
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
@@ -5542,7 +5560,7 @@ const GrapesEditor: React.FC = () => {
             style={{ height: 'calc(100vh - 85px)', overflow: 'auto', transition: 'all 0.2s ease-in-out', visibility: canvasReady ? 'visible' : 'hidden' }}
             className="w-full"
           />
-          
+
           {/* Panel de traits nativo de GrapesJS se gestiona desde el panel derecho ('open-tm').
               Se eliminó el contenedor personalizado de configuración para evitar barras laterales duplicadas. */}
 
@@ -5553,23 +5571,3 @@ const GrapesEditor: React.FC = () => {
 };
 
 export default GrapesEditor;
-      // Sanitize invalid attribute names on components to avoid DOM InvalidCharacterError
-      const sanitizeAttrNames = (attrs: Record<string, any> | undefined) => {
-        const valid: Record<string, any> = {};
-        const re = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
-        Object.entries(attrs || {}).forEach(([k, v]) => {
-          if (k === 'class' || re.test(k)) valid[k] = v;
-          else console.warn('🧹 Atributo inválido removido:', k);
-        });
-        return valid;
-      };
-      gEditor.on('component:add', (comp: any) => {
-        try {
-          const attrs = typeof comp.getAttributes === 'function' ? comp.getAttributes() : (comp.get('attributes') || {});
-          const cleaned = sanitizeAttrNames(attrs);
-          // Solo aplicar si hubo cambios
-          const changed = Object.keys(cleaned).length !== Object.keys(attrs || {}).length ||
-                          Object.keys(cleaned).some(k => (attrs as any)[k] !== cleaned[k]);
-          if (changed) comp.set('attributes', cleaned);
-        } catch (e) { console.warn('No se pudo sanitizar atributos del componente', e); }
-      });

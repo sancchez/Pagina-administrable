@@ -123,8 +123,7 @@ const PageRenderer: React.FC = () => {
   const [cachedDynamic, setCachedDynamic] = useState<{ html: string; css: string } | null>(null);
   // Modo estricto: nunca usar cache local como contenido de la página
   const strictRender = (import.meta as any)?.env?.VITE_STRICT_RENDER === 'false' ? false : true;
-  // Estado para disponibilidad del backend (evita intentos de fetch cuando está caído)
-  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+
 
   // Priorizar contenido dinámico desde BD; usar estático solo como fallback
 
@@ -160,7 +159,7 @@ const PageRenderer: React.FC = () => {
               const css = page.publishedCss || page.css || page.gjsCss || '';
               setCachedDynamic({ html, css });
               localStorage.setItem(`page_cache_${slug}`, JSON.stringify({ html, css, ts: Date.now() }));
-            } catch {}
+            } catch { }
           } else {
             console.log('📄 [PageRenderer] No hay contenido dinámico publicado');
             setDynamicPage(null);
@@ -174,7 +173,7 @@ const PageRenderer: React.FC = () => {
                     setCachedDynamic({ html: obj.html, css: obj.css || '' });
                   }
                 }
-              } catch {}
+              } catch { }
             }
           }
         } else if (response.status === 404) {
@@ -190,7 +189,7 @@ const PageRenderer: React.FC = () => {
                   setCachedDynamic({ html: obj.html, css: obj.css || '' });
                 }
               }
-            } catch {}
+            } catch { }
           }
         } else {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -209,7 +208,7 @@ const PageRenderer: React.FC = () => {
                 setCachedDynamic({ html: obj.html, css: obj.css || '' });
               }
             }
-          } catch {}
+          } catch { }
         }
       } finally {
         setIsLoading(false);
@@ -221,27 +220,28 @@ const PageRenderer: React.FC = () => {
 
   // Cargar header y footer dinámicos
   useEffect(() => {
-    // Comprobación simple de disponibilidad del backend (evita spam de errores cuando está caído)
-    const checkBackend = async () => {
-      try {
-        const res = await fetch('/api', { cache: 'no-store' });
-        setBackendAvailable(res.ok);
-      } catch {
-        setBackendAvailable(false);
-      }
-    };
-    checkBackend();
-
+    // Definimos función de carga independiente para no depender de estados volátiles
     const loadHeaderFooter = async () => {
-      // Cargar header/footer SOLO cuando backendAvailable sea true
-      if (backendAvailable !== true) {
-        return; // Aún no confirmado backend, evitar intentos que generan errores de proxy
-      }
       try {
+        const fetchWithFallback = async (slug: string) => {
+          let res = await fetch(`/api/pages/public/${slug}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          if (!res.ok && slug.startsWith('_')) {
+            res = await fetch(`/api/pages/public/${slug.substring(1)}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          }
+          // Try capitalized fallback just in case
+          if (!res.ok && slug.startsWith('_')) {
+            const plain = slug.substring(1);
+            const capitalized = plain.charAt(0).toUpperCase() + plain.slice(1);
+            res = await fetch(`/api/pages/public/${capitalized}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          }
+          return res;
+        };
+
         const [hRes, fRes] = await Promise.all([
-          fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
-          fetch('/api/pages/public/_footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+          fetchWithFallback('_header'),
+          fetchWithFallback('_footer'),
         ]);
+
         if (hRes.ok) {
           const hJson = await hRes.json();
           const hPage = hJson?.data?.page || hJson?.data || {};
@@ -249,10 +249,7 @@ const PageRenderer: React.FC = () => {
           const hCss = hPage.publishedCss || hPage.gjsCss || hPage.css || '';
           console.log('🧩 [PageRenderer] Header recibido', {
             slug: hPage.slug,
-            publishedHtmlLen: hPage.publishedHtml ? String(hPage.publishedHtml).length : 0,
-            gjsHtmlLen: hPage.gjsHtml ? String(hPage.gjsHtml).length : 0,
-            htmlLen: hPage.html ? String(hPage.html).length : 0,
-            usingHtmlLen: hHtml.length,
+            len: hHtml.length
           });
           setHeaderHtml(hHtml);
           setHeaderCss(hCss);
@@ -264,10 +261,7 @@ const PageRenderer: React.FC = () => {
           const fCss = fPage.publishedCss || fPage.gjsCss || fPage.css || '';
           console.log('🧩 [PageRenderer] Footer recibido', {
             slug: fPage.slug,
-            publishedHtmlLen: fPage.publishedHtml ? String(fPage.publishedHtml).length : 0,
-            gjsHtmlLen: fPage.gjsHtml ? String(fPage.gjsHtml).length : 0,
-            htmlLen: fPage.html ? String(fPage.html).length : 0,
-            usingHtmlLen: fHtml.length,
+            len: fHtml.length
           });
           setFooterHtml(fHtml);
           setFooterCss(fCss);
@@ -277,7 +271,7 @@ const PageRenderer: React.FC = () => {
       }
     };
     loadHeaderFooter();
-  }, [backendAvailable]);
+  }, [slug]);
 
   // Mostrar loading
   if (isLoading) {
@@ -299,8 +293,8 @@ const PageRenderer: React.FC = () => {
           <h1 className="text-4xl font-bold text-red-600 mb-4">Error</h1>
           <h2 className="text-2xl font-semibold text-gray-700 mb-4">Error al cargar la página</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Ir al inicio
@@ -318,7 +312,7 @@ const PageRenderer: React.FC = () => {
     const cssContent = dynamicPage
       ? (dynamicPage.publishedCss || dynamicPage.css || dynamicPage.gjsCss || '')
       : (cachedDynamic?.css || '');
-    
+
     // 🧼 Sanitizar scripts del editor antes de renderizar
     let htmlContent = sanitizeEditorScripts(rawHtmlContent);
     // Remover header/footer duplicados del contenido dinámico (layout global está en <Layout>)
@@ -328,7 +322,7 @@ const PageRenderer: React.FC = () => {
 
     console.log('🎬 [PageRenderer] Renderizando:', htmlContent ? 'DINÁMICO' : 'ESTÁTICO');
     console.log('📥 [PageRenderer] Datos recibidos de API', {
-      slug: dynamicPage.slug,
+      slug: dynamicPage?.slug || slug,
       htmlPreview: htmlContent.substring(0, 50),
       cssPreview: cssContent.substring(0, 50),
       sanitized: rawHtmlContent !== htmlContent ? 'Scripts del editor removidos' : 'Sin cambios',
@@ -346,62 +340,34 @@ const PageRenderer: React.FC = () => {
             if (typeof window !== 'undefined' && !window.checkEditorContext) {
               window.checkEditorContext = () => false;
             }
-            
+
             const scripts = contentRef.current.querySelectorAll('script');
             scripts.forEach((oldScript) => {
               const newScript = document.createElement('script');
-              
+
               // Copiar atributos
               Array.from(oldScript.attributes).forEach((attr) => {
                 newScript.setAttribute(attr.name, attr.value);
               });
-              
+
               // Copiar contenido
               newScript.textContent = oldScript.textContent;
-              
+
               // Reemplazar el script viejo con el nuevo para que se ejecute
               oldScript.parentNode?.replaceChild(newScript, oldScript);
             });
-            
+
             console.log('🎯 Scripts ejecutados en página publicada:', scripts.length);
 
-            // 🔒 Fuerza navegación interna en misma ventana dentro del contenido dinámico
-            const container = contentRef.current;
-            const onClick = (ev: Event) => {
-              const target = ev.target as HTMLElement | null;
-              if (!target) return;
-              const anchor = target.closest('a') as HTMLAnchorElement | null;
-              if (!anchor) return;
-              const href = anchor.getAttribute('href') || '';
-              const isExternal = /^https?:\/\//i.test(href);
-              const isInternal = !isExternal && href.startsWith('/');
-              if (isInternal) {
-                // Normalizar atributos y evitar nueva pestaña
-                if (anchor.getAttribute('target') === '_blank') anchor.setAttribute('target', '_self');
-                if (anchor.getAttribute('data-target') === '_blank') anchor.setAttribute('data-target', '_self');
-                ev.preventDefault();
-                window.location.assign(href);
-              }
-            };
-            container.addEventListener('click', onClick, true);
-            // Normalizar atributos tras render
-            container.querySelectorAll('a').forEach((a) => {
-              const href = a.getAttribute('href') || '';
-              const isExternal = /^https?:\/\//i.test(href);
-              if (!isExternal && href.startsWith('/')) {
-                if (a.getAttribute('target') === '_blank') a.setAttribute('target', '_self');
-                if (a.getAttribute('data-target') === '_blank') a.setAttribute('data-target', '_self');
-              }
-            });
-            return () => container.removeEventListener('click', onClick, true);
+            // ✅ Los scripts de action-button manejan la navegación, no forzar nada aquí
           }
         }, []);
 
         return (
-          <div 
+          <div
             id="page-content"
             ref={contentRef}
-            dangerouslySetInnerHTML={{ __html: htmlContent }} 
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
           />
         );
       };
@@ -441,11 +407,11 @@ const PageRenderer: React.FC = () => {
           La página "{slug}" no existe o no está disponible.
         </p>
         <div className="text-sm text-gray-500 bg-gray-100 p-3 rounded">
-          <strong>Páginas estáticas disponibles:</strong><br/>
+          <strong>Páginas estáticas disponibles:</strong><br />
           {Object.keys(pageComponents).join(', ')}
         </div>
-        <a 
-          href="/" 
+        <a
+          href="/"
           className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Ir al inicio

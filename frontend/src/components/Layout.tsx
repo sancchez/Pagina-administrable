@@ -24,7 +24,13 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
     const loadHeaderFooter = async () => {
       try {
         if (!headerHtml) {
-          const hRes = await fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          let hRes = await fetch('/api/pages/public/_header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          if (!hRes.ok) {
+            // Fallback: try 'header' without underscore
+            hRes = await fetch('/api/pages/public/header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+            // Fallback 2: try 'Header' (capitalized)
+            if (!hRes.ok) hRes = await fetch('/api/pages/public/Header', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          }
           if (hRes.ok) {
             const hJson = await hRes.json();
             const hPage = hJson?.data?.page || hJson?.data || {};
@@ -37,7 +43,11 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
           }
         }
         if (!footerHtml) {
-          const fRes = await fetch('/api/pages/public/_footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          let fRes = await fetch('/api/pages/public/_footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          if (!fRes.ok) {
+            // Fallback: try 'footer' without underscore
+            fRes = await fetch('/api/pages/public/footer', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+          }
           if (fRes.ok) {
             const fJson = await fRes.json();
             const fPage = fJson?.data?.page || fJson?.data || {};
@@ -74,34 +84,58 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
         const hasTarget = a.hasAttribute('target') || a.hasAttribute('data-target');
         if (isInternal && !hasTarget) a.setAttribute('target', '_self');
       });
-    } catch {}
+    } catch { }
   }, [effectiveHeaderHtml]);
 
-  // Enlaces internos del header: navegar en la misma ventana salvo que se haya configurado explícitamente "Nueva ventana"
+  // Global Capture Listener to fix button/link targets
   useEffect(() => {
-    try {
-      const container = document.getElementById('site-header');
-      if (!container) return;
-      const onClick = (ev: Event) => {
-        const target = ev.target as HTMLElement | null;
-        const anchor = target?.closest('a') as HTMLAnchorElement | null;
-        if (!anchor) return;
-        const href = anchor.getAttribute('href') || '';
-        const isExternal = /^https?:\/\//i.test(href);
-        const isInternal = !isExternal && href.startsWith('/');
-        const dt = anchor.getAttribute('data-target');
-        const tg = anchor.getAttribute('target');
-        const explicitBlank = dt === '_blank' || tg === '_blank';
-        if (isInternal && !explicitBlank) {
-          ev.preventDefault();
-          anchor.setAttribute('target', '_self');
-          window.location.assign(href);
+    const handleGlobalClick = (e: MouseEvent) => {
+      // 1. Find closest relevant element
+      const target = e.target as HTMLElement;
+      const el = target.closest('a, button') as HTMLElement;
+      if (!el) return;
+
+      // 2. Identify traits
+      const href = el.getAttribute('href') || el.getAttribute('data-url') || el.getAttribute('data-file-url');
+      const action = el.getAttribute('data-action-type') || el.getAttribute('data-action');
+
+      // If it's a button without explicit action 'link' (and no href), ignore unless it has href
+      if (el.tagName === 'BUTTON' && !href) return;
+      if (el.tagName === 'BUTTON' && action !== 'link' && !href) return;
+
+      // 3. Determine target
+      const targetAttr = el.getAttribute('data-target') || el.getAttribute('target');
+      const newTabAttr = el.getAttribute('data-new-tab');
+      // Logic: _blank=true, _self=false, boolean flags fallback
+      let isNewTab = targetAttr === '_blank' || newTabAttr === 'true' || newTabAttr === '1';
+
+      // Explicit _self override (Critical fix)
+      if (targetAttr === '_self') isNewTab = false;
+
+      // 4. Force behavior
+      if (href) {
+        if (isNewTab) {
+          // Allow default or force window.open? 
+          // If we do nothing, GrapesJS script might run. 
+          // But GrapesJS script usually handles _blank correctly.
+          // The issue is _self opening in new tab.
+        } else {
+          // FORCE SAME TAB
+          // Stop GrapesJS script from running
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          console.log('🚀 [Layout] Forcing navigation in same tab:', href);
+          window.location.href = href;
         }
-      };
-      container.addEventListener('click', onClick, true);
-      return () => container.removeEventListener('click', onClick, true);
-    } catch {}
-  }, [effectiveHeaderHtml]);
+      }
+    };
+
+    // Use Capture phase to intercept before GrapesJS/React listeners
+    window.addEventListener('click', handleGlobalClick, true);
+    return () => window.removeEventListener('click', handleGlobalClick, true);
+  }, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}
@@ -190,7 +224,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
                   Acueducto Municipal
                 </h3>
                 <p className="text-blue-100">
-                  Comprometidos con brindar servicios de agua potable de calidad para nuestra comunidad, 
+                  Comprometidos con brindar servicios de agua potable de calidad para nuestra comunidad,
                   garantizando el acceso continuo y confiable al recurso hídrico.
                 </p>
               </div>

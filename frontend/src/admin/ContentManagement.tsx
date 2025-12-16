@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  FileText, 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit3, 
-  Trash2, 
+import {
+  FileText,
+  Search,
+  Filter,
+  Plus,
+  Edit3,
+  Trash2,
   Eye,
   Calendar,
   User,
@@ -80,10 +80,10 @@ const ContentManagement = () => {
 
   const filteredContents = contents.filter(content => {
     const matchesSearch = content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         content.slug.toLowerCase().includes(searchTerm.toLowerCase());
+      content.slug.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || content.status === statusFilter;
     const matchesType = typeFilter === 'ALL' || content.type === typeFilter;
-    
+
     return matchesSearch && matchesStatus && matchesType;
   });
 
@@ -150,7 +150,7 @@ const ContentManagement = () => {
               />
             </div>
           </div>
-          
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}

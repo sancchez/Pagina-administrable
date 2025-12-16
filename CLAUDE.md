@@ -1,0 +1,343 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Full-stack administrative CMS for a water utility company (acueducto) with dynamic page editing, invoice management, PQR (petitions/complaints/claims) handling, and reporting.
+
+**Stack:**
+- **Frontend**: React 18 + TypeScript + Vite + TailwindCSS
+- **Backend**: Node.js + Express + TypeScript + Prisma ORM
+- **Database**: SQLite
+- **Page Editor**: GrapesJS (visual drag-and-drop page builder)
+- **Auth**: JWT-based authentication
+
+## Development Commands
+
+### Initial Setup
+
+```bash
+# Backend setup
+cd backend
+npm install
+npx prisma generate
+npx prisma db push
+npm run db:seed  # Creates admin user and sample data
+
+# Frontend setup
+cd frontend
+npm install
+```
+
+### Running Development Servers
+
+```bash
+# Backend (runs on port 4000)
+cd backend
+npm run dev
+
+# Frontend (runs on port 5174)
+cd frontend
+npm run dev
+
+# Root project shortcuts
+npm run dev      # Runs frontend dev server
+npm run build    # Builds frontend
+```
+
+### Database Operations
+
+```bash
+cd backend
+
+# Generate Prisma client after schema changes
+npx prisma generate
+
+# Push schema changes to database (dev)
+npx prisma db push
+
+# Create and apply migrations (production)
+npx prisma migrate dev
+npx prisma migrate deploy
+
+# Open Prisma Studio (database GUI)
+npx prisma studio
+
+# Reset database (WARNING: deletes all data)
+npx prisma migrate reset --force
+
+# Seed database with initial data
+npm run db:seed
+```
+
+### Testing
+
+```bash
+cd backend
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
+npm run test:unit        # Unit tests only
+npm run test:integration # Integration tests
+npm run test:e2e         # End-to-end tests
+
+cd frontend
+npm test                 # Run frontend tests with Vitest
+```
+
+### Code Quality
+
+```bash
+cd backend
+npm run lint          # Lint TypeScript files
+npm run lint:fix      # Auto-fix linting issues
+npm run format        # Format with Prettier
+```
+
+### Building for Production
+
+```bash
+# Backend
+cd backend
+npm run build         # Compiles TypeScript to dist/
+
+# Frontend
+cd frontend
+npm run build         # Builds to dist/
+npm run preview       # Preview production build
+```
+
+## Architecture Overview
+
+### Monorepo Structure
+
+```
+/
+├── frontend/         # React SPA
+│   ├── src/
+│   │   ├── admin/           # Admin panel components
+│   │   ├── components/      # Public-facing components
+│   │   ├── context/         # React contexts (AuthContext)
+│   │   ├── pages/           # Page components
+│   │   └── utils/           # Utilities (http client)
+├── backend/          # Express API
+│   ├── src/
+│   │   ├── controllers/     # Request handlers
+│   │   ├── services/        # Business logic
+│   │   ├── routes/          # API routes
+│   │   ├── middleware/      # Express middleware
+│   │   ├── utils/           # Utilities (validators, logger)
+│   │   └── types/           # TypeScript types
+│   └── prisma/
+│       ├── schema.prisma    # Database schema
+│       └── seed.ts          # Seed data
+```
+
+### Frontend-Backend Communication
+
+- Frontend proxies `/api/*` requests to backend (configured in [vite.config.ts](frontend/vite.config.ts))
+- Backend runs on port 4000, frontend on port 5174
+- CORS configured for multiple localhost ports during development
+- JWT tokens stored in localStorage, sent in Authorization header
+
+### Page Editor Architecture (GrapesJS)
+
+The page editor is the core feature of this CMS. Understanding its data flow is critical:
+
+#### Data Flow for Page Editing
+
+```
+1. Load Page
+   User navigates to /admin/dashboard/editor/:slug
+   ↓
+   GrapesEditor.tsx fetches page via GET /api/pages/slug/:slug
+   ↓
+   Backend returns page with gjsComponents, gjsStyles, gjsHtml, gjsCss
+   ↓
+   GrapesEditor initializes GrapesJS with this data
+
+2. Edit Page
+   User drags/drops components, edits styles in GrapesJS
+   ↓
+   GrapesJS maintains internal state
+   ↓
+   Real-time preview in canvas
+
+3. Save Page
+   User clicks Save
+   ↓
+   GrapesEditor.tsx calls editor.store() to get full GrapesJS data
+   ↓
+   Extracts: gjsComponents (JSON), gjsStyles (JSON), gjsHtml, gjsCss
+   ↓
+   PUT /api/pages/:id with extracted data
+   ↓
+   Backend validates via grapesValidator.ts (XSS prevention, size limits)
+   ↓
+   Saves to database
+   ↓
+   On publish: copies draft fields to publishedHtml, publishedCss
+
+4. Render Public Page
+   User visits /:slug
+   ↓
+   PageRenderer.tsx fetches via GET /api/pages/slug/:slug
+   ↓
+   Renders using publishedHtml and publishedCss (not draft data)
+```
+
+#### Important Page Fields
+
+The Page model has separate fields for draft vs. published content:
+
+- **Draft fields** (editable in GrapesJS):
+  - `gjsComponents`: JSON array of GrapesJS components
+  - `gjsStyles`: JSON array of GrapesJS styles
+  - `gjsHtml`: HTML generated by GrapesJS
+  - `gjsCss`: CSS generated by GrapesJS
+
+- **Published fields** (shown on public site):
+  - `publishedHtml`: HTML snapshot when published
+  - `publishedCss`: CSS snapshot when published
+  - `isPublished`: Boolean flag
+
+- **Legacy fields** (deprecated, kept for migration):
+  - `content`: Old HTML content
+  - `grapesData`: Old JSON blob
+
+**Key files:**
+- [frontend/src/admin/GrapesEditor.tsx](frontend/src/admin/GrapesEditor.tsx) - Editor component (~500+ lines)
+- [frontend/src/components/PageRenderer.tsx](frontend/src/components/PageRenderer.tsx) - Public page renderer
+- [backend/src/controllers/pageController.ts](backend/src/controllers/pageController.ts) - Page API endpoints
+- [backend/src/services/pageService.ts](backend/src/services/pageService.ts) - Page business logic
+- [backend/src/utils/grapesValidator.ts](backend/src/utils/grapesValidator.ts) - Security validation for GrapesJS data
+
+### Database Schema (Prisma)
+
+Main models:
+- **User**: Admin users with JWT authentication
+- **Page**: Dynamic pages with GrapesJS data (split draft/published fields)
+- **PageBackup**: Backup snapshots of pages
+- **PageVersion**: Version history
+- **Invoice**: User invoices with items and payments
+- **PQR**: Petitions, Complaints, Claims with file attachments
+- **Report**: Internal reports with comments and files
+- **Setting**: System-wide configuration key-value pairs
+
+**Important:** The Page model evolved from using `grapesData` (legacy) to split fields (`gjsComponents`, `gjsStyles`, etc.). When working with pages, always use the new field structure.
+
+### API Routes
+
+All backend routes are prefixed with `/api`:
+
+- `/api/auth` - Login, logout, token refresh
+- `/api/users` - User CRUD
+- `/api/pages` - Page management (CRUD, publish/unpublish, backups, versions)
+- `/api/invoices` - Invoice management
+- `/api/pqr` - PQR (complaints) management
+- `/api/reports` - Internal reports
+- `/api/admin` - Migration utilities
+- `/api/upload` - File uploads (images, documents)
+- `/api-docs` - Swagger documentation
+
+### Authentication & Authorization
+
+- JWT tokens generated at login ([backend/src/services/authService.ts](backend/src/services/authService.ts))
+- Protected routes use `authenticateJWT` middleware
+- Frontend stores token in localStorage ([frontend/src/context/AuthContext.tsx](frontend/src/context/AuthContext.tsx))
+- Default admin credentials: `admin@acueducto.com` / `admin123`
+
+### Security Features
+
+- **Helmet**: Security headers
+- **CORS**: Configured for development localhost ports
+- **Rate Limiting**: Adaptive rate limiting per endpoint
+- **GrapesJS Validation**:
+  - XSS prevention (strips `<script>`, inline events)
+  - HTML tag whitelist
+  - CSS sanitization
+  - Resource limits (10MB max, 1000 components, 20 nesting levels)
+  - See [backend/src/utils/grapesValidator.ts](backend/src/utils/grapesValidator.ts)
+
+### Logging
+
+- Backend uses Winston logger ([backend/src/utils/enhancedLogger.ts](backend/src/utils/enhancedLogger.ts))
+- Request logging with Morgan in development
+- Frontend logs in browser console (especially GrapesEditor)
+
+## Common Development Tasks
+
+### Adding a New Page
+
+1. Navigate to `/admin/dashboard` (login first)
+2. Use the page management UI to create a new page with a unique slug
+3. Edit the page in GrapesJS at `/admin/dashboard/editor/:slug`
+4. Publish the page to make it visible at `/:slug`
+
+### Modifying Database Schema
+
+1. Edit [backend/prisma/schema.prisma](backend/prisma/schema.prisma)
+2. Run `npx prisma generate` to update Prisma client
+3. Run `npx prisma db push` (dev) or `npx prisma migrate dev` (with migration)
+4. Update corresponding TypeScript types if needed
+
+### Adding a New API Endpoint
+
+1. Define route in `backend/src/routes/*.ts`
+2. Create controller function in `backend/src/controllers/*.ts`
+3. Add business logic in `backend/src/services/*.ts` if needed
+4. Add validation schemas using Joi or express-validator
+5. Update Swagger docs if using JSDoc comments
+
+### Working with GrapesJS Editor
+
+When making changes to the page editor:
+
+1. The GrapesJS instance is initialized in [GrapesEditor.tsx:initializeGrapesJS()](frontend/src/admin/GrapesEditor.tsx)
+2. Block Manager, Style Manager, and Device Manager configs are in the same file
+3. Custom components/blocks can be added to the Block Manager configuration
+4. Always test both saving (PUT /api/pages/:id) and loading (GET /api/pages/slug/:slug)
+5. Check validation passes in [grapesValidator.ts](backend/src/utils/grapesValidator.ts)
+
+### Environment Variables
+
+Backend ([backend/.env](backend/.env)):
+- `DATABASE_URL` - SQLite connection string
+- `JWT_SECRET`, `JWT_REFRESH_SECRET` - JWT signing keys
+- `PORT` - Backend port (default 4000)
+- `CORS_ORIGIN` - Allowed CORS origins
+- `UPLOAD_PATH` - File upload directory
+
+Frontend typically uses Vite's import.meta.env for any needed vars.
+
+## Known Issues & Quirks
+
+1. **Page Field Evolution**: Legacy pages may have data in `content` or `grapesData` fields. The system handles migration automatically, but be aware when debugging.
+
+2. **Port Configuration**: The frontend's Vite proxy targets port 4000 (backend), and the frontend itself runs on 5174. These are hardcoded in [vite.config.ts](frontend/vite.config.ts) and [backend/.env](backend/.env).
+
+3. **GrapesJS CSS Conflicts**: TailwindCSS can sometimes conflict with GrapesJS's internal styles. The editor's container may need style isolation.
+
+4. **SQLite Limitations**: No enum support, so enums are represented as strings with validation. Concurrent writes can cause locking issues in heavy load scenarios.
+
+5. **File Uploads**: Images uploaded via `/api/upload` are stored locally in `backend/uploads/`. In production, consider using a CDN or cloud storage.
+
+## Testing Credentials
+
+- **Admin Email**: admin@acueducto.com
+- **Admin Password**: admin123
+
+## Documentation References
+
+- **Prisma Docs**: https://www.prisma.io/docs/
+- **GrapesJS Docs**: https://grapesjs.com/docs/
+- **React Router**: https://reactrouter.com/
+- **Express**: https://expressjs.com/
+
+## Project Context Files
+
+For deeper context on specific features:
+- [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) - Detailed architectural documentation with full GrapesJS flow
+- [SOLUCION_ESTRUCTURA_DATOS.md](SOLUCION_ESTRUCTURA_DATOS.md) - Explanation of page data structure evolution
+- [README.md](README.md) - Basic setup and feature overview

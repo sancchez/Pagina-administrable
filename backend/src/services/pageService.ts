@@ -99,6 +99,11 @@ export class PageService {
         where.isActive = isActive;
       }
 
+      // Filter by isPublished if provided (dragging logic from controller flexibility)
+      if ('isPublished' in filters && typeof (filters as any).isPublished === 'boolean') {
+        where.isPublished = (filters as any).isPublished;
+      }
+
       // Obtener páginas con paginación
       const [pages, total] = await Promise.all([
         prisma.page.findMany({
@@ -152,7 +157,7 @@ export class PageService {
   static async getPageBySlug(slug: string): Promise<Page | null> {
     try {
       const page = await prisma.page.findFirst({
-        where: { 
+        where: {
           slug,
           isActive: true
         }
@@ -167,7 +172,7 @@ export class PageService {
         const migratedData = PageDataManager.migrateLegacyContent(page.content);
         if (migratedData) {
           const generatedContent = PageDataManager.generatePublicContent(migratedData);
-          
+
           // Actualizar la página con los datos migrados
           const updatedPage = await prisma.page.update({
             where: { id: page.id },
@@ -177,8 +182,8 @@ export class PageService {
               css: generatedContent.css
             }
           });
-          
-      console.log('[PageService.getPageBySlug] page updated', { id: updatedPage.id, slug: updatedPage.slug });
+
+          console.log('[PageService.getPageBySlug] page updated', { id: updatedPage.id, slug: updatedPage.slug });
           return updatedPage;
         }
       }
@@ -219,10 +224,10 @@ export class PageService {
       }
 
       // Crear backup antes de actualizar (solo si hay cambios significativos)
-      const hasContentChanges = data.content !== undefined || 
-                                data.html !== undefined || 
-                                data.css !== undefined ||
-                                data.title !== undefined;
+      const hasContentChanges = data.content !== undefined ||
+        data.html !== undefined ||
+        data.css !== undefined ||
+        data.title !== undefined;
 
       if (hasContentChanges) {
         await this.createBackup(existingPage);
@@ -258,8 +263,13 @@ export class PageService {
         throw createError(404, 'Página no encontrada');
       }
 
-      await prisma.page.delete({
-        where: { id }
+      // Soft delete: set isActive to false instead of deleting record
+      await prisma.page.update({
+        where: { id },
+        data: {
+          isActive: false,
+          isPublished: false // Also unpublish it for safety
+        }
       });
     } catch (error: any) {
       if (error.status) throw error;
@@ -272,9 +282,9 @@ export class PageService {
    * Guardar datos de GrapesJS (JSON) junto con HTML y CSS generados automáticamente
    */
   static async saveGrapesData(
-    id: string, 
-    grapesDataString: string, 
-    html?: string, 
+    id: string,
+    grapesDataString: string,
+    html?: string,
     css?: string,
     gjsComponents?: string,
     gjsStyles?: string
@@ -284,13 +294,14 @@ export class PageService {
       const page = await prisma.page.findUnique({
         where: { id }
       });
-  
+
       if (!page) {
         throw createError(404, 'Página no encontrada');
       }
 
       // Crear backup antes de guardar (solo si hay contenido previo)
-      if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {        console.log('[PageService.saveGrapesData] creating backup before save', { pageId: page.id, slug: page.slug });
+      if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {
+        console.log('[PageService.saveGrapesData] creating backup before save', { pageId: page.id, slug: page.slug });
 
         await this.createBackup(page);
       }
@@ -307,7 +318,8 @@ export class PageService {
       let generatedContent: { html: string; css: string } | null = null;
       try {
         generatedContent = PageDataManager.generatePublicContent(grapesData as GrapesJSData);
-      } catch {      console.warn('[PageService.saveGrapesData] generatePublicContent failed, continuing');
+      } catch {
+        console.warn('[PageService.saveGrapesData] generatePublicContent failed, continuing');
 
         generatedContent = null;
       }
@@ -330,7 +342,7 @@ export class PageService {
 
       console.log('[PageService.saveGrapesData] resolved content lengths', { htmlLen: (htmlToSave || '').length, cssLen: (cssToSave || '').length });
 
-      
+
       const updateData = {
         grapesData: grapesDataString, // Guardar los datos completos para el frontend
         gjsHtml: htmlToSave,
@@ -339,12 +351,12 @@ export class PageService {
         gjsStyles: gjsStyles ?? JSON.stringify(grapesData['gjs-styles'] ?? grapesData.gjsStyles ?? []),
         updatedAt: new Date()
       };
-  
+
       const updatedPage = await prisma.page.update({
         where: { id },
         data: updateData
       });
-  
+
       // Crear versión automática tras guardar
       try {
         await VersionService.createVersion(id, 'auto-save');
@@ -451,7 +463,7 @@ export class PageService {
     if (htmlToPublish.includes('data-action-type')) {
       console.log('🔘 Página contiene botones, inyectando script de acciones');
       const buttonScript = '<script src="/button-actions.js" defer></script>';
-      
+
       // Buscar la etiqueta </body> o </html> para insertar el script
       if (htmlToPublish.includes('</body>')) {
         htmlToPublish = htmlToPublish.replace('</body>', `${buttonScript}\n</body>`);
@@ -496,12 +508,12 @@ export class PageService {
       const updatedPage = await prisma.page.update({
         where: { id },
         data: {
-          isActive: !page.isActive,
+          isPublished: !page.isPublished,
           updatedAt: new Date()
         }
       });
 
-      console.log('[PageService.togglePublishStatus] done', { id, isActive: updatedPage.isActive });
+      console.log('[PageService.togglePublishStatus] done', { id, isPublished: updatedPage.isPublished });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -516,7 +528,10 @@ export class PageService {
   static async getPublishedPages() {
     try {
       const pages = await prisma.page.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          isPublished: true
+        },
         select: {
           id: true,
           title: true,
@@ -542,8 +557,9 @@ export class PageService {
     try {
       const [total, published, unpublished] = await Promise.all([
         prisma.page.count(),
-        prisma.page.count({ where: { isActive: true } }),
-        prisma.page.count({ where: { isActive: false } })
+        prisma.page.count({ where: { isActive: true } }), // Total active
+        prisma.page.count({ where: { isActive: true, isPublished: true } }), // Active and Published
+        prisma.page.count({ where: { isActive: true, isPublished: false } }) // Active and Draft
       ]);
 
       // Páginas creadas este mes
@@ -576,8 +592,8 @@ export class PageService {
       });
 
       // Calcular crecimiento
-      const growth = lastMonthCount > 0 
-        ? ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100 
+      const growth = lastMonthCount > 0
+        ? ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100
         : thisMonthCount > 0 ? 100 : 0;
 
       return {
@@ -609,7 +625,7 @@ export class PageService {
           gjsComponents: page.gjsComponents || '[]',
           gjsStyles: page.gjsStyles || '[]'
         }
-      });      console.log('[PageService.createBackup] done', { backupId: backup.id });
+      }); console.log('[PageService.createBackup] done', { backupId: backup.id });
 
 
       return backup;
@@ -654,7 +670,7 @@ export class PageService {
 
       // Verificar que el backup existe y pertenece a la página
       const backup = await prisma.pageBackup.findFirst({
-        where: { 
+        where: {
           id: backupId,
           pageId: pageId
         }
@@ -681,7 +697,7 @@ export class PageService {
           publishedCss: backup.gjsCss,
           updatedAt: new Date()
         }
-      });      console.log('[PageService.restoreFromBackup] done', { pageId, published: true });
+      }); console.log('[PageService.restoreFromBackup] done', { pageId, published: true });
 
 
       return restoredPage;
@@ -698,7 +714,7 @@ export class PageService {
   static async deleteBackup(pageId: string, backupId: string): Promise<void> {
     try {
       console.log('[PageService.deleteBackup] start', { pageId, backupId });
-      
+
       // Verificar que la página existe
       const page = await prisma.page.findUnique({
         where: { id: pageId }
@@ -710,7 +726,7 @@ export class PageService {
 
       // Verificar que el backup existe y pertenece a la página
       const backup = await prisma.pageBackup.findFirst({
-        where: { 
+        where: {
           id: backupId,
           pageId: pageId
         }
