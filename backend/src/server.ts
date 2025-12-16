@@ -124,7 +124,8 @@ async function startServer() {
     console.log('Database connected successfully');
 
     // Iniciar el servidor
-    httpServer = app.listen(PORT, () => {
+    // Escuchar en 0.0.0.0 para permitir conexiones externas (IPv4)
+    httpServer = app.listen(PORT, '0.0.0.0', () => {
       const duration = Date.now() - startTime;
       
       serverLogger.info('Server started successfully', {
