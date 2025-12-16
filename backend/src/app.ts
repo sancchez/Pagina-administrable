@@ -185,6 +185,26 @@ app.post('/api/upload', imageUpload.single('file'), (req: any, res: any) => {
   }
 }, handleUploadError);
 
+// Servir el frontend compilado en producción
+if (process.env.NODE_ENV === 'production') {
+  const frontendDistDir = path.join(process.cwd(), '..', 'frontend', 'dist');
+
+  // Servir archivos estáticos del build de Vite
+  app.use(express.static(frontendDistDir));
+
+  // Para rutas que no sean /api/*, devolver el index.html (SPA routing)
+  app.get('*', (req, res, next) => {
+    // Si es una ruta de API, dejar pasar al siguiente middleware
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    // Si es otra ruta, servir el index.html del frontend
+    res.sendFile(path.join(frontendDistDir, 'index.html'));
+  });
+
+  appLogger.info('Frontend build servido desde backend', { path: frontendDistDir });
+}
+
 // Middleware para rutas no encontradas
 app.use(notFound);
 
