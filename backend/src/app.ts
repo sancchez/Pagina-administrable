@@ -36,12 +36,15 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'"],
+      // Permitir scripts propios + hash del script inline de checkEditorContext en index.html
+      scriptSrc: ["'self'", "'sha256-/Dlwb4aqWCvAqXapUKeexicCb96AxeGubwLr8OUcso='"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  // Deshabilitar COOP para evitar warnings en HTTP
+  crossOriginOpenerPolicy: false
 }));
 
 // Configuración de CORS
