@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'pagina-admin-backend',
-      script: './backend/dist/index.js',
+      script: './dist/index.js',
       cwd: './backend',
       instances: 1,
       autorestart: true,
