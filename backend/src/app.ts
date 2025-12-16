@@ -46,7 +46,7 @@ app.use(helmet({
 
 // Configuración de CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'production'
     ? [process.env.FRONTEND_URL || 'https://adminpanel.com']
     : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5177', 'http://localhost:5180'],
   credentials: true,
@@ -60,15 +60,15 @@ app.use(compression());
 // Middleware de logging mejorado
 if (process.env.NODE_ENV === 'development') {
   app.use(developmentLogger);
-  appLogger.info('Development logging enabled', { 
-    includeBody: true, 
-    includeHeaders: true 
+  appLogger.info('Development logging enabled', {
+    includeBody: true,
+    includeHeaders: true
   });
 } else {
   app.use(productionLogger);
-  appLogger.info('Production logging enabled', { 
-    includeBody: false, 
-    includeHeaders: false 
+  appLogger.info('Production logging enabled', {
+    includeBody: false,
+    includeHeaders: false
   });
 }
 
@@ -90,13 +90,13 @@ app.get('/health', (req, res) => {
     memory: process.memoryUsage(),
     pid: process.pid,
   };
-  
+
   appLogger.debug('Health check requested', {
     uptime: healthData.uptime,
     memory: healthData.memory,
     ip: req.ip,
   });
-  
+
   res.status(200).json(healthData);
 });
 
@@ -158,7 +158,7 @@ app.use('/api/admin', migrationRoutes);
 app.use('/api', versionRoutes);
 
 // Endpoint de subida de imágenes
-app.post('/api/upload', imageUpload.single('file'), (req, res) => {
+app.post('/api/upload', imageUpload.single('file'), (req: any, res: any) => {
   try {
     const file = (req as any).file;
     if (!file) {

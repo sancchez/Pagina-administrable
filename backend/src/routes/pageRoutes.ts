@@ -349,7 +349,7 @@ router.get('/public/:slug', async (req, res) => {
     console.log(`  → Usando HTML: ${html.length} chars`);
     console.log(`  → Usando CSS: ${css.length} chars`);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         id: page.id,
@@ -365,7 +365,7 @@ router.get('/public/:slug', async (req, res) => {
     });
   } catch (error: any) {
     console.error('❌ Error en /pages/public/:slug:', error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

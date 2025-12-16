@@ -13,7 +13,7 @@ export class VersionController {
     const { error, value } = this.createSchema.validate(req.body);
     if (error) return res.status(400).json({ success: false, message: error.message });
     const version = await VersionService.createVersion(id, value.note);
-    res.status(201).json({ success: true, message: 'Versión creada', data: version });
+    return res.status(201).json({ success: true, message: 'Versión creada', data: version });
   }
 
   static async list(req: Request, res: Response) {
@@ -71,8 +71,8 @@ export class VersionController {
     const result = {
       from,
       to,
-      htmlDiff: diffLines(from.renderedHtml, to.renderedHtml),
-      cssDiff: diffLines(from.renderedCss, to.renderedCss),
+      htmlDiff: diffLines(from.html, to.html),
+      cssDiff: diffLines(from.css, to.css),
     };
 
     return res.status(200).json({ success: true, message: 'Comparación generada', data: result });
