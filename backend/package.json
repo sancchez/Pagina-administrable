@@ -45,7 +45,7 @@
     "@types/react-dom": "^19.1.9",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
-    "@types/uuid": "^11.0.0",
+    "@types/uuid": "^8.3.4",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.1.2",
