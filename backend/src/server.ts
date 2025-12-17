@@ -4,13 +4,8 @@ import enhancedLogger from './utils/enhancedLogger';
 import { config } from './config/env';
 import { Server } from 'http';
 
-console.log('Starting server initialization...');
-console.log('Config loaded, port:', config.port);
-
 const PORT = config.port;
 const prisma = new PrismaClient();
-
-console.log('Prisma client created');
 
 // Logger con contexto del servidor
 const serverLogger = enhancedLogger.child({ service: 'Server' });
@@ -114,14 +109,11 @@ process.on('uncaughtException', (error) => {
 
 // Función principal para iniciar el servidor
 async function startServer() {
-  console.log('startServer function called');
   const startTime = Date.now();
-  
+
   try {
-    console.log('About to connect to database...');
     // Conectar a la base de datos
     await connectDatabase();
-    console.log('Database connected successfully');
 
     // Iniciar el servidor
     // Escuchar en 0.0.0.0 para permitir conexiones externas (IPv4)

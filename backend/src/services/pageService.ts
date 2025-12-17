@@ -183,7 +183,6 @@ export class PageService {
             }
           });
 
-          console.log('[PageService.getPageBySlug] page updated', { id: updatedPage.id, slug: updatedPage.slug });
           return updatedPage;
         }
       }
@@ -241,7 +240,6 @@ export class PageService {
         }
       });
 
-      console.log('[PageService.saveContent] page updated', { id });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -290,7 +288,6 @@ export class PageService {
     gjsStyles?: string
   ): Promise<Page> {
     try {
-      console.log('[PageService.saveGrapesData] start', { id, payloadLen: (grapesDataString || '').length, htmlLen: (html || '').length, cssLen: (css || '').length });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -301,8 +298,6 @@ export class PageService {
 
       // Crear backup antes de guardar (solo si hay contenido previo)
       if (page.gjsHtml || page.gjsCss || page.gjsComponents || page.gjsStyles) {
-        console.log('[PageService.saveGrapesData] creating backup before save', { pageId: page.id, slug: page.slug });
-
         await this.createBackup(page);
       }
 
@@ -340,9 +335,6 @@ export class PageService {
         }
       }
 
-      console.log('[PageService.saveGrapesData] resolved content lengths', { htmlLen: (htmlToSave || '').length, cssLen: (cssToSave || '').length });
-
-
       const updateData = {
         grapesData: grapesDataString, // Guardar los datos completos para el frontend
         gjsHtml: htmlToSave,
@@ -365,7 +357,6 @@ export class PageService {
       }
 
       // Ya no publicamos automáticamente para separar las funcionalidades de guardar y publicar
-      console.log('[PageService.saveGrapesData] completed without auto-publishing', { id: updatedPage.id, slug: page.slug });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -379,7 +370,6 @@ export class PageService {
    */
   static async saveContent(id: string, content: string): Promise<Page> {
     try {
-      console.log('[PageService.saveContent] start', { id, contentLen: (content || '').length });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -408,7 +398,6 @@ export class PageService {
    * Publicar página por slug priorizando gjsHtml/gjsCss
    */
   static async publishPage(slug: string): Promise<any> {
-    console.log('[PageService.publishPage] start', { slug });
     const page = await prisma.page.findUnique({
       where: { slug },
       select: {
@@ -429,10 +418,6 @@ export class PageService {
     // CASCADA: Usar gjsHtml primero, sino html legacy y luego content
     let htmlToPublish = page.gjsHtml || page.html || page.content || '';
     let cssToPublish = page.gjsCss || page.css || '';
-
-    console.log('🚀 Publicando:', slug);
-    console.log('  - Origen gjsHtml:', page.gjsHtml?.length || 0);
-    console.log('  - Publicando:', htmlToPublish.length, 'chars');
 
     if (!htmlToPublish) {
       throw new Error('No hay contenido para publicar');
@@ -457,11 +442,9 @@ export class PageService {
     // Limpiar solo los scripts inline de GrapesJS que contienen handleClick
     // pero preservar los atributos data-action-type de los elementos HTML
     htmlToPublish = htmlToPublish.replace(/<script[^>]*>\s*[\s\S]*?function\s+handleClick[\s\S]*?<\/script>/g, '');
-    console.log('🧹 Scripts inline de GrapesJS removidos');
 
     // Inyectar script de botones si la página contiene botones con data-action-type
     if (htmlToPublish.includes('data-action-type')) {
-      console.log('🔘 Página contiene botones, inyectando script de acciones');
       const buttonScript = '<script src="/button-actions.js" defer></script>';
 
       // Buscar la etiqueta </body> o </html> para insertar el script
@@ -473,7 +456,6 @@ export class PageService {
         // Si no hay etiquetas de cierre, agregar al final
         htmlToPublish += `\n${buttonScript}`;
       }
-      console.log('✅ Script de botones inyectado');
     }
 
     const published = await prisma.page.update({
@@ -487,7 +469,6 @@ export class PageService {
       }
     });
 
-    console.log('✅ Publicado - publishedHtml:', published.publishedHtml?.length);
     return published;
   }
 
@@ -496,7 +477,6 @@ export class PageService {
    */
   static async togglePublishStatus(id: string): Promise<Page> {
     try {
-      console.log('[PageService.togglePublishStatus] start', { id });
       const page = await prisma.page.findUnique({
         where: { id }
       });
@@ -513,7 +493,6 @@ export class PageService {
         }
       });
 
-      console.log('[PageService.togglePublishStatus] done', { id, isPublished: updatedPage.isPublished });
       return updatedPage;
     } catch (error: any) {
       if (error.status) throw error;
@@ -615,7 +594,6 @@ export class PageService {
    */
   static async createBackup(page: Page): Promise<PageBackup> {
     try {
-      console.log('[PageService.createBackup] start', { pageId: page.id, slug: page.slug });
       const backup = await prisma.pageBackup.create({
         data: {
           pageId: page.id,
@@ -625,8 +603,7 @@ export class PageService {
           gjsComponents: page.gjsComponents || '[]',
           gjsStyles: page.gjsStyles || '[]'
         }
-      }); console.log('[PageService.createBackup] done', { backupId: backup.id });
-
+      });
 
       return backup;
     } catch (error: any) {
@@ -658,7 +635,6 @@ export class PageService {
    */
   static async restoreFromBackup(pageId: string, backupId: string): Promise<Page> {
     try {
-      console.log('[PageService.restoreFromBackup] start', { pageId, backupId });
       // Verificar que la página existe
       const page = await prisma.page.findUnique({
         where: { id: pageId }
@@ -697,8 +673,7 @@ export class PageService {
           publishedCss: backup.gjsCss,
           updatedAt: new Date()
         }
-      }); console.log('[PageService.restoreFromBackup] done', { pageId, published: true });
-
+      });
 
       return restoredPage;
     } catch (error: any) {
@@ -713,8 +688,6 @@ export class PageService {
    */
   static async deleteBackup(pageId: string, backupId: string): Promise<void> {
     try {
-      console.log('[PageService.deleteBackup] start', { pageId, backupId });
-
       // Verificar que la página existe
       const page = await prisma.page.findUnique({
         where: { id: pageId }
@@ -740,8 +713,6 @@ export class PageService {
       await prisma.pageBackup.delete({
         where: { id: backupId }
       });
-
-      console.log('[PageService.deleteBackup] done', { pageId, backupId });
     } catch (error: any) {
       if (error.status) throw error;
       console.error('Error deleting backup:', error);

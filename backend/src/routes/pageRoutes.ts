@@ -295,7 +295,6 @@ router.get('/published', PageController.getPublishedPages);
 router.get('/public/:slug', async (req, res) => {
   try {
     const slug = req.params.slug;
-    console.log(`📥 [/pages/public/:slug] start: ${slug}`);
 
     const page = await prisma.page.findUnique({
       where: { slug },
@@ -339,15 +338,6 @@ router.get('/public/:slug', async (req, res) => {
       || page.gjsCss
       || page.css
       || '';
-
-    // LOG para debugging
-    console.log(`📤 [${slug}] Enviando:`);
-    console.log(`  publishedHtml: ${page.publishedHtml?.length || 0}`);
-    console.log(`  gjsHtml: ${page.gjsHtml?.length || 0}`);
-    console.log(`  html: ${page.html?.length || 0}`);
-    console.log(`  content: ${page.content?.length || 0}`);
-    console.log(`  → Usando HTML: ${html.length} chars`);
-    console.log(`  → Usando CSS: ${css.length} chars`);
 
     return res.json({
       success: true,

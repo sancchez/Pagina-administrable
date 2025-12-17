@@ -373,11 +373,7 @@ export const performanceUtils = {
     const result = await fn();
     const end = process.hrtime.bigint();
     const duration = Number(end - start) / 1000000; // Convertir a milisegundos
-    
-    if (label) {
-      console.log(`${label}: ${duration.toFixed(2)}ms`);
-    }
-    
+
     return { result, duration };
   },
   

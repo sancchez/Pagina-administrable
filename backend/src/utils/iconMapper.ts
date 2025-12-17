@@ -126,8 +126,6 @@ export function convertIconToSvg(iconName: string, props: IconProps = {}): strin
  * Procesa HTML y convierte referencias de iconos a SVG real
  */
 export function processIconsInHtml(html: string): string {
-  console.log(`🔍 Procesando HTML para iconos, longitud: ${html.length}`);
-  
   // Convertir etiquetas <i> de Font Awesome a SVG basado en mapeo a lucide
   const FA_TO_LUCIDE: Record<string, string> = {
     'fa-credit-card': 'CreditCard',
@@ -175,10 +173,7 @@ export function processIconsInHtml(html: string): string {
     processedHtml = processedHtml.replace(fullMatch, svgReplacement);
     faReplacements++;
   }
-  if (faReplacements > 0) {
-    console.log(`🔄 Convertidos ${faReplacements} iconos de Font Awesome a SVG`);
-  }
-  
+
   // Patrón mejorado para encontrar componentes de iconos de lucide-react
   // Captura tanto self-closing como tags con contenido
   const iconPattern = /<(\w+)(\s+[^>]*)?(?:\s+className="([^"]*)"[^>]*)?(?:\/>|>[^<]*<\/\1>)/g;
@@ -190,10 +185,8 @@ export function processIconsInHtml(html: string): string {
   
   while ((match = iconPattern.exec(processedHtml)) !== null) {
     const [fullMatch, iconName, attributes, className] = match;
-    
+
     if (ICON_PATHS[iconName]) {
-      console.log(`🔄 Convirtiendo icono ${iconName} a SVG (className: ${className || 'sin clase'})`);
-      
       // Extraer className de los atributos si no se capturó directamente
       let finalClassName = className;
       if (!finalClassName && attributes) {
@@ -208,7 +201,6 @@ export function processIconsInHtml(html: string): string {
       replacements++;
     }
   }
-  
-  console.log(`✅ Procesamiento completado: ${replacements} iconos convertidos`);
+
   return processedHtml;
 }
