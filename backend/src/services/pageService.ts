@@ -285,7 +285,8 @@ export class PageService {
     html?: string,
     css?: string,
     gjsComponents?: string,
-    gjsStyles?: string
+    gjsStyles?: string,
+    isAutoSave?: boolean
   ): Promise<Page> {
     try {
       const page = await prisma.page.findUnique({
@@ -349,11 +350,20 @@ export class PageService {
         data: updateData
       });
 
-      // Crear versión automática tras guardar
+      // Log memory usage to help diagnose memory pressure
       try {
-        await VersionService.createVersion(id, 'auto-save');
-      } catch (e) {
-        console.warn('[PageService] auto version creation failed', e);
+        console.log('[PageService.saveGrapesData] memoryUsage', process.memoryUsage());
+      } catch (e) { /* ignore */ }
+
+      // Crear versión automática tras guardar (omitir para autosaves)
+      if (!isAutoSave) {
+        try {
+          await VersionService.createVersion(id, 'auto-save');
+        } catch (e) {
+          console.warn('[PageService] auto version creation failed', e);
+        }
+      } else {
+        console.log('[PageService.saveGrapesData] autosave detected - skipping version creation');
       }
 
       // Ya no publicamos automáticamente para separar las funcionalidades de guardar y publicar

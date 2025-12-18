@@ -667,7 +667,8 @@ export class PageController {
     gjsHtml: Joi.string().optional(),
     gjsCss: Joi.string().optional(),
     gjsComponents: Joi.string().optional(),
-    gjsStyles: Joi.string().optional()
+    gjsStyles: Joi.string().optional(),
+    isAutoSave: Joi.boolean().optional()
   });
 
   static saveContentSchema = Joi.object({
@@ -903,7 +904,8 @@ export class PageController {
         value.gjsHtml || value.html, 
         value.gjsCss || value.css,
         value.gjsComponents,
-        value.gjsStyles
+        value.gjsStyles,
+        value.isAutoSave
       );
 
       return res.json({

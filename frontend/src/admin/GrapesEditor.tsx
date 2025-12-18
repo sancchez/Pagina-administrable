@@ -45,6 +45,7 @@ const GrapesEditor: React.FC = () => {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const savingRef = useRef<boolean>(false);
   const latestCssRef = useRef<string | null>(null);
   const perfStartRef = useRef<number | null>(null);
   const initializationAttempted = useRef(false);
@@ -253,6 +254,12 @@ const GrapesEditor: React.FC = () => {
     const inst = editorInstanceRef.current;
     if (!inst || !pageData) return;
 
+    if (savingRef.current) {
+      console.log('⏳ Save skipped: already saving');
+      return;
+    }
+    savingRef.current = true;
+
     try {
       setSaveStatus(isAutoSave ? 'auto-saving' : 'saving');
 
@@ -337,7 +344,8 @@ const GrapesEditor: React.FC = () => {
         gjsHtml: html,
         gjsCss: css,
         gjsComponents: typeof components === 'string' ? components : JSON.stringify(components || []),
-        gjsStyles: typeof styles === 'string' ? styles : JSON.stringify(styles || [])
+        gjsStyles: typeof styles === 'string' ? styles : JSON.stringify(styles || []),
+        isAutoSave: isAutoSave
       };
 
       // Guardar por ID usando HttpClient con Authorization
@@ -364,6 +372,8 @@ const GrapesEditor: React.FC = () => {
       if (!isAutoSave) alert('Error de conexión');
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      savingRef.current = false;
     }
   }, [pageData, slug]);
 
@@ -434,7 +444,7 @@ const GrapesEditor: React.FC = () => {
         console.log('🔄 Auto-guardado activado');
         handleSave(true);
       }
-    }, 5000); // Auto-guardar cada 5 segundos
+    }, 15000); // Auto-guardar cada 15 segundos
   }, [hasUnsavedChanges, handleSave]);
 
   // PASO 4: Cargar datos por slug (solo una vez por slug)

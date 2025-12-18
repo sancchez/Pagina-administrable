@@ -36,6 +36,24 @@ export class VersionService {
       }
     });
 
+    // Retain only the last N versions to avoid unbounded growth
+    try {
+      const KEEP = 10;
+      const toDelete = await prisma.pageVersion.findMany({
+        where: { pageId: page.id },
+        orderBy: { createdAt: 'desc' },
+        skip: KEEP,
+        select: { id: true }
+      });
+
+      if (toDelete.length > 0) {
+        await prisma.pageVersion.deleteMany({ where: { id: { in: toDelete.map(v => v.id) } } });
+        console.log(`[VersionService] deleted ${toDelete.length} old versions for page ${page.id}`);
+      }
+    } catch (e) {
+      console.warn('[VersionService] error pruning old versions', e);
+    }
+
     return version;
   }
 
