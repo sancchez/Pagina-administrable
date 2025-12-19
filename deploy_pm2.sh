@@ -141,6 +141,7 @@ if [ "$SKIP_SAVE" -eq 0 ]; then
   pm2 save 2>&1 | tee -a "$LOG" || true
 fi
 
+
 if [ "$NO_STARTUP" -eq 0 ]; then
   echo "Configurando pm2 startup (systemd)" | tee -a "$LOG"
   START_CMD=$(pm2 startup systemd -u "$USER" --hp "$HOME" | tail -n 1)
@@ -153,9 +154,11 @@ if [ "$NO_STARTUP" -eq 0 ]; then
   fi
 fi
 
+
 # Resumen
 echo "\n=== RESULTADO (pm2 status) ===" | tee -a "$LOG"
 pm2 status 2>&1 | tee -a "$LOG" || pm2 status 2>&1 | tee -a "$LOG"
+
 
 echo "Logs: $LOG"
 echo "script finalizado: $(date -u)" | tee -a "$LOG"
