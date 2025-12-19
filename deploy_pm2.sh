@@ -117,7 +117,7 @@ if [ -f "ecosystem.config.cjs" ]; then
   # Si el ecosystem no registró la app, intentar arrancar directamente
   if ! pm2 describe pagina-admin-backend >/dev/null 2>&1; then
     echo "ecosystem no registró la app; intentando arranque directo del backend" | tee -a "$LOG"
-    if pm2 start /dist/index.js --name pagina-admin-backend --cwd ./backend --interpreter node 2>&1 | tee -a "$LOG"; then
+    if pm2 start backend/dist/index.js --name pagina-admin-backend --cwd  --interpreter node 2>&1 | tee -a "$LOG"; then
       echo "Backend arrancado directamente con pm2" | tee -a "$LOG"
     else
       echo "Fallo al arrancar backend directamente; revisa logs" | tee -a "$LOG"
