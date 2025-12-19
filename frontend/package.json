@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:tailwind": "tailwindcss -i ./src/index.css -o ./public/tailwind.css --minify",
     "build:all": "npm run build:tailwind && vite build",
+    "start:prod": "vite preview --port 3100 --host",
     "lint": "eslint ",
     "test": "vitest",
     "preview": "vite preview"
