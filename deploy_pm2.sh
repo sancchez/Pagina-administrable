@@ -57,19 +57,33 @@ cd frontend
 echo "Instalando dependencias de frontend..." | tee -a "$LOG"
 npm ci --no-audit --prefer-offline 2>&1 | tee -a "$LOG" || npm install --no-audit 2>&1 | tee -a "$LOG"
 
-# Añadir script start:prod si falta
-node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p));j.scripts=j.scripts||{}; if(!j.scripts['start:prod']){j.scripts['start:prod']='serve -s dist -l 3000'; fs.writeFileSync(p, JSON.stringify(j,null,2)); console.log('Se agregó script start:prod (serve -s dist -l 3000)');} else {console.log('start:prod ya existe; no se modifica') }" 2>&1 | tee -a ../$LOG
+# Verificar que existe server.js, si no crearlo
+if [ ! -f "server.js" ]; then
+  echo "Creando server.js para producción..." | tee -a "$LOG"
+  cat > server.js << 'SERVERJS'
+// Servidor de producción para el frontend
+import { preview } from 'vite';
 
-# Instalar serve si no está
-npm list --depth=0 --dev serve >/dev/null 2>&1 || npm install --save-dev serve 2>&1 | tee -a ../$LOG
+const server = await preview({
+  preview: {
+    port: 3100,
+    host: true,
+    strictPort: true
+  }
+});
+
+server.printUrls();
+SERVERJS
+  echo "server.js creado" | tee -a "$LOG"
+fi
 
 # Build frontend (usa build:all si existe)
 if npm run | grep -q "build:all"; then
-  echo "Ejecutando npm run build:all" | tee -a ../$LOG
-  npm run build:all 2>&1 | tee -a ../$LOG
+  echo "Ejecutando npm run build:all" | tee -a "$LOG"
+  npm run build:all 2>&1 | tee -a "$LOG"
 else
-  echo "Ejecutando npm run build" | tee -a ../$LOG
-  npm run build 2>&1 | tee -a ../$LOG
+  echo "Ejecutando npm run build" | tee -a "$LOG"
+  npm run build 2>&1 | tee -a "$LOG"
 fi
 
 cd "$DIR"
@@ -81,12 +95,12 @@ if [ ! -d "backend" ]; then
 fi
 cd backend
 
-echo "Instalando dependencias de backend..." | tee -a ../$LOG
-npm ci --no-audit --prefer-offline 2>&1 | tee -a ../$LOG || npm install --no-audit 2>&1 | tee -a ../$LOG
+echo "Instalando dependencias de backend..." | tee -a "$LOG"
+npm ci --no-audit --prefer-offline 2>&1 | tee -a "$LOG" || npm install --no-audit 2>&1 | tee -a "$LOG"
 
-echo "Compilando backend (tsc) ..." | tee -a ../$LOG
-if npm run build 2>&1 | tee -a ../$LOG; then
-  echo "build backend OK" | tee -a ../$LOG
+echo "Compilando backend (tsc) ..." | tee -a "$LOG"
+if npm run build 2>&1 | tee -a "$LOG"; then
+  echo "build backend OK" | tee -a "$LOG"
 else
   fail "Fallo compilando backend";
 fi
@@ -112,36 +126,13 @@ if [ -f "ecosystem.config.cjs" ]; then
 else
   echo "ecosystem.config.cjs no encontrado: lanzando backend manualmente" | tee -a "$LOG"
   cd backend
-  if pm2 start npm --name "pagina-admin-backend" -- run start 2>&1 | tee -a ../$LOG; then
-    echo "Backend iniciado via npm script" | tee -a ../$LOG
+  if pm2 start npm --name "pagina-admin-backend" -- run start 2>&1 | tee -a "$LOG"; then
+    echo "Backend iniciado via npm script" | tee -a "$LOG"
   else
-    echo "Fallo arrancando backend via npm script; intentando arranque directo" | tee -a ../$LOG
-    pm2 start dist/index.js --name pagina-admin-backend --cwd ./backend --interpreter node 2>&1 | tee -a ../$LOG || echo "Fallo definitivo arrancando backend" | tee -a ../$LOG
+    echo "Fallo arrancando backend via npm script; intentando arranque directo" | tee -a "$LOG"
+    pm2 start dist/index.js --name pagina-admin-backend --cwd ./backend --interpreter node 2>&1 | tee -a "$LOG" || echo "Fallo definitivo arrancando backend" | tee -a "$LOG"
   fi
   cd "$DIR"
-fi
-
-# Frontend via npm script (serve)
-npm_scripts_front=$(node -e "const j=require('./frontend/package.json'); console.log(Object.keys(j.scripts||{}).join(','))")
-if echo "$npm_scripts_front" | grep -q "start:prod"; then
-  echo "Intentando iniciar frontend via npm start:prod" | tee -a "$LOG"
-  if pm2 start npm --name "pagina-admin-frontend" --prefix ./frontend -- run start:prod 2>&1 | tee -a "$LOG"; then
-    echo "Frontend iniciado via npm start:prod" | tee -a "$LOG"
-  else
-    echo "Fallo al iniciar start:prod; intentando pm2 serve ./frontend/dist" | tee -a "$LOG"
-    if pm2 serve ./frontend/dist 3000 --name pagina-admin-frontend --spa 2>&1 | tee -a "$LOG"; then
-      echo "Frontend iniciado con pm2 serve" | tee -a "$LOG"
-    else
-      echo "No se pudo iniciar el frontend con start:prod ni con pm2 serve" | tee -a "$LOG"
-    fi
-  fi
-else
-  echo "start:prod no encontrado en frontend/package.json; intentando pm2 serve ./frontend/dist" | tee -a "$LOG"
-  if pm2 serve ./frontend/dist 3000 --name pagina-admin-frontend --spa 2>&1 | tee -a "$LOG"; then
-    echo "Frontend iniciado con pm2 serve" | tee -a "$LOG"
-  else
-    echo "No se pudo iniciar el frontend; verifica build o instala 'serve'" | tee -a "$LOG"
-  fi
 fi
 
 # Guardar la configuración y configurar arranque automático
