@@ -30,7 +30,7 @@ module.exports = {
     },
     {
       name: 'pagina-admin-frontend',
-      script: './server.js',
+      script: './production-server.js',
       cwd: './frontend',
       instances: 1,
       exec_mode: 'fork',

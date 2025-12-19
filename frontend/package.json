@@ -37,6 +37,7 @@
     "dompurify": "^3.2.6",
     "express": "^5.1.0",
     "grapesjs": "^0.22.13",
+    "http-proxy-middleware": "^3.0.3",
     "grapesjs-blocks-basic": "^1.0.2",
     "grapesjs-plugin-forms": "^2.0.6",
     "grapesjs-preset-webpage": "^1.0.3",
