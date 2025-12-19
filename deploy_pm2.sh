@@ -68,7 +68,14 @@ const server = await preview({
   preview: {
     port: 3100,
     host: true,
-    strictPort: true
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 });
 
