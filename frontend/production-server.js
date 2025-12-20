@@ -1,7 +1,10 @@
-import express from 'express';
+import { createRequire } from 'module';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const require = createRequire(import.meta.url);
+const express = require('express');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
