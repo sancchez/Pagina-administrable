@@ -48,9 +48,13 @@ app.use('/api', async (req, res, next) => {
 
     console.log('✅ Proxy response:', response.status);
 
-    // Copiar headers de la respuesta
+    // Copiar headers de la respuesta, excepto los de compresión
+    // (fetch ya descomprime automáticamente)
+    const excludeHeaders = ['content-encoding', 'content-length', 'transfer-encoding'];
     response.headers.forEach((value, key) => {
-      res.setHeader(key, value);
+      if (!excludeHeaders.includes(key.toLowerCase())) {
+        res.setHeader(key, value);
+      }
     });
 
     res.status(response.status);
