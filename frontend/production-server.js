@@ -12,12 +12,29 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 4001;
 
+// Log de todas las peticiones
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.url}`);
+  next();
+});
+
 // Proxy para /api hacia el backend
-app.use('/api', createProxyMiddleware({
+const apiProxy = createProxyMiddleware({
   target: 'http://localhost:4000',
   changeOrigin: true,
-  logLevel: 'debug'
-}));
+  logLevel: 'debug',
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('🔄 Proxying:', req.method, req.url, '-> http://localhost:4000');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('✅ Proxy response:', proxyRes.statusCode);
+  },
+  onError: (err, req, res) => {
+    console.error('❌ Proxy error:', err.message);
+  }
+});
+
+app.use('/api', apiProxy);
 
 // Servir archivos estáticos del build
 app.use(express.static(path.join(__dirname, 'dist')));
