@@ -40,7 +40,7 @@ module.exports = {
       max_memory_restart: '300M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3100
+        PORT: 4001
       },
       error_file: './logs/pm2-frontend-error.log',
       out_file: './logs/pm2-frontend-out.log',
