@@ -18,23 +18,35 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy para /api hacia el backend
-const apiProxy = createProxyMiddleware({
-  target: 'http://localhost:4000',
-  changeOrigin: true,
-  logLevel: 'debug',
-  onProxyReq: (proxyReq, req, res) => {
+// Proxy manual para /api hacia el backend
+app.use('/api', async (req, res, next) => {
+  try {
     console.log('🔄 Proxying:', req.method, req.url, '-> http://localhost:4000');
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log('✅ Proxy response:', proxyRes.statusCode);
-  },
-  onError: (err, req, res) => {
-    console.error('❌ Proxy error:', err.message);
+
+    const targetUrl = `http://localhost:4000${req.url}`;
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: 'localhost:4000'
+      }
+    });
+
+    console.log('✅ Proxy response:', response.status);
+
+    // Copiar headers de la respuesta
+    response.headers.forEach((value, key) => {
+      res.setHeader(key, value);
+    });
+
+    res.status(response.status);
+    const data = await response.text();
+    res.send(data);
+  } catch (error) {
+    console.error('❌ Proxy error:', error.message);
+    next(error);
   }
 });
-
-app.use('/api', apiProxy);
 
 // Servir archivos estáticos del build
 app.use(express.static(path.join(__dirname, 'dist')));
