@@ -18,6 +18,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Parsear JSON body
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Proxy manual para /api hacia el backend
 app.use('/api', async (req, res, next) => {
   try {
@@ -26,13 +30,21 @@ app.use('/api', async (req, res, next) => {
     const targetUrl = `http://localhost:4000/api${req.url}`;
     console.log('🔄 Proxying:', req.method, `/api${req.url}`, '-> http://localhost:4000');
 
-    const response = await fetch(targetUrl, {
+    const options = {
       method: req.method,
       headers: {
         ...req.headers,
         host: 'localhost:4000'
       }
-    });
+    };
+
+    // Agregar body si existe (POST, PUT, PATCH, etc.)
+    if (req.body && Object.keys(req.body).length > 0) {
+      options.body = JSON.stringify(req.body);
+      options.headers['content-type'] = 'application/json';
+    }
+
+    const response = await fetch(targetUrl, options);
 
     console.log('✅ Proxy response:', response.status);
 
