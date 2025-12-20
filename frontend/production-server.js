@@ -21,9 +21,11 @@ app.use((req, res, next) => {
 // Proxy manual para /api hacia el backend
 app.use('/api', async (req, res, next) => {
   try {
-    console.log('🔄 Proxying:', req.method, req.url, '-> http://localhost:4000');
+    // req.url no incluye /api porque Express lo quita al montar el middleware
+    // Necesitamos agregarlo de vuelta
+    const targetUrl = `http://localhost:4000/api${req.url}`;
+    console.log('🔄 Proxying:', req.method, `/api${req.url}`, '-> http://localhost:4000');
 
-    const targetUrl = `http://localhost:4000${req.url}`;
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: {
