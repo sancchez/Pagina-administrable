@@ -11,7 +11,7 @@
    - This prevents protocol-specific asset URLs that cause SSL errors
 
 3. **CORS configuration**
-   - Updated `.env` with production IP address (155.117.40.245)
+   - Updated `.env` with production IP address (2.58.80.90)
 
 ## Files Changed
 
@@ -74,14 +74,14 @@ The ERR_SSL_PROTOCOL_ERROR occurs because browsers cache HTTPS upgrades. **You M
 4. Clear Now
 
 #### Alternative: Use Incognito/Private Window
-Open `http://155.117.40.245:4000` in an incognito/private window to test without cache issues.
+Open `http://2.58.80.90:4000` in an incognito/private window to test without cache issues.
 
 ### 5. Access the Application
 
 After clearing cache, access:
-- Frontend: `http://155.117.40.245:4000`
-- API: `http://155.117.40.245:4000/api`
-- Health: `http://155.117.40.245:4000/health`
+- Frontend: `http://2.58.80.90:4000`
+- API: `http://2.58.80.90:4000/api`
+- Health: `http://2.58.80.90:4000/health`
 
 **IMPORTANT:** Always use `http://` (not `https://`)
 
@@ -91,12 +91,12 @@ After clearing cache, access:
 
 1. **Check browser HSTS cache:**
    - Chrome: Visit `chrome://net-internals/#hsts`
-   - Search for `155.117.40.245`
+   - Search for `2.58.80.90`
    - Click "Delete" if found
 
 2. **Verify backend is serving HTTP (not HTTPS):**
    ```bash
-   curl -I http://155.117.40.245:4000
+   curl -I http://2.58.80.90:4000
    ```
 
 3. **Check PM2 logs:**
@@ -172,9 +172,9 @@ After clearing cache, access:
 - [ ] `git pull` completed successfully
 - [ ] `./deploy.sh` ran without errors
 - [ ] PM2 shows app as "online"
-- [ ] Health check returns 200: `curl http://155.117.40.245:4000/health`
+- [ ] Health check returns 200: `curl http://2.58.80.90:4000/health`
 - [ ] Browser cache cleared
-- [ ] Can access `http://155.117.40.245:4000` without SSL errors
+- [ ] Can access `http://2.58.80.90:4000` without SSL errors
 - [ ] Can login to admin panel
 - [ ] No CSP errors in browser console
 - [ ] Assets (CSS, JS, images) load correctly
