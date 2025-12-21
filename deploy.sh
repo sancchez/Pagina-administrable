@@ -70,7 +70,7 @@ cd frontend
 
 # Limpiar caché y node_modules/.vite
 log_info "🧹 Limpiando caché del frontend..."
-rm -rf node_modules/.vite dist
+rm -rf node_modules/.vite dist .vite
 
 # Instalar dependencias
 log_info "📥 Instalando dependencias del frontend..."
