@@ -103,6 +103,21 @@ const GrapesEditor: React.FC = () => {
     return;
   };
 
+  // Función para obtener la ruta CSS correcta según el entorno
+  const getMainCssHref = () => {
+    // En desarrollo, Vite sirve /src/index.css
+    if (import.meta.env.DEV) {
+      return '/src/index.css';
+    }
+    // En producción, buscar el CSS compilado en el <head> principal
+    const mainCssLink = document.querySelector('link[rel="stylesheet"][href*="index-"]') as HTMLLinkElement;
+    if (mainCssLink) {
+      return mainCssLink.href;
+    }
+    // Fallback a un archivo estático si existe
+    return '/tailwind.css';
+  };
+
   // Helpers de inyección accesibles en todo el componente
   const injectTailwindIntoCanvas = (maxRetries: number = 20) => {
     try {
@@ -114,18 +129,19 @@ const GrapesEditor: React.FC = () => {
         else console.warn('⚠️ Documento del canvas no disponible para estilos');
         return;
       }
-      // Preferir CSS de Vite en desarrollo
-      const devHref = '/src/index.css';
-      const builtHref = '/tailwind.css'; // fallback si has generado public/tailwind.css
-      const existingDev = doc.querySelector(`link[rel="stylesheet"][href="${devHref}"]`);
-      const existingBuilt = doc.querySelector(`link[rel="stylesheet"][href="${builtHref}"]`);
-      if (!existingDev && !existingBuilt) {
+
+      // Obtener la ruta CSS correcta según el entorno
+      const cssHref = getMainCssHref();
+      const existingCss = doc.querySelector(`link[rel="stylesheet"][href="${cssHref}"]`);
+
+      if (!existingCss) {
         const link = doc.createElement('link');
         link.rel = 'stylesheet';
-        link.href = devHref;
+        link.href = cssHref;
         doc.head.appendChild(link);
-        console.log('🎨 Tailwind (src/index.css) inyectado en canvas');
+        console.log('🎨 CSS principal inyectado en canvas:', cssHref);
       }
+
       const fontHref = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap';
       if (!doc.querySelector(`link[rel="stylesheet"][href="${fontHref}"]`)) {
         const fontLink = doc.createElement('link');
@@ -545,7 +561,7 @@ const GrapesEditor: React.FC = () => {
         storageManager: { type: 'local' },
         canvas: {
           styles: [
-            '/src/index.css',
+            getMainCssHref(), // CSS principal (dev o producción)
             'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap'
           ]
         },
