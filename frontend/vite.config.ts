@@ -10,6 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Fix para GrapesJS - apuntar al archivo dist correcto
+      'grapesjs': fileURLToPath(new URL('./node_modules/grapesjs/dist/grapes.min.js', import.meta.url)),
     },
   },
   server: {
@@ -30,6 +32,20 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
+    include: ['grapesjs', 'grapesjs-blocks-basic', 'grapesjs-plugin-forms', 'grapesjs-preset-webpage'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/grapesjs/, /node_modules/],
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'grapesjs-vendor': ['grapesjs', 'grapesjs-blocks-basic', 'grapesjs-plugin-forms', 'grapesjs-preset-webpage'],
+        },
+      },
+    },
   },
   test: {
     globals: true,

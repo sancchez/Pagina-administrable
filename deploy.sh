@@ -10,6 +10,8 @@ echo "🚀 Iniciando deployment de producción..."
 # 1. Construir el frontend
 echo "📦 Construyendo frontend..."
 cd frontend
+echo "🧹 Limpiando caché..."
+rm -rf node_modules/.vite
 npm install
 npm run build
 cd ..
