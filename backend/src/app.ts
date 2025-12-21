@@ -36,8 +36,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      // Permitir scripts propios + hash del script inline de checkEditorContext en index.html
-      scriptSrc: ["'self'", "'sha256-/Dlwb4aqWCvAqXapUKeexicCb96AxeGubwLr8OUcso='"],
+      // Permitir scripts propios + scripts inline (para checkEditorContext en index.html)
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'"]
     }
