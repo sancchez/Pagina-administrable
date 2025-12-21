@@ -37,7 +37,9 @@ if [ ! -f "package.json" ] || [ ! -d "frontend" ] || [ ! -d "backend" ]; then
 fi
 
 echo ""
+
 log_info "🚀 Iniciando deployment de producción..."
+
 echo ""
 
 # Verificar que Node.js y npm están instalados
