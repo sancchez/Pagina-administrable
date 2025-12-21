@@ -48,10 +48,18 @@ app.use(helmet({
 }));
 
 // Configuración de CORS
+const getCorsOrigins = () => {
+  if (process.env.NODE_ENV === 'production') {
+    // En producción, soportar múltiples orígenes separados por coma
+    const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'https://adminpanel.com';
+    return corsOrigin.split(',').map(origin => origin.trim());
+  }
+  // En desarrollo
+  return ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5177', 'http://localhost:5180'];
+};
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? [process.env.FRONTEND_URL || 'https://adminpanel.com']
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5177', 'http://localhost:5180'],
+  origin: getCorsOrigins(),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
