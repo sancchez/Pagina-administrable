@@ -134,12 +134,25 @@ echo ""
 
 # 3. Detener PM2 si está corriendo
 log_info "⏹️  Deteniendo servicios PM2 existentes..."
-pm2 stop ecosystem.config.cjs 2>/dev/null || true
-pm2 delete ecosystem.config.cjs 2>/dev/null || true
+
+# Detener y eliminar todas las instancias de pagina-admin
 pm2 stop pagina-admin 2>/dev/null || true
 pm2 delete pagina-admin 2>/dev/null || true
 
-log_success "Servicios PM2 detenidos"
+# También intentar con otros posibles nombres
+pm2 stop pagina-admin-backend 2>/dev/null || true
+pm2 delete pagina-admin-backend 2>/dev/null || true
+
+# Asegurarse de que el puerto 4000 esté libre
+log_info "Verificando que el puerto 4000 esté libre..."
+if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    log_warning "Puerto 4000 en uso, intentando liberar..."
+    # Intentar matar el proceso que está usando el puerto
+    lsof -ti:4000 | xargs kill -9 2>/dev/null || true
+    sleep 2
+fi
+
+log_success "Servicios PM2 detenidos y puerto verificado"
 echo ""
 
 # 4. Iniciar con PM2
@@ -151,11 +164,15 @@ if [ ! -f "ecosystem.config.cjs" ]; then
     exit 1
 fi
 
+# Esperar un momento para asegurar que todo está limpio
+sleep 2
+
 # Iniciar con PM2 usando ecosystem config
-pm2 start ecosystem.config.cjs --env production
+# Usar --update-env para asegurar que las variables de entorno se actualicen
+pm2 start ecosystem.config.cjs --env production --update-env
 
 # Esperar un momento para que el proceso inicie
-sleep 2
+sleep 3
 
 # Verificar que el proceso está corriendo
 if pm2 describe pagina-admin > /dev/null 2>&1; then

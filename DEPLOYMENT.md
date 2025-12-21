@@ -475,6 +475,31 @@ Causas comunes:
 - Base de datos corrupta o inaccesible
 - Falta de memoria
 
+### Puerto 4000 ya en uso / Procesos duplicados
+
+Si ves errores como "Port already in use" o encuentras múltiples procesos corriendo:
+
+```bash
+# Opción 1: Usar el script de limpieza (recomendado)
+chmod +x cleanup.sh
+./cleanup.sh
+
+# Opción 2: Limpieza manual
+pm2 delete all
+pm2 kill
+
+# Verificar puerto 4000
+lsof -ti:4000 | xargs kill -9 2>/dev/null
+
+# Verificar que no haya procesos PM2
+pm2 list
+
+# Redesplegar
+./deploy.sh
+```
+
+**Prevención:** El script `deploy.sh` mejorado ahora incluye verificación automática del puerto y eliminación de procesos duplicados.
+
 ### Página en blanco o error 404
 
 1. **Limpiar caché del navegador** (Ctrl+Shift+R)
