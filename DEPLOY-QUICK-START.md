@@ -85,6 +85,23 @@ El script se encarga de todo: recompilar, actualizar dependencias y reiniciar.
 
 ## ❓ Problemas Comunes
 
+### Error SSL_PROTOCOL_ERROR o CONNECTION_RESET
+
+Si ves errores como `ERR_SSL_PROTOCOL_ERROR` en el navegador:
+
+**Causa:** El navegador intenta usar HTTPS pero el servidor está en HTTP.
+
+**Solución:**
+1. Accede a `http://tu-ip:4000` (SIN la 's' en https)
+2. Limpia caché del navegador (Ctrl+Shift+Delete)
+3. O usa modo incógnito
+
+**Verificar configuración:**
+```bash
+chmod +x check-config.sh
+./check-config.sh
+```
+
 ### El servidor no inicia
 
 ```bash
@@ -94,6 +111,15 @@ pm2 logs pagina-admin --err --lines 50
 # Verificar que el puerto 4000 no está en uso
 lsof -i :4000  # Linux/Mac
 netstat -ano | findstr :4000  # Windows
+```
+
+### Puerto 4000 en uso / Procesos duplicados
+
+```bash
+# Limpiar todo y reiniciar
+chmod +x cleanup.sh
+./cleanup.sh
+./deploy.sh
 ```
 
 ### Página en blanco
