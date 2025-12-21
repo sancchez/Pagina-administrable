@@ -5,8 +5,8 @@ import { fileURLToPath, URL } from 'node:url';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Base path para assets - usar ruta relativa para que funcione en cualquier protocolo
-  base: './',
+  // Base path para assets - usar ruta absoluta para que funcione en rutas anidadas
+  base: '/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

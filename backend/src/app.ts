@@ -39,7 +39,7 @@ app.use(helmet({
       // Permitir scripts propios + scripts inline (para checkEditorContext en index.html)
       scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://unpkg.com"]
+      connectSrc: ["'self'", "https://unpkg.com", "https://app.grapesjs.com"]
     }
   },
   crossOriginEmbedderPolicy: false,

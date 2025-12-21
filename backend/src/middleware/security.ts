@@ -14,6 +14,7 @@ export const helmetConfig = helmet({
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://unpkg.com'],
       imgSrc: ["'self'", 'data:', 'https:'],
       scriptSrc: ["'self'", 'https://unpkg.com'],
+      connectSrc: ["'self'", 'https://unpkg.com', 'https://app.grapesjs.com'],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: config.nodeEnv === 'production' ? [] : null,
     },
