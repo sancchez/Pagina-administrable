@@ -54,6 +54,7 @@ if ! command -v npm &> /dev/null; then
 fi
 
 log_info "Node version: $(node -v)"
+
 log_info "npm version: $(npm -v)"
 
 # Verificar que PM2 está instalado
