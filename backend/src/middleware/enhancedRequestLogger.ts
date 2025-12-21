@@ -29,7 +29,7 @@ const defaultOptions: RequestLoggerOptions = {
   includeHeaders: false,
   sensitiveFields: ['password', 'token', 'authorization', 'cookie', 'x-api-key'],
   maxBodySize: 1024, // 1KB
-  skipPaths: ['/health', '/favicon.ico'],
+  skipPaths: ['/health', '/favicon.ico', '/api/pages'],
   skipMethods: [],
 };
 
@@ -54,11 +54,12 @@ const sanitizeData = (data: any, sensitiveFields: string[]): any => {
 const truncateBody = (body: any, maxSize: number): any => {
   const bodyStr = JSON.stringify(body);
   if (bodyStr.length > maxSize) {
+    // NO incluir el body original, solo un preview
     return {
-      ...body,
       _truncated: true,
       _originalSize: bodyStr.length,
       _maxSize: maxSize,
+      _preview: bodyStr.substring(0, Math.min(200, maxSize)) + '...'
     };
   }
   return body;
@@ -202,6 +203,7 @@ export const developmentLogger = enhancedRequestLogger({
   includeQuery: true,
   includeHeaders: true,
   maxBodySize: 2048,
+  skipPaths: ['/health', '/favicon.ico', '/api/pages'],
 });
 
 export const productionLogger = enhancedRequestLogger({
@@ -209,7 +211,7 @@ export const productionLogger = enhancedRequestLogger({
   includeQuery: true,
   includeHeaders: false,
   maxBodySize: 512,
-  skipPaths: ['/health', '/metrics', '/favicon.ico'],
+  skipPaths: ['/health', '/metrics', '/favicon.ico', '/api/pages'],
 });
 
 export const apiLogger = enhancedRequestLogger({
