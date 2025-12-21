@@ -252,7 +252,8 @@ const PageRenderer: React.FC = () => {
             len: hHtml.length
           });
           setHeaderHtml(hHtml);
-          setHeaderCss(hCss);
+          // Aislar CSS del header para que solo afecte #site-header
+          setHeaderCss(scopeCssToContent(hCss, '#site-header'));
         }
         if (fRes.ok) {
           const fJson = await fRes.json();
@@ -264,7 +265,8 @@ const PageRenderer: React.FC = () => {
             len: fHtml.length
           });
           setFooterHtml(fHtml);
-          setFooterCss(fCss);
+          // Aislar CSS del footer para que solo afecte #site-footer
+          setFooterCss(scopeCssToContent(fCss, '#site-footer'));
         }
       } catch (e) {
         console.error('❌ [PageRenderer] Error al cargar header/footer:', e);

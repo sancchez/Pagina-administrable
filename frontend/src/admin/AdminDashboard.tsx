@@ -58,7 +58,8 @@ export default function AdminDashboard() {
   const fetchPages = async () => {
     try {
       // Backend devuelve pages con isActive=true por defecto
-      const resp: any = await HttpClient.get('/pages');
+      // Usar limit=100 para obtener todas las páginas (máximo permitido por el backend)
+      const resp: any = await HttpClient.get('/pages?limit=100');
       const list: Page[] = (resp?.data?.pages) || resp?.pages || [];
       setPages(list);
 
