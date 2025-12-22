@@ -67,39 +67,52 @@ const footerHtml = `
 `;
 
 async function seedFooter() {
-    try {
-        console.log('🌱 Verificando existencia del Footer...');
+  try {
+    console.log('🌱 Verificando existencia del Footer...');
 
-        const existingFooter = await prisma.page.findFirst({
-            where: { slug: '_footer' }
-        });
+    const existingFooter = await prisma.page.findFirst({
+      where: { slug: '_footer' }
+    });
 
-        if (existingFooter) {
-            console.log('✅ El footer ya existe. No se realizaron cambios.');
-            return;
+    if (existingFooter) {
+      console.log('🔄 El footer ya existe. Actualizando contenido...');
+      await prisma.page.update({
+        where: { id: existingFooter.id },
+        data: {
+          title: 'Footer Global',
+          content: 'Footer del sitio',
+          html: footerHtml,
+          publishedHtml: footerHtml,
+          isActive: true,
+          isPublished: true,
+          updatedAt: new Date()
         }
-
-        console.log('🛠 Creando página de Footer...');
-
-        await prisma.page.create({
-            data: {
-                title: 'Footer Global',
-                slug: '_footer',
-                content: 'Footer del sitio',
-                html: footerHtml,
-                publishedHtml: footerHtml,
-                isActive: true,
-                isPublished: true,
-            }
-        });
-
-        console.log('✅ Footer creado exitosamente.');
-
-    } catch (error) {
-        console.error('❌ Error al crear el footer:', error);
-    } finally {
-        await prisma.$disconnect();
+      });
+      console.log('✅ Footer actualizado correctamente.');
+      return;
     }
+
+    console.log('🛠 Creando página de Footer...');
+
+    await prisma.page.create({
+      data: {
+        title: 'Footer Global',
+        slug: '_footer',
+        content: 'Footer del sitio',
+        html: footerHtml,
+        publishedHtml: footerHtml,
+        isActive: true,
+        isPublished: true,
+      }
+    });
+
+    console.log('✅ Footer creado exitosamente.');
+
+  } catch (error) {
+    console.error('❌ Error al crear el footer:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 seedFooter();
