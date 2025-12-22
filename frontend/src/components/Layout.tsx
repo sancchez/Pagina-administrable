@@ -156,18 +156,15 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
 
       // 4. Force behavior
       if (href) {
-        if (isNewTab) {
-          // Allow default or force window.open? 
-          // If we do nothing, GrapesJS script might run. 
-          // But GrapesJS script usually handles _blank correctly.
-          // The issue is _self opening in new tab.
-        } else {
-          // FORCE SAME TAB
-          // Stop GrapesJS script from running
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+        // Stop default behavior and propagation
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
+        if (isNewTab) {
+          console.log('🚀 [Layout] Opening in new tab:', href);
+          window.open(href, '_blank');
+        } else {
           console.log('🚀 [Layout] Forcing navigation in same tab:', href);
           window.location.href = href;
         }

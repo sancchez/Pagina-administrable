@@ -3138,7 +3138,6 @@ const GrapesEditor: React.FC = () => {
                   { id: 'go_to_payment', name: 'Ir a pago' },
                   { id: 'execute-function', name: 'Ejecutar función' }
                 ],
-                changeProp: true,
               },
               {
                 type: 'text',
@@ -3150,7 +3149,6 @@ const GrapesEditor: React.FC = () => {
                 type: 'select',
                 label: 'Abrir en',
                 name: 'data-target',
-                changeProp: true,
                 options: [
                   { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva ventana' },
@@ -3257,7 +3255,11 @@ const GrapesEditor: React.FC = () => {
                   case 'open_pdf':
                     if (fileUrl || url) {
                       const cleanUrl = (fileUrl || url).replace(/`/g, '').trim();
-                      window.open(cleanUrl, '_blank');
+                      if (target === '_blank') {
+                        window.open(cleanUrl, '_blank');
+                      } else {
+                        window.location.href = cleanUrl;
+                      }
                     }
                     break;
                   case 'go_to_payment':
@@ -3333,6 +3335,7 @@ const GrapesEditor: React.FC = () => {
             } else if (action === 'download' || action === 'open_pdf') {
               if (tFile) tFile.set('visible', true);
               if (tUrl) { tUrl.set('visible', true); tUrl.set('label', 'O URL externa'); }
+              if (tTarget) tTarget.set('visible', true);
             } else if (action === 'go_to_payment') {
               if (tTx) tTx.set('visible', true);
               if (tAmt) tAmt.set('visible', true);
