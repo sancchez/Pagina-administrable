@@ -124,6 +124,17 @@ footer .text-blue-200 {
 }
 `;
 
+const gjsComponents = JSON.stringify([
+  {
+    tagName: 'footer',
+    type: 'footer',
+    classes: ['bg-gradient-to-r', 'from-blue-900', 'to-green-900', 'text-white'],
+    components: footerHtml
+  }
+]);
+
+const gjsStyles = JSON.stringify([]);
+
 async function seedFooter() {
   try {
     console.log('🌱 Verificando existencia del Footer...');
@@ -141,6 +152,8 @@ async function seedFooter() {
       publishedCss: footerCss,
       gjsHtml: footerHtml,
       gjsCss: footerCss,
+      gjsComponents: gjsComponents,
+      gjsStyles: gjsStyles,
       isActive: true,
       isPublished: true,
       updatedAt: new Date()
