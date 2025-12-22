@@ -141,6 +141,19 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       // Explicit _self override (Critical fix)
       if (targetAttr === '_self') isNewTab = false;
 
+      // HANDLE DOWNLOAD ACTION
+      if (action === 'download' && href) {
+        e.preventDefault();
+        e.stopPropagation();
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = ''; // Force download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
       // 4. Force behavior
       if (href) {
         if (isNewTab) {
