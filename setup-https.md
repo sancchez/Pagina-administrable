@@ -22,7 +22,7 @@ Crear archivo `/etc/nginx/sites-available/pagina-admin`:
 ```nginx
 server {
     listen 80;
-    server_name 2.58.80.90;  # O tu dominio si tienes uno
+    server_name 155.117.40.245;  # O tu dominio si tienes uno
 
     location / {
         proxy_pass http://localhost:4000;
@@ -75,7 +75,7 @@ Agregar bloque HTTPS:
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name 2.58.80.90;
+    server_name 155.117.40.245;
 
     ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
     ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
@@ -98,7 +98,7 @@ server {
 # Redirigir HTTP a HTTPS
 server {
     listen 80;
-    server_name 2.58.80.90;
+    server_name 155.117.40.245;
     return 301 https://$server_name$request_uri;
 }
 ```
@@ -130,7 +130,7 @@ Servicios que ofrecen dominios/subsubdominios gratis:
 
 1. Registrarse en duckdns.org
 2. Crear subdominio: `mi-acueducto.duckdns.org`
-3. Apuntar a tu IP: `2.58.80.90`
+3. Apuntar a tu IP: `155.117.40.245`
 4. Usar Certbot:
 
 ```bash
@@ -142,7 +142,7 @@ sudo certbot --nginx -d mi-acueducto.duckdns.org
 Una vez configurado HTTPS, actualizar `backend/.env`:
 
 ```env
-CORS_ORIGIN="https://tu-dominio.com,https://2.58.80.90"
+CORS_ORIGIN="https://tu-dominio.com,https://155.117.40.245"
 FRONTEND_URL="https://tu-dominio.com"
 ```
 

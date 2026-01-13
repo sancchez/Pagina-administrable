@@ -41,7 +41,7 @@ pm2 status
 
 echo.
 echo 🌐 La aplicación está disponible en:
-echo    http://2.58.80.90:4000
+echo    http://155.117.40.245:4000
 echo.
 echo 📝 Comandos útiles:
 echo    pm2 logs pagina-admin          - Ver logs
