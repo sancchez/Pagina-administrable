@@ -19,6 +19,35 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
   // Mantener el HTML tal cual; no forzar comportamiento desde aquí
   const sanitizeTargets = (html: string) => (html || '');
 
+  // Aislar CSS del footer/header para que solo afecte su contenedor
+  const scopeCSS = (css: string, scopeId: string): string => {
+    if (!css) return '';
+
+    // Prefijar cada selector con #scopeId para aislar los estilos
+    return css
+      .split('}')
+      .map(rule => {
+        if (!rule.trim()) return '';
+        const parts = rule.split('{');
+        if (parts.length !== 2) return rule + '}';
+
+        const selectors = parts[0].trim();
+        const styles = parts[1].trim();
+
+        // No modificar @media, @keyframes, etc.
+        if (selectors.startsWith('@')) return rule + '}';
+
+        // Prefijar cada selector
+        const scopedSelectors = selectors
+          .split(',')
+          .map(sel => `#${scopeId} ${sel.trim()}`)
+          .join(', ');
+
+        return `${scopedSelectors} { ${styles} }`;
+      })
+      .join('\n');
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadHeaderFooter = async () => {
@@ -68,9 +97,9 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
   }, [headerHtml, footerHtml]);
 
   const effectiveHeaderHtml = sanitizeTargets(headerHtml || loadedHeaderHtml);
-  const effectiveHeaderCss = headerCss || loadedHeaderCss;
+  const effectiveHeaderCss = scopeCSS(headerCss || loadedHeaderCss, 'site-header');
   const effectiveFooterHtml = footerHtml || loadedFooterHtml;
-  const effectiveFooterCss = footerCss || loadedFooterCss;
+  const effectiveFooterCss = scopeCSS(footerCss || loadedFooterCss, 'site-footer');
 
   // Ajuste suave: establecer target por defecto en enlaces internos si falta
   useEffect(() => {
@@ -112,20 +141,30 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       // Explicit _self override (Critical fix)
       if (targetAttr === '_self') isNewTab = false;
 
+      // HANDLE DOWNLOAD ACTION
+      if (action === 'download' && href) {
+        e.preventDefault();
+        e.stopPropagation();
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = ''; // Force download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
       // 4. Force behavior
       if (href) {
-        if (isNewTab) {
-          // Allow default or force window.open? 
-          // If we do nothing, GrapesJS script might run. 
-          // But GrapesJS script usually handles _blank correctly.
-          // The issue is _self opening in new tab.
-        } else {
-          // FORCE SAME TAB
-          // Stop GrapesJS script from running
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+        // Stop default behavior and propagation
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
+        if (isNewTab) {
+          console.log('🚀 [Layout] Opening in new tab:', href);
+          window.open(href, '_blank');
+        } else {
           console.log('🚀 [Layout] Forcing navigation in same tab:', href);
           window.location.href = href;
         }

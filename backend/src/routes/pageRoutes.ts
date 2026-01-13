@@ -326,19 +326,7 @@ router.get('/public/:slug', async (req, res) => {
       });
     }
 
-    // CASCADA DE PRIORIDADES para HTML
-    const html = page.publishedHtml
-      || page.gjsHtml
-      || page.html
-      || page.content
-      || '';
-
-    // CASCADA DE PRIORIDADES para CSS
-    const css = page.publishedCss
-      || page.gjsCss
-      || page.css
-      || '';
-
+    // Devolver TODOS los campos para que el frontend pueda hacer el fallback correcto
     return res.json({
       success: true,
       data: {
@@ -346,8 +334,16 @@ router.get('/public/:slug', async (req, res) => {
         slug: page.slug,
         title: page.title,
         name: page.name,
-        html,
-        css,
+        // Campos publicados (prioridad)
+        publishedHtml: page.publishedHtml,
+        publishedCss: page.publishedCss,
+        // Campos draft (fallback)
+        gjsHtml: page.gjsHtml,
+        gjsCss: page.gjsCss,
+        html: page.html,
+        css: page.css,
+        content: page.content,
+        // Metadata
         isPublished: page.isPublished,
         publishedAt: page.publishedAt,
         updatedAt: page.updatedAt,

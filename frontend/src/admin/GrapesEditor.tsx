@@ -1267,6 +1267,76 @@ const GrapesEditor: React.FC = () => {
         const dc: any = (gEditor as any).DomComponents;
         if (dc && dc.addType) {
 
+          // =================== TRAIT PERSONALIZADO: FILE UPLOAD ===================
+          gEditor.TraitManager.addType('file-upload', {
+            createInput({ trait }: any) {
+              const el = document.createElement('div');
+              el.className = 'gjs-field gjs-field-file';
+              el.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <button type="button" class="gjs-btn-prim" style="width: 100%;">Seleccionar archivo</button>
+                  <input type="file" style="display: none;" />
+                  <input type="text" placeholder="URL del archivo" readonly style="width: 100%; font-size: 12px; padding: 5px; background: rgba(0,0,0,0.1); border: none; border-radius: 3px;" />
+                </div>
+              `;
+
+              const btn = el.querySelector('button') as HTMLButtonElement;
+              const fileInput = el.querySelector('input[type="file"]') as HTMLInputElement;
+              const urlInput = el.querySelector('input[type="text"]') as HTMLInputElement;
+
+              // Set initial value
+              const initialValue = trait.get('value') || '';
+              urlInput.value = initialValue;
+
+              btn.onclick = () => fileInput.click();
+
+              fileInput.onchange = async (e: any) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                  btn.textContent = 'Subiendo...';
+                  btn.disabled = true;
+                  urlInput.value = 'Subiendo...';
+
+                  const token = localStorage.getItem('accessToken');
+                  const response = await fetch('/api/upload/button-file', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                  });
+
+                  const result = await response.json();
+                  if (result.success) {
+                    const fileUrl = result.data.url;
+                    urlInput.value = fileUrl;
+                    trait.set('value', fileUrl); // Update trait value
+                    btn.textContent = '✅ Archivo subido';
+                    setTimeout(() => btn.textContent = 'Cambiar archivo', 2000);
+                  } else {
+                    alert('Error al subir archivo: ' + result.message);
+                    urlInput.value = trait.get('value') || '';
+                    btn.textContent = 'Seleccionar archivo';
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Error de conexión al subir archivo');
+                  urlInput.value = trait.get('value') || '';
+                  btn.textContent = 'Seleccionar archivo';
+                } finally {
+                  btn.disabled = false;
+                }
+              };
+
+              return el;
+            }
+          });
+
           // =================== BOTÓN ===================
           dc.addType('button', {
             isComponent: (el: any) => {
@@ -1338,8 +1408,8 @@ const GrapesEditor: React.FC = () => {
                     visible: false,
                   },
                   {
-                    type: 'text',
-                    label: 'URL del archivo',
+                    type: 'file-upload', // Usar nuestro trait personalizado
+                    label: 'Subir archivo',
                     name: 'data-file-url',
                     visible: false,
                   },
@@ -1448,7 +1518,56 @@ const GrapesEditor: React.FC = () => {
                   'data-url',
                   'data-custom-function'
                 ],
+              }, // Close defaults
+
+              // LÓGICA DE VISIBILIDAD DE TRAITS
+              init() {
+                this.listenTo(this, 'change:attributes:data-action-type', this.handleActionChange);
+                this.handleActionChange();
               },
+
+              updated(property: any, value: any, prevValue: any) {
+                if (property === 'attributes' && value && value['data-action-type'] !== prevValue?.['data-action-type']) {
+                  this.handleActionChange();
+                }
+              },
+
+              handleActionChange() {
+                const actionType = this.getAttributes()['data-action-type'] || 'none';
+                const traits = this.get('traits');
+
+                if (!traits) return;
+
+                // Ocultar todos primero
+                const toHide = ['data-url', 'data-target', 'data-file-url', 'data-transaction-id', 'data-amount', 'data-custom-function'];
+
+                toHide.forEach(name => {
+                  const trait = traits.where({ name })[0];
+                  if (trait) trait.set('visible', false);
+                });
+
+                // Mostrar según selección
+                if (actionType === 'link') {
+                  const t1 = traits.where({ name: 'data-url' })[0];
+                  const t2 = traits.where({ name: 'data-target' })[0];
+                  if (t1) t1.set('visible', true);
+                  if (t2) t2.set('visible', true);
+                }
+                else if (actionType === 'open_pdf' || actionType === 'download') {
+                  const t = traits.where({ name: 'data-file-url' })[0];
+                  if (t) t.set('visible', true);
+                }
+                else if (actionType === 'go_to_payment') {
+                  const t1 = traits.where({ name: 'data-transaction-id' })[0];
+                  const t2 = traits.where({ name: 'data-amount' })[0];
+                  if (t1) t1.set('visible', true);
+                  if (t2) t2.set('visible', true);
+                }
+                else if (actionType === 'execute-function') {
+                  const t = traits.where({ name: 'data-custom-function' })[0];
+                  if (t) t.set('visible', true);
+                }
+              }
             },
           });
 
@@ -2993,7 +3112,6 @@ const GrapesEditor: React.FC = () => {
       gEditor.DomComponents.addType('action-button', {
         isComponent: (el: HTMLElement) => {
           const tag = (el.tagName || '').toUpperCase();
-          // Todos los <button> y <a> se mapean a action-button
           if (tag === 'BUTTON' || tag === 'A') return { type: 'action-button' };
           return false;
         },
@@ -3020,7 +3138,6 @@ const GrapesEditor: React.FC = () => {
                   { id: 'go_to_payment', name: 'Ir a pago' },
                   { id: 'execute-function', name: 'Ejecutar función' }
                 ],
-                changeProp: true,
               },
               {
                 type: 'text',
@@ -3032,7 +3149,6 @@ const GrapesEditor: React.FC = () => {
                 type: 'select',
                 label: 'Abrir en',
                 name: 'data-target',
-                changeProp: true,
                 options: [
                   { id: '_self', name: 'Misma ventana' },
                   { id: '_blank', name: 'Nueva ventana' },
@@ -3055,6 +3171,12 @@ const GrapesEditor: React.FC = () => {
                 label: 'Código JavaScript',
                 name: 'data-custom-function',
                 placeholder: 'console.log("Hola mundo");',
+              },
+              {
+                type: 'file-upload',
+                label: 'Subir archivo',
+                name: 'data-file-url',
+                visible: false,
               }
             ],
             script(this: HTMLElement) {
@@ -3082,37 +3204,27 @@ const GrapesEditor: React.FC = () => {
                 }
               });
               mo.observe(this, { attributes: true, attributeFilter: ['data-label'] });
-              // 🚫 NO ejecutar en el contexto del editor GrapesJS
-              // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-              if (checkEditorContext()) {
-                console.log('🎯 Script de action-button deshabilitado en el editor');
-                return { destroy: function () { } };
-              }
 
               const action = this.getAttribute('data-action');
-
               // Si no hay acción pero hay URL, asumir que es un enlace
               const finalAction = action || ((this.getAttribute('data-url') || this.getAttribute('href')) ? 'link' : null);
 
               if (!finalAction) return;
 
               function handleClick(this: HTMLElement, e: Event) {
-                // 🚫 En el editor, NO ejecutar la acción - dejar que GrapesJS maneje el evento
-                if (checkEditorContext()) {
-                  console.log('🎯 Acción de action-button interceptada por el editor');
-                  return; // No hacer nada, GrapesJS manejará el evento
-                }
+                // 🚫 En el editor, NO ejecutar la acción
+                try {
+                  const isEditorCtx = (window as any).__GJS_IS_EDITOR;
+                  if (isEditorCtx) return;
+                } catch { }
 
-                // 🚫 Si el elemento está marcado como "en modo editor", no ejecutar
-                if (this.hasAttribute('data-grapes-editing')) {
-                  console.log('🎯 Action-button en modo edición - acción bloqueada');
-                  return;
-                }
+                if (this.hasAttribute('data-grapes-editing')) return;
 
                 e.preventDefault();
 
-                // Leer los atributos en el momento del click para obtener valores actualizados
+                // Leer los atributos en el momento del click
                 const url = this.getAttribute('data-url') || this.getAttribute('href');
+                const fileUrl = this.getAttribute('data-file-url');
                 const target = this.getAttribute('data-target') || this.getAttribute('target') || '_self';
                 const transactionId = this.getAttribute('data-transaction-id');
                 const amount = this.getAttribute('data-amount');
@@ -3121,10 +3233,7 @@ const GrapesEditor: React.FC = () => {
                 switch (finalAction) {
                   case 'link':
                     if (url) {
-                      // Limpiar la URL de backticks si los tiene
                       const cleanUrl = url.replace(/`/g, '').trim();
-                      // Respetar la configuración de target
-                      console.log('🔗 Abriendo enlace con target:', target, 'URL:', cleanUrl);
                       if (target === '_blank') {
                         window.open(cleanUrl, '_blank');
                       } else {
@@ -3133,24 +3242,29 @@ const GrapesEditor: React.FC = () => {
                     }
                     break;
                   case 'download':
-                    if (url) {
-                      const cleanUrl = url.replace(/`/g, '').trim();
+                    if (fileUrl || url) {
+                      const cleanUrl = (fileUrl || url).replace(/`/g, '').trim();
                       const a = document.createElement('a');
                       a.href = cleanUrl;
                       a.download = cleanUrl.split('/').pop() || 'download';
+                      document.body.appendChild(a);
                       a.click();
+                      document.body.removeChild(a);
                     }
                     break;
                   case 'open_pdf':
-                    if (url) {
-                      const cleanUrl = url.replace(/`/g, '').trim();
-                      window.open(cleanUrl, '_blank');
+                    if (fileUrl || url) {
+                      const cleanUrl = (fileUrl || url).replace(/`/g, '').trim();
+                      if (target === '_blank') {
+                        window.open(cleanUrl, '_blank');
+                      } else {
+                        window.location.href = cleanUrl;
+                      }
                     }
                     break;
                   case 'go_to_payment':
                     if (transactionId && amount) {
                       console.log('Procesando pago:', { transactionId, amount });
-                      // Aquí iría la lógica de pago
                     }
                     break;
                   case 'execute-function':
@@ -3166,12 +3280,17 @@ const GrapesEditor: React.FC = () => {
               }
 
               this.addEventListener('click', handleClick);
+              return {
+                destroy: function () {
+                  this.removeEventListener('click', handleClick);
+                }
+              };
             },
-            // ⚠️ IMPORTANTE: Todos los traits deben estar aquí para persistir en HTML
             scriptProps: [
               'data-label',
               'data-action',
               'data-url',
+              'data-file-url',
               'data-target',
               'data-transaction-id',
               'data-amount',
@@ -3179,6 +3298,51 @@ const GrapesEditor: React.FC = () => {
               'href'
             ],
           },
+
+          init() {
+            this.listenTo(this, 'change:attributes:data-action', this.handleActionChange);
+            this.handleActionChange();
+          },
+
+          updated(property: any, value: any, prevValue: any) {
+            if (property === 'attributes' && value && value['data-action'] !== prevValue?.['data-action']) {
+              this.handleActionChange();
+            }
+          },
+
+          handleActionChange() {
+            const action = this.getAttributes()['data-action'] || '';
+            const traits = this.get('traits');
+            if (!traits) return;
+
+            const tFile = traits.where({ name: 'data-file-url' })[0];
+            const tUrl = traits.where({ name: 'data-url' })[0];
+            const tTarget = traits.where({ name: 'data-target' })[0];
+            const tTx = traits.where({ name: 'data-transaction-id' })[0];
+            const tAmt = traits.where({ name: 'data-amount' })[0];
+            const tFunc = traits.where({ name: 'data-custom-function' })[0];
+
+            if (tFile) tFile.set('visible', false);
+            if (tUrl) tUrl.set('visible', false);
+            if (tTarget) tTarget.set('visible', false);
+            if (tTx) tTx.set('visible', false);
+            if (tAmt) tAmt.set('visible', false);
+            if (tFunc) tFunc.set('visible', false);
+
+            if (action === 'link') {
+              if (tUrl) { tUrl.set('visible', true); tUrl.set('label', 'URL'); }
+              if (tTarget) tTarget.set('visible', true);
+            } else if (action === 'download' || action === 'open_pdf') {
+              if (tFile) tFile.set('visible', true);
+              if (tUrl) { tUrl.set('visible', true); tUrl.set('label', 'O URL externa'); }
+              if (tTarget) tTarget.set('visible', true);
+            } else if (action === 'go_to_payment') {
+              if (tTx) tTx.set('visible', true);
+              if (tAmt) tAmt.set('visible', true);
+            } else if (action === 'execute-function') {
+              if (tFunc) tFunc.set('visible', true);
+            }
+          }
         },
       });
 
@@ -3990,7 +4154,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
-
+       
         bm.add('ui-button-secondary', {
           label: '🔘 Botón Secundario',
           category: '🎨 UI Elements',
@@ -4026,7 +4190,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
-
+       
         bm.add('ui-button-success', {
           label: '🔘 Botón Éxito',
           category: '🎨 UI Elements',
@@ -4062,7 +4226,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
-
+       
         bm.add('ui-button-danger', {
           label: '🔘 Botón Peligro',
           category: '🎨 UI Elements',
@@ -4521,7 +4685,7 @@ const GrapesEditor: React.FC = () => {
             ]
           }
         });
-
+       
         bm.add('button-secondary', {
           label: 'Botón Secundario',
           category: 'Componentes',

@@ -23,6 +23,7 @@ import auditRoutes from './routes/auditRoutes';
 import docsRoutes from './routes/docs';
 import migrationRoutes from './routes/migrationRoutes';
 import versionRoutes from './routes/versionRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
 const app: Application = express();
 
@@ -168,7 +169,8 @@ app.use('/api/docs', docsRoutes);
 app.use('/api/admin', migrationRoutes);
 app.use('/api', versionRoutes);
 
-// Endpoint de subida de imágenes
+// Endpoint de subida de imágenes (legacy, mantener por compatibilidad o migrar a uploadRoutes)
+app.use('/api/upload', uploadRoutes); // Registra nuevas rutas de upload primero
 app.post('/api/upload', imageUpload.single('file'), (req: any, res: any) => {
   try {
     const file = (req as any).file;
