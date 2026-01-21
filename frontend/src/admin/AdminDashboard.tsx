@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import HttpClient from '../utils/http';
 import {
   Edit3,
@@ -12,9 +11,10 @@ import {
   Globe,
   Sparkles,
   Layers,
-  Clock,
+  Database,
   CheckCircle,
-  XCircle
+  XCircle,
+  Clock
 } from 'lucide-react';
 
 interface Page {
@@ -27,7 +27,6 @@ interface Page {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +35,6 @@ export default function AdminDashboard() {
     totalPages: 0,
     publishedPages: 0
   });
-
   // Crear página: estados del modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -133,6 +131,17 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDownloadDatabase = () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      console.error('No se encontró el token de acceso');
+      return;
+    }
+
+    // Usar descarga directa del navegador que es más confiable para archivos grandes y evita ERR_FAILED
+    window.location.href = `/api/database/download?token=${token}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -167,7 +176,7 @@ export default function AdminDashboard() {
             <p className="text-white/90 text-lg font-medium mb-6">
               Gestión de páginas web profesional y moderna
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <button
                 onClick={openCreateModal}
                 className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 border border-white/30"
@@ -182,6 +191,13 @@ export default function AdminDashboard() {
                 <Archive className="h-5 w-5" />
                 Ver Backups
               </Link>
+              <button
+                onClick={handleDownloadDatabase}
+                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 border border-white/30"
+              >
+                <Database className="h-5 w-5" />
+                Descargar Base de Datos
+              </button>
             </div>
           </div>
         </div>

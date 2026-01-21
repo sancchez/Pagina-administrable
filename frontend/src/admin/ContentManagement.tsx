@@ -1,76 +1,44 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import {
   FileText,
   Search,
-  Filter,
   Plus,
   Edit3,
   Trash2,
   Eye,
   Calendar,
   User,
-  Tag,
   Globe
 } from 'lucide-react';
+import HttpClient from '../utils/http';
 
 interface Content {
   id: string;
   title: string;
   slug: string;
-  content: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-  type: 'PAGE' | 'POST' | 'NEWS';
-  author: string;
+  isPublished: boolean;
+  type?: string;
   createdAt: string;
   updatedAt: string;
-  publishedAt?: string;
 }
 
 const ContentManagement = () => {
-  const { user } = useAuth();
   const [contents, setContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
 
-  useEffect(() => {
-    fetchContents();
-  }, []);
-
   const fetchContents = async () => {
     try {
       setLoading(true);
-      // Aquí iría la llamada a la API para obtener contenidos
-      // Por ahora, datos de ejemplo
-      const mockContents: Content[] = [
-        {
-          id: '1',
-          title: 'Página de Inicio',
-          slug: 'home',
-          content: 'Contenido de la página de inicio...',
-          status: 'PUBLISHED',
-          type: 'PAGE',
-          author: 'Admin',
-          createdAt: '2024-01-15T10:00:00Z',
-          updatedAt: '2024-01-15T10:00:00Z',
-          publishedAt: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: '2',
-          title: 'Quiénes Somos',
-          slug: 'quienes-somos',
-          content: 'Información sobre la organización...',
-          status: 'PUBLISHED',
-          type: 'PAGE',
-          author: 'Admin',
-          createdAt: '2024-01-14T09:00:00Z',
-          updatedAt: '2024-01-14T09:00:00Z',
-          publishedAt: '2024-01-14T09:00:00Z'
-        }
-      ];
-      setContents(mockContents);
+      const response: any = await HttpClient.get('/pages');
+
+      if (response?.success) {
+        setContents(response.data?.pages || response.pages || []);
+      } else if (Array.isArray(response)) {
+        setContents(response);
+      }
     } catch (error) {
       console.error('Error fetching contents:', error);
     } finally {
@@ -78,40 +46,29 @@ const ContentManagement = () => {
     }
   };
 
+  useEffect(() => {
+    fetchContents();
+  }, []);
+
   const filteredContents = contents.filter(content => {
     const matchesSearch = content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       content.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || content.status === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' ||
+      (statusFilter === 'PUBLISHED' && content.isPublished) ||
+      (statusFilter === 'DRAFT' && !content.isPublished);
     const matchesType = typeFilter === 'ALL' || content.type === typeFilter;
 
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PUBLISHED':
-        return 'bg-green-100 text-green-800';
-      case 'DRAFT':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'ARCHIVED':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusColor = (isPublished: boolean) => {
+    return isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'PAGE':
-        return <Globe className="w-4 h-4" />;
-      case 'POST':
-        return <FileText className="w-4 h-4" />;
-      case 'NEWS':
-        return <Tag className="w-4 h-4" />;
-      default:
-        return <FileText className="w-4 h-4" />;
-    }
+  const getStatusText = (isPublished: boolean) => {
+    return isPublished ? 'PUBLICADO' : 'BORRADOR';
   };
+
 
   if (loading) {
     return (
@@ -212,19 +169,19 @@ const ContentManagement = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      {getTypeIcon(content.type)}
-                      <span className="text-sm text-gray-900">{content.type}</span>
+                      <Globe className="w-4 h-4" />
+                      <span className="text-sm text-gray-900">{content.type || 'PAGE'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(content.status)}`}>
-                      {content.status}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(content.isPublished)}`}>
+                      {getStatusText(content.isPublished)}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">{content.author}</span>
+                      <span className="text-sm text-gray-900">Admin</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">

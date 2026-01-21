@@ -1,28 +1,29 @@
 import { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Filter, 
-  Edit3, 
-  Trash2, 
-  Shield, 
-  Mail, 
+import {
+  Users,
+  Plus,
+  Search,
+  Edit3,
+  Trash2,
+  Shield,
+  Mail,
   Calendar,
   CheckCircle,
   XCircle,
-  Eye,
   Key
 } from 'lucide-react';
+import HttpClient from '../utils/http';
 
 interface User {
-  id: number;
-  name: string;
+  id: string;
   email: string;
-  role: 'admin' | 'operator' | 'viewer';
-  status: 'active' | 'inactive';
-  lastLogin?: string;
+  name?: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function UserManagement() {
@@ -33,51 +34,34 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setLoading] = useState(true);
 
-  // Mock data - en producción vendría del backend
-  useEffect(() => {
-    const mockUsers: User[] = [
-      {
-        id: 1,
-        name: 'Administrador Principal',
-        email: 'admin@acueducto.com',
-        role: 'admin',
-        status: 'active',
-        lastLogin: '2025-01-15T10:30:00Z',
-        createdAt: '2024-01-01T00:00:00Z'
-      },
-      {
-        id: 2,
-        name: 'María González',
-        email: 'maria.gonzalez@acueducto.com',
-        role: 'operator',
-        status: 'active',
-        lastLogin: '2025-01-14T16:45:00Z',
-        createdAt: '2024-03-15T00:00:00Z'
-      },
-      {
-        id: 3,
-        name: 'Carlos Rodríguez',
-        email: 'carlos.rodriguez@acueducto.com',
-        role: 'viewer',
-        status: 'active',
-        lastLogin: '2025-01-13T09:20:00Z',
-        createdAt: '2024-06-10T00:00:00Z'
-      },
-      {
-        id: 4,
-        name: 'Ana Martínez',
-        email: 'ana.martinez@acueducto.com',
-        role: 'operator',
-        status: 'inactive',
-        createdAt: '2024-08-20T00:00:00Z'
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response: any = await HttpClient.get('/users');
+
+      if (response?.success) {
+        setUsers(response.data || []);
+      } else if (Array.isArray(response)) {
+        setUsers(response);
+      } else if (response?.users) {
+        setUsers(response.users);
       }
-    ];
-    setUsers(mockUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
   }, []);
 
   const getRoleColor = (role: string) => {
-    switch (role) {
+    const r = role?.toLowerCase();
+    switch (r) {
       case 'admin': return 'text-red-600 bg-red-50 border-red-200';
       case 'operator': return 'text-blue-600 bg-blue-50 border-blue-200';
       case 'viewer': return 'text-green-600 bg-green-50 border-green-200';
@@ -86,11 +70,12 @@ export default function UserManagement() {
   };
 
   const getRoleText = (role: string) => {
-    switch (role) {
+    const r = role?.toLowerCase();
+    switch (r) {
       case 'admin': return 'Administrador';
       case 'operator': return 'Operador';
       case 'viewer': return 'Visualizador';
-      default: return 'Desconocido';
+      default: return role || 'Desconocido';
     }
   };
 
@@ -111,13 +96,16 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = searchTerm === '' || 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+    const matchesSearch = searchTerm === '' ||
+      fullName.includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
-    
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && user.isActive) ||
+      (filterStatus === 'inactive' && !user.isActive);
+
     return matchesSearch && matchesRole && matchesStatus;
   });
 
@@ -135,10 +123,18 @@ export default function UserManagement() {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => u.status === 'active').length,
-    admins: users.filter(u => u.role === 'admin').length,
-    operators: users.filter(u => u.role === 'operator').length
+    active: users.filter(u => u.isActive).length,
+    admins: users.filter(u => (u.role || '').toLowerCase() === 'admin').length,
+    operators: users.filter(u => (u.role || '').toLowerCase().includes('operator') || (u.role || '').toLowerCase() === 'manager').length
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -151,8 +147,8 @@ export default function UserManagement() {
             </h1>
             <p className="text-gray-600">Administra los usuarios del sistema</p>
           </div>
-          
-          <button 
+
+          <button
             onClick={handleNewUser}
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
           >
@@ -266,10 +262,7 @@ export default function UserManagement() {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Último Acceso
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Creado
+                  Fecha
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
@@ -281,13 +274,11 @@ export default function UserManagement() {
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {user.name.charAt(0)}
-                        </span>
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {(user.firstName || user.email || '?').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">{user.name}</div>
+                        <div className="font-medium text-gray-900">{user.firstName} {user.lastName}</div>
                         <div className="text-sm text-gray-600 flex items-center space-x-1">
                           <Mail className="h-3 w-3" />
                           <span>{user.email}</span>
@@ -301,20 +292,10 @@ export default function UserManagement() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full border flex items-center space-x-1 w-fit ${getStatusColor(user.status)}`}>
-                      {getStatusIcon(user.status)}
-                      <span className="capitalize">{user.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full border flex items-center space-x-1 w-fit ${getStatusColor(user.isActive ? 'active' : 'inactive')}`}>
+                      {getStatusIcon(user.isActive ? 'active' : 'inactive')}
+                      <span className="capitalize">{user.isActive ? 'Activo' : 'Inactivo'}</span>
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {user.lastLogin ? (
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{new Date(user.lastLogin).toLocaleDateString('es-CO')}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">Nunca</span>
-                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     <div className="flex items-center space-x-1">
@@ -373,13 +354,25 @@ export default function UserManagement() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre completo
+                  Nombre
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedUser?.name || ''}
+                  defaultValue={selectedUser?.firstName || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Nombre del usuario"
+                  placeholder="Nombre"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  defaultValue={selectedUser?.lastName || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Apellido"
                 />
               </div>
 

@@ -12,8 +12,13 @@ declare global {
 
 export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const token = JwtService.extractTokenFromHeader(req.headers.authorization);
-    
+    let token = JwtService.extractTokenFromHeader(req.headers.authorization);
+
+    // Fallback para tokens en query params (útil para descargas directas)
+    if (!token && req.query.token) {
+      token = req.query.token as string;
+    }
+
     if (!token) {
       res.status(401).json({
         success: false,
@@ -45,7 +50,11 @@ export const authorize = (...roles: string[]) => {
       return;
     }
 
-    if (!roles.includes(req.user.role as string)) {
+    const userRole = (req.user.role as string || '').toUpperCase();
+    const allowedRoles = roles.map(r => r.toUpperCase());
+
+    if (!allowedRoles.includes(userRole)) {
+      console.warn(`[Auth] Access denied for ${req.user.email}. Role: ${userRole}, Required: ${allowedRoles.join(', ')}`);
       res.status(403).json({
         success: false,
         message: 'No tienes permisos para acceder a este recurso',
@@ -61,12 +70,12 @@ export const authorize = (...roles: string[]) => {
 export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const token = JwtService.extractTokenFromHeader(req.headers.authorization);
-    
+
     if (token) {
       const payload = JwtService.verifyAccessToken(token);
       req.user = payload;
     }
-    
+
     next();
     return;
   } catch (error) {

@@ -24,6 +24,7 @@ import docsRoutes from './routes/docs';
 import migrationRoutes from './routes/migrationRoutes';
 import versionRoutes from './routes/versionRoutes';
 import uploadRoutes from './routes/uploadRoutes';
+import databaseRoutes from './routes/databaseRoutes';
 
 const app: Application = express();
 
@@ -167,7 +168,7 @@ app.use('/api/pqr', pqrRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/admin', migrationRoutes);
-app.use('/api', versionRoutes);
+app.use('/api/database', databaseRoutes);
 
 // Endpoint de subida de imágenes (legacy, mantener por compatibilidad o migrar a uploadRoutes)
 app.use('/api/upload', uploadRoutes); // Registra nuevas rutas de upload primero
@@ -197,6 +198,11 @@ app.post('/api/upload', imageUpload.single('file'), (req: any, res: any) => {
     return res.status(500).json({ success: false, message: 'Error interno', error: 'INTERNAL_ERROR' });
   }
 }, handleUploadError);
+
+// Rutas de versiones (específicas para evitar colisiones)
+app.use('/api', versionRoutes);
+// Mantener alias para compatibilidad si es necesario
+app.use('/api/pages-history', versionRoutes);
 
 // Servir el frontend compilado en producción
 if (process.env.NODE_ENV === 'production') {
