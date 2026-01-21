@@ -226,4 +226,4 @@ pm2 logs pagina-admin --lines 20 --nostream
 
 echo ""
 log_success "🎉 Todo listo! El servidor está corriendo."
-echo "Weimar s cambio de deploy.sh"
+echo "Weimar s y camilo cambio de deploy.sh"
