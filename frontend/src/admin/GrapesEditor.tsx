@@ -584,12 +584,6 @@ const GrapesEditor: React.FC = () => {
                   command: 'open-sm',
                   togglable: false
                 },
-                {
-                  id: 'open-traits',
-                  label: 'Configuración',
-                  command: 'open-tm',
-                  togglable: false
-                }
               ]
             }
           ]
@@ -602,10 +596,7 @@ const GrapesEditor: React.FC = () => {
                 empty: 'Selecciona un elemento para editarlo',
                 sectors: {
                   general: 'General',
-                  layout: 'Diseño',
-                  typography: 'Tipografía',
-                  decorations: 'Decoraciones',
-                  extra: 'Extra'
+                  layout: 'Diseño'
                 },
                 properties: {
                   float: 'Flotante',
@@ -654,8 +645,7 @@ const GrapesEditor: React.FC = () => {
                 labels: {
                   basic: 'Básico',
                   text: 'Texto',
-                  layout: 'Diseño',
-                  forms: 'Formularios'
+                  layout: 'Diseño'
                 }
               }
             }
@@ -667,9 +657,7 @@ const GrapesEditor: React.FC = () => {
             blocks: ['column1', 'column2', 'column3', 'text', 'link', 'image', 'button'],
             flexGrid: 1
           }),
-          (ed: Editor) => pluginFormsFn(ed, {
-            blocks: ['form', 'input', 'textarea', 'select', 'label']
-          }),
+          // plugin-forms removido por solicitud (es una réplica)
           (ed: Editor) => pluginPreset(ed, {
             blocks: ['link-block', 'quote', 'text-basic'],
             modalImportTitle: 'Importar código',
@@ -822,36 +810,6 @@ const GrapesEditor: React.FC = () => {
               ]
             },
             {
-              name: '🖼️ Medios',
-              open: true,
-              properties: [
-                {
-                  type: 'select',
-                  name: 'Encaje (object-fit)',
-                  property: 'object-fit',
-                  options: [
-                    { id: 'fill', name: 'Rellenar' },
-                    { id: 'contain', name: 'Contener' },
-                    { id: 'cover', name: 'Cubrir' },
-                    { id: 'none', name: 'Ninguno' },
-                    { id: 'scale-down', name: 'Reducir' },
-                  ]
-                },
-                {
-                  type: 'select',
-                  name: 'Posición del objeto',
-                  property: 'object-position',
-                  options: [
-                    { id: 'left top', name: 'Izquierda arriba' },
-                    { id: 'center center', name: 'Centro' },
-                    { id: 'right bottom', name: 'Derecha abajo' },
-                    { id: 'left center', name: 'Izquierda centro' },
-                    { id: 'right center', name: 'Derecha centro' }
-                  ]
-                }
-              ]
-            },
-            {
               name: '🖼️ Fondos',
               open: false,
               buildProps: ['background-image', 'background-repeat', 'background-position', 'background-size', 'background-attachment'],
@@ -919,71 +877,6 @@ const GrapesEditor: React.FC = () => {
               open: false,
               buildProps: ['transition', 'opacity', 'transform']
             },
-            {
-              name: '⚙️ Configuración',
-              id: 'button-config',
-              open: false, // Colapsado por defecto
-              visible: false, // Inicialmente oculta
-              properties: [
-                {
-                  id: 'action-type',
-                  type: 'select',
-                  name: 'Acción del botón',
-                  property: 'data-action-type',
-                  options: [
-                    { id: 'none', name: 'Ninguna' },
-                    { id: 'go-to-page', name: 'Ir a página' },
-                    { id: 'download-file', name: 'Descargar archivo' },
-                    { id: 'execute-function', name: 'Ejecutar función' }
-                  ],
-                  defaults: 'none'
-                },
-                // Campos para "Ir a página"
-                {
-                  id: 'page-url',
-                  type: 'text',
-                  name: 'URL',
-                  property: 'data-page-url',
-                  visible: false
-                },
-                {
-                  id: 'open-in',
-                  type: 'select',
-                  name: 'Abrir en',
-                  property: 'data-target',
-                  changeProp: true,
-                  options: [
-                    { id: '_self', name: 'Misma ventana' },
-                    { id: '_blank', name: 'Nueva ventana' }
-                  ],
-                  defaults: '_self',
-                  visible: false
-                },
-                // Campos para "Descargar archivo"
-                {
-                  id: 'file-url',
-                  type: 'text',
-                  name: 'URL del archivo',
-                  property: 'data-file-url',
-                  visible: false
-                },
-                {
-                  id: 'file-name',
-                  type: 'text',
-                  name: 'Nombre de archivo (opcional)',
-                  property: 'data-file-name',
-                  visible: false
-                },
-                // Campo para "Ejecutar función"
-                {
-                  id: 'custom-function',
-                  type: 'textarea',
-                  name: 'Código JavaScript',
-                  property: 'data-custom-function',
-                  visible: false
-                }
-              ]
-            }
           ]
         },
         traitManager: {},
@@ -1728,106 +1621,7 @@ const GrapesEditor: React.FC = () => {
         console.warn('No se pudieron registrar traits personalizados de button/link', e);
       }
 
-      // =================== AUTO-ABRIR PANEL DE TRAITS ===================
-      // ESTO VA DESPUÉS DEL BLOQUE TRY-CATCH DE LOS TRAITS
-      gEditor.on('component:selected', (component: any) => {
-        const type = component.get('type');
-
-        console.log('🎯 Componente seleccionado:', type);
-
-        // Obtener el Style Manager
-        const sm = gEditor.StyleManager;
-
-        if (type === 'button' || type === 'link') {
-          console.log(`🎯 ${type} seleccionado, mostrando sección de configuración...`);
-
-          // Mostrar la sección de configuración para botones y enlaces
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-
-            if (configSector) {
-              // Hacer visible la sección pero mantenerla colapsada hasta que el usuario haga clic
-              configSector.set('visible', true);
-              configSector.set('open', false); // Colapsada por defecto
-              console.log('✅ Sección de configuración mostrada (colapsada)');
-
-              // Sincronizar los valores de los traits con las propiedades del Style Manager
-              (gEditor as any).syncTraitsWithStyleManager(component, sm, type);
-
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            } else {
-              console.warn('⚠️ Sección de configuración no encontrada');
-            }
-          } catch (e) {
-            console.warn('Error al mostrar sección de configuración:', e);
-          }
-        } else {
-          // Ocultar la sección de configuración para otros componentes
-          try {
-            const sectors = sm.getSectors();
-            const configSector = sectors.find((s: any) => {
-              const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-              return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-            });
-
-            if (configSector) {
-              configSector.set('visible', false);
-              configSector.set('open', false);
-
-              // Forzar re-renderizado del Style Manager
-              sm.render();
-            }
-          } catch (e) {
-            console.warn('Error al ocultar sección de configuración:', e);
-          }
-        }
-      });
-
-      // Función para sincronizar traits con Style Manager
-      (gEditor as any).syncTraitsWithStyleManager = (component: any, sm: any, type: string) => {
-        try {
-          const sectors = sm.getSectors();
-          const configSector = sectors.find((s: any) => {
-            const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-            return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-          });
-
-          if (configSector) {
-            const properties = configSector.get('properties');
-
-            // Obtener los traits del componente
-            const traits = component.get('traits');
-
-            // Sincronizar cada propiedad
-            traits.forEach((trait: any) => {
-              const traitName = trait.get('name');
-              const traitValue = trait.get('value') || component.get(traitName);
-
-              // Buscar la propiedad correspondiente en el Style Manager
-              const property = properties.find((p: any) =>
-                p.property === traitName ||
-                p.property === `data-${traitName}` ||
-                p.id === `${type}-${traitName}`
-              );
-
-              if (property && traitValue) {
-                // Aplicar el valor al Style Manager
-                sm.addProperty(configSector.get('id'), {
-                  ...property,
-                  value: traitValue
-                });
-              }
-            });
-          }
-        } catch (e) {
-          console.warn('Error sincronizando traits con Style Manager:', e);
-        }
-      };
+      // ====== SINCRONIZACIÓN DE TEXTO EN BOTONES (SETTINGS - TUERCA) FIN ======
 
       // Definir un dispositivo ancho para activar breakpoints md de Tailwind
       try {
@@ -1950,29 +1744,6 @@ const GrapesEditor: React.FC = () => {
                   'padding': '0',
                 },
                 stylable: true,
-                script: function () {
-                  var el = this;
-                  var src = el.getAttribute('data-src');
-                  var zoom = el.getAttribute('data-zoom') || 'FitH';
-
-                  // Evitar ejecución en el editor para no interferir con el View
-                  if (typeof window !== 'undefined' && window['editor']) return;
-                  if (el.ownerDocument.body.className.indexOf('gjs-') !== -1) return;
-
-                  if (src) {
-                    el.innerHTML = '';
-                    var iframe = document.createElement('iframe');
-                    var pdfUrl = src.indexOf('#') !== -1 ? src : src + '#view=' + zoom + '&toolbar=1';
-
-                    iframe.src = pdfUrl;
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.border = 'none';
-                    iframe.style.display = 'block';
-                    iframe.style.pointerEvents = 'auto'; // Permitir scroll en la web
-                    el.appendChild(iframe);
-                  }
-                },
                 traits: [
                   {
                     type: 'file-upload',
@@ -2033,6 +1804,28 @@ const GrapesEditor: React.FC = () => {
                   if (style.width) this.set('width', style.width, { silent: true });
                   if (style.height) this.set('height', style.height, { silent: true });
                 });
+              },
+
+              // OVERRIDE: Garantizar que el HTML exportado incluya el iframe
+              // Esto soluciona la visibilidad en el público sin depender de scripts
+              toHTML() {
+                const attrs = { ...this.getAttributes() };
+                const src = attrs['data-src'] || this.get('data-src');
+                const zoom = attrs['data-zoom'] || 'FitH';
+                const style = this.getStyle();
+
+                // Construir string de estilos para el div
+                const styleStr = Object.keys(style).map(k => `${k}:${style[k]}`).join(';');
+
+                let content = '';
+                if (src) {
+                  // Codificar URL para manejar espacios y caracteres especiales como 'N°'
+                  const encodedSrc = src.split('/').map(part => encodeURIComponent(part)).join('/').replace(/%3A/g, ':');
+                  const pdfUrl = encodedSrc.indexOf('#') !== -1 ? encodedSrc : encodedSrc + '#view=' + zoom + '&toolbar=1';
+                  content = `<iframe src="${pdfUrl}" frameborder="0" style="width:100% !important; height:100% !important; border:none !important; display:block !important; pointer-events:auto !important;"></iframe>`;
+                }
+
+                return `<div data-gjs-type="pdf-viewer" class="pdf-viewer-component" data-src="${src}" data-zoom="${zoom}" style="${styleStr}">${content}</div>`;
               }
             },
             view: {
@@ -2145,49 +1938,6 @@ const GrapesEditor: React.FC = () => {
             const propertyName = property.get('property');
             const propertyValue = property.get('value');
 
-            // Lógica para campos dependientes en la configuración de botones
-            if (propertyName === 'data-action-type') {
-              const sm = gEditor.StyleManager;
-              const sectors = sm.getSectors();
-              const configSector = sectors.find((s: any) => {
-                const id = (typeof s.getId === 'function' ? s.getId() : (s.get('id') || s.get('name')));
-                return id === 'button-config' || s.get('name') === '⚙️ Configuración';
-              });
-
-              if (configSector) {
-                const properties = (configSector.get('properties') as any[]) || [];
-
-                // Ocultar todos los campos dependientes primero
-                properties.forEach((prop: any) => {
-                  if (['page-url', 'open-in', 'file-url', 'file-name', 'custom-function'].includes(prop.get('id'))) {
-                    prop?.set?.('visible', false);
-                  }
-                });
-
-                // Mostrar campos según la acción seleccionada
-                if (propertyValue === 'go-to-page') {
-                  // Mostrar URL y selector "Abrir en"
-                  const pageUrlProp = properties.find((p: any) => p.get('id') === 'page-url');
-                  const openInProp = properties.find((p: any) => p.get('id') === 'open-in');
-                  pageUrlProp?.set?.('visible', true);
-                  openInProp?.set?.('visible', true);
-                } else if (propertyValue === 'download-file') {
-                  // Mostrar URL del archivo y nombre de archivo
-                  const fileUrlProp = properties.find((p: any) => p.get('id') === 'file-url');
-                  const fileNameProp = properties.find((p: any) => p.get('id') === 'file-name');
-                  fileUrlProp?.set?.('visible', true);
-                  fileNameProp?.set?.('visible', true);
-                } else if (propertyValue === 'execute-function') {
-                  // Mostrar textarea para código JavaScript
-                  const customFunctionProp = properties.find((p: any) => p.get('id') === 'custom-function');
-                  customFunctionProp?.set?.('visible', true);
-                }
-
-                // Forzar re-renderizado del Style Manager
-                sm.render?.();
-                console.log(`✅ Campos dependientes actualizados para acción: ${propertyValue}`);
-              }
-            }
 
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {
@@ -3628,12 +3378,6 @@ const GrapesEditor: React.FC = () => {
         });
       } catch { }
 
-      // Agregar sector de configuración al Style Manager
-      gEditor.StyleManager.addSector('configuracion', {
-        name: '⚙️ Configuración',
-        open: true,
-        buildProps: ['data-action', 'data-url', 'data-target', 'data-transaction-id', 'data-amount', 'data-custom-function'],
-      });
 
       // Esperar al evento 'load' antes de cargar contenido
       gEditor.on('load', () => {
