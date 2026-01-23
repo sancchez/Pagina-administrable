@@ -8,7 +8,8 @@ import {
   Eye,
   Calendar,
   User,
-  Globe
+  Globe,
+  RotateCcw
 } from 'lucide-react';
 import HttpClient from '../utils/http';
 
@@ -17,6 +18,7 @@ interface Content {
   title: string;
   slug: string;
   isPublished: boolean;
+  isActive: boolean;
   type?: string;
   createdAt: string;
   updatedAt: string;
@@ -32,7 +34,9 @@ const ContentManagement = () => {
   const fetchContents = async () => {
     try {
       setLoading(true);
-      const response: any = await HttpClient.get('/pages');
+      // Backend ahora devuelve todo por defecto (active e inactive)
+      // Solicitamos limit=1000 para asegurar que se vean todas, incluso las antiguas
+      const response: any = await HttpClient.get('/pages?limit=1000');
 
       if (response?.success) {
         setContents(response.data?.pages || response.pages || []);
@@ -69,6 +73,16 @@ const ContentManagement = () => {
     return isPublished ? 'PUBLICADO' : 'BORRADOR';
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de ELIMINAR DEFINITIVAMENTE esta página? No se podrá recuperar y se liberará el espacio.')) return;
+    try {
+      // Delete ahora hace hard delete en el backend
+      await HttpClient.delete(`/pages/${id}`);
+      fetchContents();
+    } catch (error) {
+      console.error('Error deleting:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -86,10 +100,28 @@ const ContentManagement = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Contenido</h1>
           <p className="text-gray-600">Administra páginas, posts y contenido del sitio</p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Nuevo Contenido
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (confirm('¿Ejecutar limpieza profunda de base de datos? Esto eliminará definitivamente cualquier página que haya quedado marcada como borrada y optimizará el archivo de base de datos.')) {
+                try {
+                  const res: any = await HttpClient.post('/pages/maintenance/purge', {});
+                  if (res?.success) alert(res.message);
+                  fetchContents();
+                } catch (e) { console.error(e); alert('Error al limpiar DB'); }
+              }
+            }}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 border border-gray-300"
+            title="Limpiar base de datos y eliminar registros huérfanos"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Limpiar DB
+          </button>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Nuevo Contenido
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -200,7 +232,7 @@ const ContentManagement = () => {
                       <button className="text-green-600 hover:text-green-800">
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-800">
+                      <button onClick={() => handleDelete(content.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>

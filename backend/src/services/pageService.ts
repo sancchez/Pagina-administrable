@@ -98,6 +98,7 @@ export class PageService {
       if (typeof isActive === 'boolean') {
         where.isActive = isActive;
       }
+      // ELIMINADO: else { where.isActive = true; } para mostrar todas las páginas por defecto (petición usuario)
 
       // Filter by isPublished if provided (dragging logic from controller flexibility)
       if ('isPublished' in filters && typeof (filters as any).isPublished === 'boolean') {
@@ -261,14 +262,13 @@ export class PageService {
         throw createError(404, 'Página no encontrada');
       }
 
-      // Soft delete: set isActive to false instead of deleting record
-      await prisma.page.update({
-        where: { id },
-        data: {
-          isActive: false,
-          isPublished: false // Also unpublish it for safety
-        }
+      // Hard delete solicitado por el usuario
+      await prisma.page.delete({
+        where: { id }
       });
+
+      // Optimizar espacio
+      await this.optimizeDatabase();
     } catch (error: any) {
       if (error.status) throw error;
       console.error('Error deleting page:', error);
@@ -727,6 +727,41 @@ export class PageService {
       if (error.status) throw error;
       console.error('Error deleting backup:', error);
       throw createError(500, 'Error interno del servidor al eliminar backup');
+    }
+  }
+
+  /**
+   * Eliminar múltiples backups
+   */
+  static async deleteMultipleBackups(pageId: string, backupIds: string[]): Promise<number> {
+    try {
+      // Eliminar backups en lote que pertenezcan a la página especificada
+      const result = await prisma.pageBackup.deleteMany({
+        where: {
+          id: { in: backupIds },
+          pageId: pageId
+        }
+      });
+
+      return result.count;
+    } catch (error: any) {
+      console.error('Error deleting multiple backups:', error);
+      throw createError(500, 'Error interno del servidor al eliminar backups');
+    }
+  }
+
+  /**
+   * Optimizar base de datos (reclamar espacio en disco)
+   * Especialmente útil para SQLite después de eliminaciones masivas
+   */
+  static async optimizeDatabase(): Promise<void> {
+    try {
+      // VACUUM reconstruye la base de datos y reclama espacio no utilizado
+      await prisma.$executeRawUnsafe('VACUUM');
+      console.log('Database optimized (VACUUM executed)');
+    } catch (error: any) {
+      console.warn('Error optimizing database:', error);
+      // No lanzar error para no interrumpir flujos principales
     }
   }
 

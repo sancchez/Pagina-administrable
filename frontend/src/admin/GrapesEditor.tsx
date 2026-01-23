@@ -844,7 +844,7 @@ const GrapesEditor: React.FC = () => {
             },
             {
               name: '📜 Listas',
-              open: false,
+              open: true,
               properties: [
                 {
                   type: 'select',
@@ -868,6 +868,38 @@ const GrapesEditor: React.FC = () => {
                     { id: 'outside', name: 'Fuera (Estándar)' },
                     { id: 'inside', name: 'Dentro (Alineado)' }
                   ]
+                },
+                {
+                  type: 'slider',
+                  property: 'marker-size',
+                  name: 'Tamaño de Viñeta',
+                  defaults: '1',
+                  min: 0.5,
+                  max: 3,
+                  step: 0.1,
+                  unit: 'em'
+                },
+                {
+                  type: 'color',
+                  property: 'marker-color',
+                  name: 'Color de Viñeta',
+                  defaults: 'inherit'
+                },
+                {
+                  type: 'select',
+                  name: 'Gradiente de Viñeta',
+                  property: 'marker-gradient',
+                  options: [
+                    { id: 'none', name: 'Ninguno' },
+                    { id: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)', name: 'Azul-Violeta' },
+                    { id: 'linear-gradient(90deg, #f59e0b 0%, #ef4444 100%)', name: 'Fuego' },
+                    { id: 'linear-gradient(90deg, #10b981 0%, #3b82f6 100%)', name: 'Océano' },
+                    { id: 'linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)', name: 'Arcoíris' },
+                    { id: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #fef3c7 100%)', name: 'Dorado' },
+                    { id: 'linear-gradient(90deg, #dc2626 0%, #f87171 50%, #fca5a5 100%)', name: 'Rojo Suave' },
+                    { id: 'linear-gradient(90deg, #059669 0%, #34d399 50%, #6ee7b7 100%)', name: 'Verde Menta' }
+                  ],
+                  defaults: 'none'
                 }
               ]
             },
@@ -1013,6 +1045,64 @@ const GrapesEditor: React.FC = () => {
         }
       });
 
+      // ====== AUTO-EXPANDIR SECCIÓN DE LISTAS ======
+      gEditor.on('component:selected', (component: any) => {
+        try {
+          const tagName = component.get('tagName');
+
+          // Detectar si es un elemento de lista
+          if (tagName === 'UL' || tagName === 'OL' || tagName === 'LI') {
+            console.log('📜 Lista seleccionada, expandiendo sector de Listas...');
+
+            // Esperar un momento para que el Style Manager se renderice
+            setTimeout(() => {
+              try {
+                const styleManager = gEditor.StyleManager;
+                const sectors = styleManager.getSectors();
+
+                // Buscar el sector de Listas
+                const listasSector = sectors.models.find((sector: any) =>
+                  sector.get('name') === '📜 Listas'
+                );
+
+                if (listasSector) {
+                  // Expandir el sector de Listas
+                  listasSector.set('open', true);
+
+                  // Cerrar otros sectores para dar más espacio (opcional)
+                  sectors.models.forEach((sector: any) => {
+                    const sectorName = sector.get('name');
+                    if (sectorName !== '📜 Listas' && sectorName !== '📝 Texto' && sectorName !== '🎨 Apariencia') {
+                      sector.set('open', false);
+                    }
+                  });
+
+                  // Forzar re-render del Style Manager
+                  styleManager.render();
+
+                  // Scroll al sector de Listas si está fuera de vista
+                  setTimeout(() => {
+                    const stylesPanel = document.querySelector('#styles-panel');
+                    const listasHeader = Array.from(document.querySelectorAll('.gjs-sm-sector-title'))
+                      .find(el => el.textContent?.includes('📜 Listas'));
+
+                    if (stylesPanel && listasHeader) {
+                      listasHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                  }, 100);
+
+                  console.log('✅ Sector de Listas expandido automáticamente');
+                }
+              } catch (e) {
+                console.warn('No se pudo expandir el sector de Listas:', e);
+              }
+            }, 150);
+          }
+        } catch (error) {
+          console.error('❌ Error en auto-expansión de Listas:', error);
+        }
+      });
+
       // 🔧 SINCRONIZACIÓN DESDE SETTINGS (pestaña tuerca): Cuando se edita el trait 'content'
       gEditor.on('trait:change', (component: any, trait: any) => {
         try {
@@ -1081,9 +1171,9 @@ const GrapesEditor: React.FC = () => {
 
             // Estilos persistentes para listas (se exportan al CSS final)
             gEditor.addStyle(`
-              ul { list-style-type: disc !important; padding-left: 1.5rem; margin: 1rem 0; }
-              ol { list-style-type: decimal !important; padding-left: 1.5rem; margin: 1rem 0; }
-              li { display: list-item !important; }
+              ul { list-style-type: disc; padding-left: 1.5rem; margin: 1rem 0; }
+              ol { list-style-type: decimal; padding-left: 1.5rem; margin: 1rem 0; }
+              li { display: list-item; }
               li::marker { color: inherit; }
               .text-gradient {
                 background-clip: text;
@@ -2089,6 +2179,94 @@ const GrapesEditor: React.FC = () => {
               }
             }
 
+
+            // --- Soporte para Marcadores de Lista (::marker) ---
+            if (propertyName === 'marker-size' || propertyName === 'marker-color' || propertyName === 'marker-gradient') {
+              const tagName = selected.get('tagName');
+
+              // Solo aplicar a listas (ul, ol) o items de lista (li)
+              if (tagName === 'UL' || tagName === 'OL' || tagName === 'LI') {
+                const currentStyles = selected.getStyle();
+                const markerSize = propertyName === 'marker-size' ? propertyValue : (currentStyles['marker-size'] || '1em');
+                const markerColor = propertyName === 'marker-color' ? propertyValue : (currentStyles['marker-color'] || 'inherit');
+                const markerGradient = propertyName === 'marker-gradient' ? propertyValue : (currentStyles['marker-gradient'] || 'none');
+
+                // Guardar los valores en el estilo del componente
+                selected.addStyle({
+                  'marker-size': markerSize,
+                  'marker-color': markerColor,
+                  'marker-gradient': markerGradient
+                });
+
+                // Generar un ID único si no existe
+                let componentId = selected.getId();
+                if (!componentId) {
+                  componentId = `list-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                  selected.setId(componentId);
+                }
+
+                // Aplicar estilos al ::marker usando CSS
+                const markerStyles = [];
+
+                console.log(`🎨 Aplicando estilos de marcador:`, {
+                  size: markerSize,
+                  color: markerColor,
+                  gradient: markerGradient,
+                  tagName,
+                  componentId
+                });
+
+                // Tamaño del marcador
+                if (markerSize && markerSize !== '1em') {
+                  markerStyles.push(`font-size: ${markerSize} !important;`);
+                }
+
+                // Color o gradiente del marcador
+                if (markerGradient && markerGradient !== 'none') {
+                  // Para gradientes, usamos el primer color del gradiente
+                  const firstColor = markerGradient.match(/#[a-fA-F0-9]{3,6}/)?.[0] || markerColor;
+                  markerStyles.push(`color: ${firstColor} !important;`);
+                  console.log(`🌈 Aplicando gradiente (primer color): ${firstColor}`);
+                } else if (markerColor && markerColor !== 'inherit') {
+                  markerStyles.push(`color: ${markerColor} !important;`);
+                  console.log(`🎨 Aplicando color: ${markerColor}`);
+                }
+
+                // Inyectar regla CSS específica para este componente
+                if (markerStyles.length > 0) {
+                  const markerRule = `
+                    #${componentId} li::marker,
+                    #${componentId}::marker {
+                      ${markerStyles.join(' ')}
+                    }
+                  `;
+
+                  console.log(`📝 Regla CSS generada:`, markerRule);
+
+                  // Agregar al editor (CSS exportado)
+                  gEditor.addStyle(markerRule);
+
+                  // También agregar al documento del canvas (vista en vivo)
+                  try {
+                    const frame = gEditor.Canvas.getFrameEl();
+                    const doc = frame?.contentDocument || gEditor.Canvas.getDocument();
+                    if (doc) {
+                      let styleEl = doc.getElementById(`marker-style-${componentId}`);
+                      if (!styleEl) {
+                        styleEl = doc.createElement('style');
+                        styleEl.id = `marker-style-${componentId}`;
+                        doc.head.appendChild(styleEl);
+                        console.log(`✅ Elemento <style> creado para marcador: marker-style-${componentId}`);
+                      }
+                      styleEl.textContent = markerRule;
+                      console.log(`✅ Estilos de marcador aplicados en canvas`);
+                    }
+                  } catch (e) {
+                    console.warn('No se pudo inyectar estilo de marcador en canvas:', e);
+                  }
+                }
+              }
+            }
 
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
             if (propertyName && propertyName.startsWith('data-')) {

@@ -527,8 +527,8 @@ export class PageController {
       if (value && value.trim() !== '') {
         const validation = GrapesValidator.validateGrapesData(value);
         if (!validation.isValid) {
-          return helpers.error('any.invalid', { 
-            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+          return helpers.error('any.invalid', {
+            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}`
           });
         }
         if (validation.warnings.length > 0) {
@@ -562,8 +562,8 @@ export class PageController {
       if (value && value.trim() !== '') {
         const validation = GrapesValidator.validateGrapesData(value);
         if (!validation.isValid) {
-          return helpers.error('any.invalid', { 
-            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+          return helpers.error('any.invalid', {
+            message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}`
           });
         }
         if (validation.warnings.length > 0) {
@@ -611,18 +611,19 @@ export class PageController {
   static querySchema = Joi.object({
     search: Joi.string().max(100).optional(),
     isPublished: Joi.boolean().optional(),
+    isActive: Joi.boolean().optional(),
     page: Joi.number().integer().min(1).optional(),
-    limit: Joi.number().integer().min(1).max(100).optional()
+    limit: Joi.number().integer().min(1).max(1000).optional()
   });
 
   static saveGrapesDataSchema = Joi.object({
     grapesData: Joi.string().required().custom((value, helpers) => {
       // Validación robusta de datos GrapesJS
       const validation = GrapesValidator.validateGrapesData(value);
-      
+
       if (!validation.isValid) {
-        return helpers.error('any.invalid', { 
-          message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}` 
+        return helpers.error('any.invalid', {
+          message: `Datos de GrapesJS inválidos: ${validation.errors.join(', ')}`
         });
       }
 
@@ -640,8 +641,8 @@ export class PageController {
       if (value) {
         const validation = GrapesValidator.validateGeneratedHTML(value);
         if (!validation.isValid) {
-          return helpers.error('any.invalid', { 
-            message: `HTML inválido: ${validation.errors.join(', ')}` 
+          return helpers.error('any.invalid', {
+            message: `HTML inválido: ${validation.errors.join(', ')}`
           });
         }
         if (validation.warnings.length > 0) {
@@ -654,8 +655,8 @@ export class PageController {
       if (value) {
         const validation = GrapesValidator.validateGeneratedCSS(value);
         if (!validation.isValid) {
-          return helpers.error('any.invalid', { 
-            message: `CSS inválido: ${validation.errors.join(', ')}` 
+          return helpers.error('any.invalid', {
+            message: `CSS inválido: ${validation.errors.join(', ')}`
           });
         }
         if (validation.warnings.length > 0) {
@@ -694,7 +695,7 @@ export class PageController {
         });
         return;
       }
-      
+
       const page = await PageService.createPage(value);
 
       res.status(201).json({
@@ -762,7 +763,7 @@ export class PageController {
           }))
         });
       }
-      
+
       const result = await PageService.getPublishedPages();
 
       return res.json({
@@ -806,7 +807,7 @@ export class PageController {
     try {
       const { slug } = req.params;
       const page = await PageService.getPageBySlug(slug);
-      
+
       if (!page) {
         return res.status(404).json({
           success: false,
@@ -844,7 +845,7 @@ export class PageController {
           }))
         });
       }
-      
+
       const page = await PageService.updatePage(id, value);
 
       return res.json({
@@ -897,11 +898,11 @@ export class PageController {
           }))
         });
       }
-      
+
       const page = await PageService.saveGrapesData(
-        id, 
-        value.grapesData, 
-        value.gjsHtml || value.html, 
+        id,
+        value.grapesData,
+        value.gjsHtml || value.html,
         value.gjsCss || value.css,
         value.gjsComponents,
         value.gjsStyles,
@@ -927,7 +928,7 @@ export class PageController {
   static async getGrapesData(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      
+
       const page = await PageService.getPageById(id);
       if (!page) {
         return res.status(404).json({
@@ -1095,7 +1096,7 @@ export class PageController {
       const { limit } = req.query;
 
       const backups = await PageService.getPageBackups(
-        id, 
+        id,
         limit ? parseInt(limit as string) : 10
       );
 
@@ -1164,7 +1165,7 @@ export class PageController {
 
       // Obtener la página actual
       const page = await PageService.getPageById(id);
-      
+
       // Crear backup
       const backup = await PageService.createBackup(page);
 
@@ -1172,6 +1173,104 @@ export class PageController {
         success: true,
         message: 'Backup creado exitosamente',
         data: backup
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Eliminar múltiples backups
+   */
+  static async deleteMultipleBackups(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { backupIds } = req.body;
+
+      // Validar que backupIds sea un array
+      if (!Array.isArray(backupIds) || backupIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Se requiere un array de IDs de backups'
+        });
+      }
+
+      // Verificar que la página existe
+      await PageService.getPageById(id);
+
+      // Eliminar backups en lote
+      const deletedCount = await PageService.deleteMultipleBackups(id, backupIds);
+
+      // Optimizar base de datos (VACUUM para SQLite)
+      // Esto es crucial para que el archivo .db reduzca su tamaño en disco
+      await PageService.optimizeDatabase();
+
+      return res.json({
+        success: true,
+        message: `${deletedCount} backup(s) eliminado(s) exitosamente y base de datos optimizada`,
+        data: { deletedCount }
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Eliminar página permanentemente (y sus backups)
+   */
+  static async permanentDeletePage(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await PageService.permanentDeletePage(id);
+
+      return res.json({
+        success: true,
+        message: 'Página eliminada permanentemente y espacio liberado'
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Restaurar página eliminada
+   */
+  static async restorePage(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const page = await PageService.restorePage(id);
+
+      return res.json({
+        success: true,
+        message: 'Página restaurada exitosamente',
+        data: { page }
+      });
+    } catch (error: any) {
+      return res.status(error.status || 500).json({
+        success: false,
+        message: error.message || 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Limpieza profunda de DB (eliminar inactivos y optimizar)
+   */
+  static async purgePages(req: Request, res: Response) {
+    try {
+      const count = await PageService.purgeSoftDeletedPages();
+      return res.json({
+        success: true,
+        message: `Mantenimiento completado: ${count} páginas eliminadas definitivamente y base de datos optimizada.`
       });
     } catch (error: any) {
       return res.status(error.status || 500).json({

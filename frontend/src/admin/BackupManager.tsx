@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import HttpClient from '../utils/http';
-import { 
-  Database, 
-  Download, 
-  Upload, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Database,
+  Download,
+  Upload,
+  Clock,
+  AlertCircle,
+  CheckCircle,
   RefreshCw,
   Trash2,
   Calendar,
@@ -46,6 +46,8 @@ export default function BackupManager() {
   const [previewBackup, setPreviewBackup] = useState<PageBackup | null>(null);
   const [compareBackup, setCompareBackup] = useState<PageBackup | null>(null);
   const [currentPageContent, setCurrentPageContent] = useState<{ html?: string | null; css?: string | null; gjsHtml?: string | null; gjsCss?: string | null } | null>(null);
+  const [selectedBackups, setSelectedBackups] = useState<Set<string>>(new Set());
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
   useEffect(() => {
     fetchPages();
@@ -61,7 +63,7 @@ export default function BackupManager() {
     try {
       setIsLoading(true);
       const response = await HttpClient.get('/pages');
-      
+
       if (response?.success) {
         setPages(response.data?.pages || response.pages || []);
       } else if (Array.isArray(response)) {
@@ -77,8 +79,9 @@ export default function BackupManager() {
 
   const fetchBackups = async (pageId: string) => {
     try {
-      const response = await HttpClient.get(`/pages/${pageId}/backups`);
-      
+      // Solicitar hasta 1000 backups para mostrar todo el historial
+      const response = await HttpClient.get(`/pages/${pageId}/backups?limit=1000`);
+
       if (response?.success) {
         setBackups(response.data || []);
       } else if (Array.isArray(response)) {
@@ -94,7 +97,7 @@ export default function BackupManager() {
     try {
       setIsCreatingBackup(true);
       const response = await HttpClient.post(`/pages/${pageId}/backups`, {});
-      
+
       if (response?.success) {
         showMessage('success', 'Backup creado exitosamente');
         fetchBackups(pageId);
@@ -115,7 +118,7 @@ export default function BackupManager() {
     try {
       setIsRestoring(true);
       const response = await HttpClient.post(`/pages/${pageId}/restore/${backupId}`, {});
-      
+
       if (response?.success) {
         showMessage('success', 'Página restaurada exitosamente');
         fetchBackups(pageId);
@@ -137,7 +140,7 @@ export default function BackupManager() {
     try {
       setIsDeletingBackup(backupId);
       const response = await HttpClient.delete(`/pages/${pageId}/backups/${backupId}`);
-      
+
       if (response?.success) {
         showMessage('success', 'Backup eliminado exitosamente');
         fetchBackups(pageId);
@@ -147,6 +150,57 @@ export default function BackupManager() {
       showMessage('error', 'Error al eliminar el backup');
     } finally {
       setIsDeletingBackup(null);
+    }
+  };
+
+  const deleteMultipleBackups = async () => {
+    if (selectedBackups.size === 0) {
+      showMessage('error', 'No hay backups seleccionados');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres borrar ${selectedBackups.size} backup(s)? Esta acción no se puede deshacer y liberará espacio en la base de datos.`)) {
+      return;
+    }
+
+    if (!selectedPage) return;
+
+    try {
+      setIsDeletingMultiple(true);
+      const backupIds = Array.from(selectedBackups);
+
+      const response = await HttpClient.post(`/pages/${selectedPage.id}/backups/bulk-delete`, {
+        backupIds
+      });
+
+      if (response?.success) {
+        showMessage('success', `${selectedBackups.size} backup(s) eliminado(s) exitosamente`);
+        setSelectedBackups(new Set());
+        fetchBackups(selectedPage.id);
+      }
+    } catch (error) {
+      console.error('Error deleting multiple backups:', error);
+      showMessage('error', 'Error al eliminar los backups seleccionados');
+    } finally {
+      setIsDeletingMultiple(false);
+    }
+  };
+
+  const toggleBackupSelection = (backupId: string) => {
+    const newSelected = new Set(selectedBackups);
+    if (newSelected.has(backupId)) {
+      newSelected.delete(backupId);
+    } else {
+      newSelected.add(backupId);
+    }
+    setSelectedBackups(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedBackups.size === backups.length) {
+      setSelectedBackups(new Set());
+    } else {
+      setSelectedBackups(new Set(backups.map(b => b.id)));
     }
   };
 
@@ -190,11 +244,10 @@ export default function BackupManager() {
 
       {/* Message */}
       {message && (
-        <div className={`p-4 rounded-lg flex items-center space-x-3 ${
-          message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-800' 
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
+        <div className={`p-4 rounded-lg flex items-center space-x-3 ${message.type === 'success'
+          ? 'bg-green-50 border border-green-200 text-green-800'
+          : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
           {message.type === 'success' ? (
             <CheckCircle className="h-5 w-5" />
           ) : (
@@ -211,15 +264,14 @@ export default function BackupManager() {
             <h2 className="text-lg font-semibold text-gray-900">Páginas</h2>
             <p className="text-sm text-gray-600">Selecciona una página para ver sus backups</p>
           </div>
-          
+
           <div className="max-h-96 overflow-y-auto">
             {pages.map((page) => (
               <button
                 key={page.id}
                 onClick={() => setSelectedPage(page)}
-                className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                  selectedPage?.id === page.id ? 'bg-blue-50 border-blue-200' : ''
-                }`}
+                className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors ${selectedPage?.id === page.id ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -227,11 +279,10 @@ export default function BackupManager() {
                     <p className="text-sm text-gray-600">/{page.slug || page.id}</p>
                   </div>
                   <div className="text-right">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      page.status === 'published' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${page.status === 'published'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {page.status === 'published' ? 'Publicada' : 'Borrador'}
                     </span>
                   </div>
@@ -246,7 +297,7 @@ export default function BackupManager() {
           {selectedPage ? (
             <>
               <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">
                       Backups de "{selectedPage.title}"
@@ -255,48 +306,86 @@ export default function BackupManager() {
                       Historial de versiones y copias de seguridad
                     </p>
                   </div>
-                  <button
-                    onClick={() => createBackup(selectedPage.id)}
-                    disabled={isCreatingBackup}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-                  >
-                    {isCreatingBackup ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
+                  <div className="flex items-center space-x-2">
+                    {selectedBackups.size > 0 && (
+                      <button
+                        onClick={deleteMultipleBackups}
+                        disabled={isDeletingMultiple}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                      >
+                        {isDeletingMultiple ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span>{isDeletingMultiple ? 'Eliminando...' : `Eliminar (${selectedBackups.size})`}</span>
+                      </button>
                     )}
-                    <span>{isCreatingBackup ? 'Creando...' : 'Crear Backup'}</span>
-                  </button>
+                    <button
+                      onClick={() => createBackup(selectedPage.id)}
+                      disabled={isCreatingBackup}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                    >
+                      {isCreatingBackup ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      <span>{isCreatingBackup ? 'Creando...' : 'Crear Backup'}</span>
+                    </button>
+                  </div>
                 </div>
+                {backups.length > 0 && (
+                  <div className="flex items-center space-x-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedBackups.size === backups.length && backups.length > 0}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label className="text-gray-700 font-medium cursor-pointer" onClick={toggleSelectAll}>
+                      Seleccionar todos ({backups.length})
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="max-h-96 overflow-y-auto">
                 {backups.length > 0 ? (
                   <div className="divide-y divide-gray-200">
                     {backups.map((backup) => (
-                      <div key={backup.id} className="p-4 hover:bg-gray-50">
+                      <div key={backup.id} className={`p-4 hover:bg-gray-50 transition-colors ${selectedBackups.has(backup.id) ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="bg-gray-100 p-2 rounded-lg">
-                              <FileText className="h-5 w-5 text-gray-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">
-                                Versión {backup.version}
-                              </h3>
-                              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                <div className="flex items-center space-x-1">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>{formatDate(backup.createdAt)}</span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <Clock className="h-4 w-4" />
-                                  <span>Backup automático</span>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedBackups.has(backup.id)}
+                              onChange={() => toggleBackupSelection(backup.id)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex items-center space-x-4 flex-1">
+                              <div className="bg-gray-100 p-2 rounded-lg">
+                                <FileText className="h-5 w-5 text-gray-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-medium text-gray-900">
+                                  Versión {backup.version}
+                                </h3>
+                                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                  <div className="flex items-center space-x-1">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>{formatDate(backup.createdAt)}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <Clock className="h-4 w-4" />
+                                    <span>Backup automático</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => setPreviewBackup(backup)}
@@ -447,34 +536,34 @@ export default function BackupManager() {
     
     /* Estilos para componentes GrapesJS */
     ${(() => {
-      try {
-        // Intentar parsear los estilos de GrapesJS si están disponibles
-        const gjsStyles = (previewBackup as any).gjsStyles;
-        if (gjsStyles) {
-          const styles = JSON.parse(gjsStyles);
-          if (Array.isArray(styles) && styles.length > 0) {
-            return styles.map(style => {
-              if (style.selectors && style.style) {
-                const selectors = Array.isArray(style.selectors) 
-                  ? style.selectors.join(', ') 
-                  : style.selectors;
-                
-                const styleProps = Object.entries(style.style)
-                  .map(([prop, value]) => `${prop}: ${value};`)
-                  .join(' ');
-                
-                return `${selectors} { ${styleProps} }`;
-              }
-              return '';
-            }).join('\n');
-          }
-        }
-        return '';
-      } catch (e) {
-        console.error('Error parsing gjsStyles', e);
-        return '';
-      }
-    })()}
+                    try {
+                      // Intentar parsear los estilos de GrapesJS si están disponibles
+                      const gjsStyles = (previewBackup as any).gjsStyles;
+                      if (gjsStyles) {
+                        const styles = JSON.parse(gjsStyles);
+                        if (Array.isArray(styles) && styles.length > 0) {
+                          return styles.map(style => {
+                            if (style.selectors && style.style) {
+                              const selectors = Array.isArray(style.selectors)
+                                ? style.selectors.join(', ')
+                                : style.selectors;
+
+                              const styleProps = Object.entries(style.style)
+                                .map(([prop, value]) => `${prop}: ${value};`)
+                                .join(' ');
+
+                              return `${selectors} { ${styleProps} }`;
+                            }
+                            return '';
+                          }).join('\n');
+                        }
+                      }
+                      return '';
+                    } catch (e) {
+                      console.error('Error parsing gjsStyles', e);
+                      return '';
+                    }
+                  })()}
   </style>
 </head>
 <body>
@@ -584,34 +673,34 @@ export default function BackupManager() {
     
     /* Estilos para componentes GrapesJS */
     ${(() => {
-      try {
-        // Intentar parsear los estilos de GrapesJS si están disponibles
-        const gjsStyles = (compareBackup as any).gjsStyles;
-        if (gjsStyles) {
-          const styles = JSON.parse(gjsStyles);
-          if (Array.isArray(styles) && styles.length > 0) {
-            return styles.map(style => {
-              if (style.selectors && style.style) {
-                const selectors = Array.isArray(style.selectors) 
-                  ? style.selectors.join(', ') 
-                  : style.selectors;
-                
-                const styleProps = Object.entries(style.style)
-                  .map(([prop, value]) => `${prop}: ${value};`)
-                  .join(' ');
-                
-                return `${selectors} { ${styleProps} }`;
-              }
-              return '';
-            }).join('\n');
-          }
-        }
-        return '';
-      } catch (e) {
-        console.error('Error parsing gjsStyles', e);
-        return '';
-      }
-    })()}
+                      try {
+                        // Intentar parsear los estilos de GrapesJS si están disponibles
+                        const gjsStyles = (compareBackup as any).gjsStyles;
+                        if (gjsStyles) {
+                          const styles = JSON.parse(gjsStyles);
+                          if (Array.isArray(styles) && styles.length > 0) {
+                            return styles.map(style => {
+                              if (style.selectors && style.style) {
+                                const selectors = Array.isArray(style.selectors)
+                                  ? style.selectors.join(', ')
+                                  : style.selectors;
+
+                                const styleProps = Object.entries(style.style)
+                                  .map(([prop, value]) => `${prop}: ${value};`)
+                                  .join(' ');
+
+                                return `${selectors} { ${styleProps} }`;
+                              }
+                              return '';
+                            }).join('\n');
+                          }
+                        }
+                        return '';
+                      } catch (e) {
+                        console.error('Error parsing gjsStyles', e);
+                        return '';
+                      }
+                    })()}
   </style>
 </head>
 <body>
@@ -706,34 +795,34 @@ export default function BackupManager() {
     
     /* Estilos para componentes GrapesJS */
     ${(() => {
-      try {
-        // Intentar parsear los estilos de GrapesJS si están disponibles
-        const gjsStyles = currentPageContent?.gjsStyles;
-        if (gjsStyles) {
-          const styles = JSON.parse(gjsStyles);
-          if (Array.isArray(styles) && styles.length > 0) {
-            return styles.map(style => {
-              if (style.selectors && style.style) {
-                const selectors = Array.isArray(style.selectors) 
-                  ? style.selectors.join(', ') 
-                  : style.selectors;
-                
-                const styleProps = Object.entries(style.style)
-                  .map(([prop, value]) => `${prop}: ${value};`)
-                  .join(' ');
-                
-                return `${selectors} { ${styleProps} }`;
-              }
-              return '';
-            }).join('\n');
-          }
-        }
-        return '';
-      } catch (e) {
-        console.error('Error parsing gjsStyles', e);
-        return '';
-      }
-    })()}
+                      try {
+                        // Intentar parsear los estilos de GrapesJS si están disponibles
+                        const gjsStyles = currentPageContent?.gjsStyles;
+                        if (gjsStyles) {
+                          const styles = JSON.parse(gjsStyles);
+                          if (Array.isArray(styles) && styles.length > 0) {
+                            return styles.map(style => {
+                              if (style.selectors && style.style) {
+                                const selectors = Array.isArray(style.selectors)
+                                  ? style.selectors.join(', ')
+                                  : style.selectors;
+
+                                const styleProps = Object.entries(style.style)
+                                  .map(([prop, value]) => `${prop}: ${value};`)
+                                  .join(' ');
+
+                                return `${selectors} { ${styleProps} }`;
+                              }
+                              return '';
+                            }).join('\n');
+                          }
+                        }
+                        return '';
+                      } catch (e) {
+                        console.error('Error parsing gjsStyles', e);
+                        return '';
+                      }
+                    })()}
   </style>
 </head>
 <body>

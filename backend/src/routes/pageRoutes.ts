@@ -900,5 +900,67 @@ router.post('/:id/restore/:backupId', authenticate, authorize("ADMIN", "MANAGER"
  */
 router.delete('/:id/backups/:backupId', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.deleteBackup);
 
+/**
+ * @swagger
+ * /api/pages/{id}/backups/bulk-delete:
+ *   post:
+ *     summary: Eliminar múltiples backups
+ *     tags: [Pages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID de la página
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - backupIds
+ *             properties:
+ *               backupIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array de IDs de backups a eliminar
+ *     responses:
+ *       200:
+ *         description: Backups eliminados exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deletedCount:
+ *                       type: integer
+ *       404:
+ *         description: Página no encontrada
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso denegado
+ */
+// Rutas para Papelera y Mantenimiento
+router.delete('/:id/permanent', authenticate, authorize("ADMIN"), generalLimiter, PageController.permanentDeletePage);
+router.post('/:id/restore', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.restorePage);
+router.post('/maintenance/purge', authenticate, authorize("ADMIN"), generalLimiter, PageController.purgePages);
+
+router.post('/:id/backups/bulk-delete', authenticate, authorize("ADMIN", "MANAGER"), generalLimiter, PageController.deleteMultipleBackups);
+
 
 export default router;

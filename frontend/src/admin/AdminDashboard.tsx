@@ -55,9 +55,9 @@ export default function AdminDashboard() {
 
   const fetchPages = async () => {
     try {
-      // Backend devuelve pages con isActive=true por defecto
-      // Usar limit=100 para obtener todas las páginas (máximo permitido por el backend)
-      const resp: any = await HttpClient.get('/pages?limit=100');
+      // Backend devuelve pages con isActive=true por defecto (EDIT: ahora devuelve todo)
+      // Usar limit=1000 para obtener todas las páginas (máximo permitido por el backend)
+      const resp: any = await HttpClient.get('/pages?limit=1000');
       const list: Page[] = (resp?.data?.pages) || resp?.pages || [];
       setPages(list);
 
@@ -140,6 +140,18 @@ export default function AdminDashboard() {
 
     // Usar descarga directa del navegador que es más confiable para archivos grandes y evita ERR_FAILED
     window.location.href = `/api/database/download?token=${token}`;
+  };
+
+  const handleCleanDatabase = async () => {
+    if (!window.confirm('¿Ejecutar limpieza PROFUNDA de base de datos? Esto eliminará definitivamente cualquier página antigua y optimizará el espacio. Esta acción no se puede deshacer.')) return;
+    try {
+      const res: any = await HttpClient.post('/pages/maintenance/purge', {});
+      if (res?.success) alert(res.message);
+      await fetchPages();
+    } catch (e) {
+      console.error(e);
+      alert('Error al limpiar la base de datos');
+    }
   };
 
   if (isLoading) {
