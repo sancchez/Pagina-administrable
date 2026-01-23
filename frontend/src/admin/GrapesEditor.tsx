@@ -565,6 +565,23 @@ const GrapesEditor: React.FC = () => {
             'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap'
           ]
         },
+        rte: {
+          actions: [
+            'bold', 'italic', 'underline', 'strikethrough', 'link',
+            {
+              name: 'ordered-list',
+              icon: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7,13H21V11H7M7,19H21V17H7M7,7H21V5H7M2,11H5V12H4V13H5V14H2V13H3V12H2M3,8H2V4H3V5H4V4H5V8H4V7H3M2,17H4V17.5H3V18.5H4V19H2V20H5V16H2V17Z"></path></svg>',
+              attributes: { title: 'Lista Ordenada (1, 2, 3)' },
+              result: (rte: any) => rte.exec('insertOrderedList')
+            },
+            {
+              name: 'unordered-list',
+              icon: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7,13H21V11H7M7,19H21V17H7M7,7H21V5H7M3,10C2.45,10 2,10.45 2,11C2,11.55 2.45,12 3,12C3.55,12 4,11.55 4,11C4,10.45 3.55,10 3,10M3,4C2.45,4 2,4.45 2,5C2,5.55 2.45,6 3,6C3.55,6 4,5.55 4,5C4,4.45 3.55,4 3,4M3,16C2.45,16 2,16.45 2,17C2,17.55 2.45,18 3,18C3.55,18 4,17.55 4,17C4,16.45 3.55,16 3,16Z"></path></svg>',
+              attributes: { title: 'Lista Desordenada (Viñetas)' },
+              result: (rte: any) => rte.exec('insertUnorderedList')
+            }
+          ]
+        },
         panels: {
           defaults: [
             {
@@ -625,7 +642,9 @@ const GrapesEditor: React.FC = () => {
                   'border-radius': 'Radio del borde',
                   'border': 'Borde',
                   'box-shadow': 'Sombra',
-                  'z-index': 'Índice Z'
+                  'z-index': 'Índice Z',
+                  'list-style-type': 'Viñetas/Números',
+                  'list-style-position': 'Posición de viñeta'
                 }
               },
               traitManager: {
@@ -807,6 +826,49 @@ const GrapesEditor: React.FC = () => {
               buildProps: [
                 'font-size', 'font-family', 'font-weight', 'letter-spacing',
                 'color', 'line-height', 'text-align', 'text-decoration'
+              ],
+              properties: [
+                {
+                  type: 'select',
+                  name: 'Efecto Gradiente',
+                  property: 'text-gradient-effect',
+                  options: [
+                    { id: 'none', name: 'Ninguno' },
+                    { id: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)', name: 'Azul-Violeta' },
+                    { id: 'linear-gradient(90deg, #f59e0b 0%, #ef4444 100%)', name: 'Fuego' },
+                    { id: 'linear-gradient(90deg, #10b981 0%, #3b82f6 100%)', name: 'Océano' },
+                    { id: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%, #ec4899 100%)', name: 'Arcoíris' }
+                  ]
+                }
+              ]
+            },
+            {
+              name: '📜 Listas',
+              open: false,
+              properties: [
+                {
+                  type: 'select',
+                  property: 'list-style-type',
+                  name: 'Viñetas/Números',
+                  options: [
+                    { id: 'disc', name: 'Puntos •' },
+                    { id: 'circle', name: 'Círculos ○' },
+                    { id: 'square', name: 'Cuadrados ■' },
+                    { id: 'decimal', name: 'Números (1, 2, 3)' },
+                    { id: 'lower-latin', name: 'Letras (a, b, c)' },
+                    { id: 'upper-latin', name: 'Letras (A, B, C)' },
+                    { id: 'none', name: 'Ocultar todo' }
+                  ]
+                },
+                {
+                  type: 'select',
+                  property: 'list-style-position',
+                  name: 'Posición de viñeta',
+                  options: [
+                    { id: 'outside', name: 'Fuera (Estándar)' },
+                    { id: 'inside', name: 'Dentro (Alineado)' }
+                  ]
+                }
               ]
             },
             {
@@ -1016,6 +1078,38 @@ const GrapesEditor: React.FC = () => {
             }
             // Asegurar Tailwind
             injectTailwindIntoCanvas();
+
+            // Estilos persistentes para listas (se exportan al CSS final)
+            gEditor.addStyle(`
+              ul { list-style-type: disc !important; padding-left: 1.5rem; margin: 1rem 0; }
+              ol { list-style-type: decimal !important; padding-left: 1.5rem; margin: 1rem 0; }
+              li { display: list-item !important; }
+              li::marker { color: inherit; }
+              .text-gradient {
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                display: inline-block;
+              }
+            `);
+
+            // --- REGISTRO EXPLÍCITO DE BOTONES RTE ---
+            console.log('📝 Registrando botones de lista en el RTE...');
+            const rte = gEditor.RichTextEditor;
+
+            // Botón Lista Ordenada
+            rte.add('ordered-list', {
+              icon: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7,13H21V11H7M7,19H21V17H7M7,7H21V5H7M2,11H5V12H4V13H5V14H2V13H3V12H2M3,8H2V4H3V5H4V4H5V8H4V7H3M2,17H4V17.5H3V18.5H4V19H2V20H5V16H2V17Z"></path></svg>',
+              attributes: { title: 'Lista Ordenada (1, 2, 3)' },
+              result: (rte: any) => rte.exec('insertOrderedList')
+            });
+
+            // Botón Lista Desordenada
+            rte.add('unordered-list', {
+              icon: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7,13H21V11H7M7,19H21V17H7M7,7H21V5H7M3,10C2.45,10 2,10.45 2,11C2,11.55 2.45,12 3,12C3.55,12 4,11.55 4,11C4,10.45 3.55,10 3,10M3,4C2.45,4 2,4.45 2,5C2,5.55 2.45,6 3,6C3.55,6 4,5.55 4,5C4,4.45 3.55,4 3,4M3,16C2.45,16 2,16.45 2,17C2,17.55 2.45,18 3,18C3.55,18 4,17.55 4,17C4,16.45 3.55,16 3,16Z"></path></svg>',
+              attributes: { title: 'Lista Desordenada (Viñetas)' },
+              result: (rte: any) => rte.exec('insertUnorderedList')
+            });
           }
         } catch (e) {
           console.warn('No se pudieron inyectar estilos/fuentes en iframe:', e);
@@ -1227,6 +1321,43 @@ const GrapesEditor: React.FC = () => {
               };
 
               return el;
+            }
+          });
+
+          // =================== COMPONENTES DE LISTA ===================
+          dc.addType('ul', {
+            isComponent: (el: any) => el.tagName === 'UL',
+            model: {
+              defaults: {
+                tagName: 'ul',
+                droppable: 'li',
+                draggable: true,
+                editable: true,
+              }
+            }
+          });
+
+          dc.addType('ol', {
+            isComponent: (el: any) => el.tagName === 'OL',
+            model: {
+              defaults: {
+                tagName: 'ol',
+                droppable: 'li',
+                draggable: true,
+                editable: true,
+              }
+            }
+          });
+
+          dc.addType('li', {
+            isComponent: (el: any) => el.tagName === 'LI',
+            model: {
+              defaults: {
+                tagName: 'li',
+                draggable: 'ul, ol',
+                droppable: true,
+                editable: true,
+              }
             }
           });
 
@@ -1937,6 +2068,26 @@ const GrapesEditor: React.FC = () => {
 
             const propertyName = property.get('property');
             const propertyValue = property.get('value');
+
+            // --- Soporte para Gradiente de Texto ---
+            if (propertyName === 'text-gradient-effect') {
+              if (propertyValue && propertyValue !== 'none') {
+                selected.addStyle({
+                  'background-image': propertyValue,
+                  '-webkit-background-clip': 'text',
+                  'background-clip': 'text',
+                  '-webkit-text-fill-color': 'transparent',
+                  'display': 'inline-block'
+                });
+              } else {
+                selected.addStyle({
+                  'background-image': 'none',
+                  '-webkit-background-clip': 'unset',
+                  'background-clip': 'unset',
+                  '-webkit-text-fill-color': 'unset'
+                });
+              }
+            }
 
 
             // Si la propiedad pertenece a la sección de configuración, actualizar el trait correspondiente
@@ -5280,9 +5431,16 @@ const GrapesEditor: React.FC = () => {
                 background-clip: text;
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
+                display: inline-block;
               }
-              
-              ${css}
+
+              /* Mejora para marcadores de listas (bullets/numbers) */
+              ul { list-style-type: disc !important; padding-left: 1.5rem; margin: 1rem 0; }
+              ol { list-style-type: decimal !important; padding-left: 1.5rem; margin: 1rem 0; }
+              li { display: list-item !important; }
+              li::marker {
+                color: inherit;
+              }
               
               /* Estilos para componentes GrapesJS */
               ${(() => {
@@ -5423,8 +5581,32 @@ const GrapesEditor: React.FC = () => {
         .gjs-link, .gjs-color-warn { color: #6366f1 !important; }
         .gjs-primary-color { color: #6366f1 !important; }
         .gjs-primary-bg { background-color: #6366f1 !important; }
-        
-        /* Paneles y contenedores con estilo más limpio */
+
+        /* Mejora para listas en el editor */
+        .gjs-cv-canvas ul {
+          list-style-type: disc !important;
+          padding-left: 25px !important;
+          margin: 10px 0 !important;
+        }
+        .gjs-cv-canvas ol {
+          list-style-type: decimal !important;
+          padding-left: 25px !important;
+          margin: 10px 0 !important;
+        }
+        .gjs-cv-canvas li {
+          display: list-item !important;
+        }
+        .gjs-cv-canvas li::marker {
+          color: inherit !important;
+        }
+        .gjs-cv-canvas li:hover, .gjs-cv-canvas ul:hover, .gjs-cv-canvas ol:hover {
+          outline: 1px dashed #8b5cf6 !important;
+          outline-offset: -1px !important;
+        }
+        .gjs-cv-canvas li.gjs-selected, .gjs-cv-canvas ul.gjs-selected, .gjs-cv-canvas ol.gjs-selected {
+          outline: 2px solid #8b5cf6 !important;
+          outline-offset: -2px !important;
+        }
         .gjs-blocks, .gjs-layers, .gjs-sm-sectors { 
           background: #0f172a !important; 
           border-radius: 12px !important; 

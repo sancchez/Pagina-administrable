@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -13,12 +12,12 @@
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
-  
+
   html {
     scroll-behavior: smooth;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
-  
+
   html {
     scroll-behavior: smooth;
   }
@@ -28,7 +27,7 @@
   .glass-card {
     @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl;
   }
-  
+
   .gradient-text {
     @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
   }
@@ -36,29 +35,29 @@
   .btn-gradient {
     @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
   }
-  
+
   .btn-secondary {
     @apply bg-gradient-to-r from-secondary-500 to-secondary-600 hover:from-secondary-600 hover:to-secondary-700 text-white font-semibold rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
   }
-  
+
   .water-gradient {
     @apply bg-gradient-to-br from-primary-400 via-accent-400 to-primary-600;
   }
-  
+
   .nature-gradient {
     @apply bg-gradient-to-br from-secondary-400 via-secondary-500 to-secondary-600;
   }
-  
+
   .section-padding {
     @apply py-16 px-4;
   }
-  
+
   .container {
     @apply max-w-7xl mx-auto;
   }
-  
+
   .bg-grid-pattern {
-    background-image: 
+    background-image:
       linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
     background-size: 20px 20px;
@@ -172,6 +171,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -184,4 +184,33 @@
     min-width: 250px;
     max-width: calc(100vw - 40px);
   }
+}
+
+/* Soporte para listas y gradientes en la página pública */
+li::marker {
+  color: inherit;
+}
+
+ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+li {
+  display: list-item !important;
+  margin-bottom: 0.25rem;
+}
+
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
 }
