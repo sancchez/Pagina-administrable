@@ -1918,6 +1918,215 @@ const GrapesEditor: React.FC = () => {
             }
           });
           console.log('✅ Tipo SVG registrado como estilable para alineación');
+
+          // =================== PDF VIEWER ===================
+          dc.addType('pdf-viewer', {
+            isComponent: (el: any) => {
+              if (el && el.getAttribute && el.getAttribute('data-gjs-type') === 'pdf-viewer') return { type: 'pdf-viewer' };
+              if (el && el.classList && el.classList.contains('pdf-viewer-component')) return { type: 'pdf-viewer' };
+              return false;
+            },
+            model: {
+              defaults: {
+                tagName: 'div',
+                resizable: true,
+                draggable: true,
+                selectable: true,
+                hoverable: true,
+                removable: true,
+                attributes: {
+                  'data-gjs-type': 'pdf-viewer',
+                  'class': 'pdf-viewer-component',
+                  'data-src': '',
+                  'data-zoom': 'FitH',
+                },
+                style: {
+                  'min-height': '100px',
+                  'width': '100%',
+                  'height': '600px',
+                  'position': 'relative',
+                  'overflow': 'hidden',
+                  'margin': '0',
+                  'padding': '0',
+                },
+                stylable: true,
+                script: function () {
+                  var el = this;
+                  var src = el.getAttribute('data-src');
+                  var zoom = el.getAttribute('data-zoom') || 'FitH';
+
+                  // Evitar ejecución en el editor para no interferir con el View
+                  if (typeof window !== 'undefined' && window['editor']) return;
+                  if (el.ownerDocument.body.className.indexOf('gjs-') !== -1) return;
+
+                  if (src) {
+                    el.innerHTML = '';
+                    var iframe = document.createElement('iframe');
+                    var pdfUrl = src.indexOf('#') !== -1 ? src : src + '#view=' + zoom + '&toolbar=1';
+
+                    iframe.src = pdfUrl;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    iframe.style.display = 'block';
+                    iframe.style.pointerEvents = 'auto'; // Permitir scroll en la web
+                    el.appendChild(iframe);
+                  }
+                },
+                traits: [
+                  {
+                    type: 'file-upload',
+                    label: 'Subir PDF',
+                    name: 'data-src',
+                    changeProp: true,
+                  },
+                  {
+                    type: 'text',
+                    label: 'URL externa del PDF',
+                    name: 'data-src',
+                    placeholder: 'https://ejemplo.com/archivo.pdf',
+                  },
+                  {
+                    type: 'select',
+                    label: 'Vista/Zoom',
+                    name: 'data-zoom',
+                    options: [
+                      { value: 'FitH', name: 'Ajustar al ancho' },
+                      { value: 'FitV', name: 'Ajustar al alto' },
+                      { value: '100', name: '100%' },
+                      { value: '150', name: '150%' },
+                      { value: '200', name: '200%' },
+                    ]
+                  },
+                  {
+                    type: 'text',
+                    label: 'Ancho',
+                    name: 'width',
+                    placeholder: '100% o 600px',
+                    changeProp: true,
+                  },
+                  {
+                    type: 'text',
+                    label: 'Alto',
+                    name: 'height',
+                    placeholder: '600px',
+                    changeProp: true,
+                  }
+                ],
+              },
+              init() {
+                this.on('change:data-src', () => {
+                  this.addAttributes({ 'data-src': this.get('data-src') });
+                });
+                this.on('change:data-zoom', () => {
+                  this.addAttributes({ 'data-zoom': this.get('data-zoom') });
+                });
+                this.on('change:width', () => {
+                  this.addStyle({ width: this.get('width') });
+                });
+                this.on('change:height', () => {
+                  this.addStyle({ height: this.get('height') });
+                });
+                // Sincronizar cambios del redimensionador (canvas) con los Traits
+                this.on('change:style', () => {
+                  const style = this.getStyle();
+                  if (style.width) this.set('width', style.width, { silent: true });
+                  if (style.height) this.set('height', style.height, { silent: true });
+                });
+              }
+            },
+            view: {
+              events: {
+                'dblclick': 'onDoubleClick',
+                'click': 'onClick',
+              } as any,
+
+              init() {
+                // 🎯 ESCUCHAR CAMBIOS PARA REDIBUJAR
+                this.listenTo(this.model, 'change:attributes:data-src', this.render);
+                this.listenTo(this.model, 'change:attributes:data-zoom', this.render);
+                this.listenTo(this.model, 'change:data-src', this.render);
+              },
+
+              onClick(e: MouseEvent) {
+                // Forzar selección al hacer clic
+                gEditor.select(this.model);
+              },
+
+              onDoubleClick(e: MouseEvent) {
+                e.preventDefault();
+                console.log('🎯 Doble clic detectado en PDF Wrapper');
+
+                // Forzar selección para activar el panel de configuración
+                gEditor.select(this.model);
+
+                const traits = this.model.get('traits');
+                const trait = (traits as any).where({ type: 'file-upload' })[0];
+                if (trait) {
+                  const tm = (gEditor as any).TraitManager;
+                  const traitView = tm.getTraitsViewer().items.find((item: any) => item.model === trait);
+                  if (traitView && traitView.el) {
+                    const fileInput = traitView.el.querySelector('input[type="file"]') as HTMLInputElement;
+                    if (fileInput) { fileInput.click(); return; }
+                  }
+                  // Si no lo encuentra, al menos abre el panel
+                  gEditor.Panels.getButton('views', 'open-traits')?.set('active', true);
+                }
+              },
+
+              onRender() {
+                const el = this.el;
+                const attrs = this.model.getAttributes();
+                const src = attrs['data-src'] || this.model.get('data-src');
+                const zoom = attrs['data-zoom'] || 'FitH';
+
+                el.innerHTML = '';
+                el.style.backgroundColor = src ? 'transparent' : '#f3f4f6';
+                el.style.cursor = 'pointer';
+                el.style.padding = '0';
+                el.style.margin = '0';
+                el.style.pointerEvents = 'auto'; // Asegurar que el contenedor reciba clics
+
+                if (src) {
+                  const iframe = document.createElement('iframe');
+                  // Agregar parámetros de zoom/vista si no están presentes
+                  const pdfUrl = src.includes('#') ? src : `${src}#view=${zoom}&toolbar=1`;
+
+                  iframe.src = pdfUrl;
+                  iframe.style.width = '100%';
+                  iframe.style.height = '100%';
+                  iframe.style.border = 'none';
+                  iframe.style.display = 'block';
+                  iframe.style.pointerEvents = 'none'; // Evita capturar clics para permitir selección en el editor
+                  el.appendChild(iframe);
+
+                  const shield = document.createElement('div');
+                  shield.style.position = 'absolute';
+                  shield.style.top = '0';
+                  shield.style.left = '0';
+                  shield.style.width = '100%';
+                  shield.style.height = '100%';
+                  shield.style.zIndex = '1';
+                  shield.style.backgroundColor = 'transparent';
+                  el.appendChild(shield);
+                } else {
+                  el.style.border = '2px dashed #9ca3af';
+                  const msg = document.createElement('div');
+                  msg.style.position = 'absolute';
+                  msg.style.top = '50%';
+                  msg.style.left = '50%';
+                  msg.style.transform = 'translate(-50%, -50%)';
+                  msg.style.color = '#4b5563';
+                  msg.style.fontFamily = 'sans-serif';
+                  msg.style.textAlign = 'center';
+                  msg.style.pointerEvents = 'none';
+                  msg.innerHTML = '📄 <b>Visualizador de PDF</b><br><small>Haz doble clic para subir archivo</small>';
+                  el.appendChild(msg);
+                }
+              }
+            }
+          });
+          console.log('✅ Tipo PDF Viewer registrado');
         }
       } catch (e) {
         console.warn('Registro de tipo SVG falló', e);
@@ -3654,6 +3863,13 @@ const GrapesEditor: React.FC = () => {
           label: '🖼️ Imagen',
           category: '📌 Básico',
           content: '<img src="https://via.placeholder.com/400x300" style="max-width: 100%;">'
+        });
+
+        bm.add('pdf-viewer', {
+          label: '📄 Visualizar PDF',
+          category: '📌 Básico',
+          attributes: { class: 'gjs-fonts gjs-f-image' },
+          content: { type: 'pdf-viewer' },
         });
 
         // Dropdown reusable component block
