@@ -791,4 +791,41 @@ export class PageService {
       // No lanzar error aquí, es una operación de limpieza
     }
   }
+
+  /**
+   * Eliminar permanentemente (Alias de deletePage para compatibilidad con controlador)
+   */
+  static async permanentDeletePage(id: string): Promise<void> {
+    await this.deletePage(id);
+  }
+
+  /**
+   * Restaurar página (si está marcada como inactiva por implementación anterior)
+   */
+  static async restorePage(id: string): Promise<Page> {
+    const page = await prisma.page.findUnique({ where: { id } });
+    if (!page) throw createError(404, 'Página no encontrada');
+
+    return await prisma.page.update({
+      where: { id },
+      data: { isActive: true }
+    });
+  }
+
+  /**
+   * Limpieza profunda: Eliminar todas las páginas que tengan isActive=false
+   */
+  static async purgeSoftDeletedPages(): Promise<number> {
+    try {
+      const count = await prisma.page.count({ where: { isActive: false } });
+      if (count > 0) {
+        await prisma.page.deleteMany({ where: { isActive: false } });
+      }
+      await this.optimizeDatabase();
+      return count;
+    } catch (error: any) {
+      console.error('Error in deep clean:', error);
+      throw createError(500, 'Error durante la limpieza profunda');
+    }
+  }
 }
