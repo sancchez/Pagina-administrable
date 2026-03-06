@@ -1469,9 +1469,9 @@ const GrapesEditor: React.FC = () => {
               defaults: {
                 tagName: 'button',
                 draggable: true,
-                droppable: false,
-                editable: true,
-
+                droppable: true, // Permitir arrastrar elementos dentro (como iconos)
+                editable: false,  // Modificado: false para que texto inline y elementos hijos coistan bien
+                stylable: true,  // Asegurar que sea estilizable
                 traits: [
                   // Trait para cambiar el texto
                   {
@@ -1944,7 +1944,16 @@ const GrapesEditor: React.FC = () => {
             model: {
               defaults: {
                 tagName: 'div',
-                resizable: true,
+                resizable: {
+                  tl: true, tc: true, tr: true,
+                  ml: true, mr: true,
+                  bl: true, bc: true, br: true,
+                  minWidth: 10,
+                  minHeight: 10,
+                  currentUnit: 1,
+                  unitWidth: 'px',
+                  unitHeight: 'px',
+                },
                 draggable: true,
                 selectable: true,
                 hoverable: true,
@@ -1956,7 +1965,7 @@ const GrapesEditor: React.FC = () => {
                   'data-zoom': 'FitH',
                 },
                 style: {
-                  'min-height': '100px',
+                  'min-height': '10px',
                   'width': '100%',
                   'height': '600px',
                   'position': 'relative',
@@ -3322,13 +3331,44 @@ const GrapesEditor: React.FC = () => {
       try { (window as any).pasteFromClipboard = pasteFromClipboard; } catch { }
 
       // Habilitar resizable en selección de imágenes, videos y SVG
+      // y normalizar atributos de imagen para consistencia editor↔público
       try {
         gEditor.on('component:selected', (comp: any) => {
           try { comp?.set?.({ resizable: true }); } catch { }
+
+          // 🖼️ Normalizar imágenes: mover atributos width/height a style
+          // para que el Style Manager pueda controlar el tamaño correctamente
+          try {
+            const tag = (comp?.getTag?.() || comp?.get?.('tagName') || '').toLowerCase();
+            const compType = comp?.get?.('type') || '';
+            if (tag === 'img' || compType === 'image') {
+              const attrs = comp.getAttributes?.() || {};
+              const hasWidthAttr = attrs.width !== undefined && attrs.width !== null && attrs.width !== '';
+              const hasHeightAttr = attrs.height !== undefined && attrs.height !== null && attrs.height !== '';
+              if (hasWidthAttr || hasHeightAttr) {
+                const currentStyle = comp.getStyle?.() || {};
+                // Solo mover al estilo si no hay ya un valor de style para ese prop
+                const styleOverrides: Record<string, string> = {};
+                if (hasWidthAttr && !currentStyle.width) {
+                  const w = String(attrs.width);
+                  styleOverrides.width = /^\d+$/.test(w) ? w + 'px' : w;
+                }
+                if (hasHeightAttr && !currentStyle.height) {
+                  const h = String(attrs.height);
+                  styleOverrides.height = /^\d+$/.test(h) ? h + 'px' : h;
+                }
+                if (Object.keys(styleOverrides).length > 0) {
+                  comp.addStyle?.(styleOverrides);
+                  comp.removeAttributes?.(['width', 'height']);
+                  console.log('🖼️ Atributos width/height de imagen movidos a style:', styleOverrides);
+                }
+              }
+            }
+          } catch (imgErr) { console.warn('No se pudieron normalizar atributos de imagen', imgErr); }
+
           try {
             const sm: any = gEditor.StyleManager;
             const sectors = sm.getSectors?.() || [];
-            const name = comp?.get?.('type') || comp?.getName?.() || comp?.getTag?.() || '';
             const isText = comp?.is?.('text') || /^(p|h1|h2|h3|h4|h5|h6|span|label)$/i.test(comp?.getTag?.() || '');
             const isSection = comp?.is?.('section') || /^(section|div)$/i.test(comp?.getTag?.() || '');
             sectors.forEach((s: any) => {
@@ -5042,13 +5082,14 @@ const GrapesEditor: React.FC = () => {
       gEditor.on('canvas:frame:load', () => {
         console.log('🖼️ Canvas frame listo');
 
-        // 🔧 PARCHE: Evitar errores de checkEditorContext en iframes
+        // 🔧 PARCHE: Evitar que scripts de botones ejecuten acciones dentro del canvas del editor
         try {
           const frame = gEditor.Canvas.getFrameEl();
           if (frame && frame.contentWindow) {
-            // Evita errores si scripts antiguos llaman esta función
-            frame.contentWindow.checkEditorContext = () => false;
-            console.log('✅ Parche checkEditorContext aplicado al iframe');
+            // En el canvas del editor, checkEditorContext debe retornar TRUE
+            // para que los botones NO executen sus acciones al hacer clic en el canvas
+            (frame.contentWindow as any).checkEditorContext = () => true;
+            console.log('✅ Parche checkEditorContext aplicado al iframe (retorna true = modo editor)');
 
             // También prevenir errores relacionados con checkEditorContext
             frame.contentWindow.addEventListener('error', (e) => {

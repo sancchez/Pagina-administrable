@@ -154,9 +154,18 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
         return;
       }
 
-      // 4. Force behavior
+      // 4. Force behavior ONLY for external or explicitly handled links
       if (href) {
-        // Stop default behavior and propagation
+        const isExternal = /^https?:\/\//i.test(href);
+        const isAnchor = href.startsWith('#');
+        const isMailtoCall = /^(mailto|tel):/i.test(href);
+
+        // Si no es un href externo o especial, dejar que React Router se encargue
+        if (!isExternal && !isAnchor && !isMailtoCall && action !== 'download') {
+          return;
+        }
+
+        // Stop default behavior and propagation para links externos mapeados por GrapesJS
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -176,7 +185,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
     return () => window.removeEventListener('click', handleGlobalClick, true);
   }, []);
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col">
       {/* Header */}
       {effectiveHeaderHtml ? (
         <>
@@ -184,7 +193,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
           <div id="site-header" dangerouslySetInnerHTML={{ __html: effectiveHeaderHtml }} />
         </>
       ) : (
-        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100">
+        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100 flex-none">
           <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex">
@@ -244,7 +253,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       )}
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         {children}
       </main>
 
@@ -252,7 +261,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       {effectiveFooterHtml ? (
         <>
           {effectiveFooterCss && <style dangerouslySetInnerHTML={{ __html: effectiveFooterCss }} />}
-          <div id="site-footer" dangerouslySetInnerHTML={{ __html: effectiveFooterHtml }} />
+          <footer id="site-footer" className="flex-none mt-auto" dangerouslySetInnerHTML={{ __html: effectiveFooterHtml }} />
         </>
       ) : (
         <footer className="bg-gradient-to-r from-blue-900 to-green-900 text-white">

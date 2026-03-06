@@ -23,6 +23,7 @@ interface PageBackup {
   grapesData?: any;
   createdAt: string;
   version: number;
+  sizeBytes?: number;
 }
 
 interface Page {
@@ -31,7 +32,16 @@ interface Page {
   slug?: string;
   status: string;
   updatedAt: string;
+  sizeBytes?: number;
 }
+
+const formatBytes = (bytes: number = 0) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 export default function BackupManager() {
   const { user, isAuthenticated } = useAuth();
@@ -285,6 +295,11 @@ export default function BackupManager() {
                       }`}>
                       {page.status === 'published' ? 'Publicada' : 'Borrador'}
                     </span>
+                    {page.sizeBytes !== undefined && (
+                      <div className="text-xs text-gray-500 mt-1 font-mono text-right">
+                        {formatBytes(page.sizeBytes)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>
@@ -381,6 +396,12 @@ export default function BackupManager() {
                                     <Clock className="h-4 w-4" />
                                     <span>Backup automático</span>
                                   </div>
+                                  {backup.sizeBytes !== undefined && (
+                                    <div className="flex items-center space-x-1 text-indigo-600 font-mono font-medium bg-indigo-50 px-2 py-0.5 rounded">
+                                      <Database className="h-3 w-3" />
+                                      <span>{formatBytes(backup.sizeBytes)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

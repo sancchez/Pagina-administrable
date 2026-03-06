@@ -106,15 +106,42 @@ export class PageService {
       }
 
       // Obtener páginas con paginación
-      const [pages, total] = await Promise.all([
+      const [rawPages, total] = await Promise.all([
         prisma.page.findMany({
           where,
           skip,
           take: limit,
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            isActive: true,
+            isPublished: true,
+            updatedAt: true,
+            createdAt: true,
+            html: true,
+            grapesData: true,
+            gjsHtml: true,
+            gjsComponents: true,
+            // Agregamos fields para el cálculo pero la API no necesita devolver gjsComponents por red si no queremos, igual lo usamos para calculate
+          }
         }),
         prisma.page.count({ where })
       ]);
+
+      const pages = rawPages.map(p => {
+        const sizeBytes = Buffer.byteLength(p.html || '', 'utf8') +
+          Buffer.byteLength(p.grapesData || '', 'utf8') +
+          Buffer.byteLength(p.gjsHtml || '', 'utf8') +
+          Buffer.byteLength(p.gjsComponents || '', 'utf8');
+        // Quitar payloads pesados del resumen si no se ocupan, o dejarlos
+        const { html, grapesData, gjsHtml, gjsComponents, ...pageSummary } = p;
+        return {
+          ...pageSummary,
+          sizeBytes
+        };
+      });
 
       return {
         pages,
@@ -633,7 +660,13 @@ export class PageService {
         take: limit
       });
 
-      return backups;
+      return backups.map(b => ({
+        ...b,
+        sizeBytes: Buffer.byteLength(b.gjsHtml || '', 'utf8') +
+          Buffer.byteLength(b.gjsCss || '', 'utf8') +
+          Buffer.byteLength(b.gjsComponents || '', 'utf8') +
+          Buffer.byteLength(b.gjsStyles || '', 'utf8')
+      }));
     } catch (error: any) {
       console.error('Error getting page backups:', error);
       throw createError(500, 'Error interno del servidor al obtener backups');
