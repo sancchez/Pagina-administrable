@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +10,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footerHtml, footerCss }) => {
+  const navigate = useNavigate();
   // Cargar header/footer dinámicos si no fueron proporcionados
   const [loadedHeaderHtml, setLoadedHeaderHtml] = useState<string>('');
   const [loadedHeaderCss, setLoadedHeaderCss] = useState<string>('');
@@ -20,32 +21,27 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
   const sanitizeTargets = (html: string) => (html || '');
 
   // Aislar CSS del footer/header para que solo afecte su contenedor
-  const scopeCSS = (css: string, scopeId: string): string => {
+      const scopeCSS = (css: string, scopeId: string): string => {
     if (!css) return '';
-
-    // Prefijar cada selector con #scopeId para aislar los estilos
-    return css
-      .split('}')
-      .map(rule => {
-        if (!rule.trim()) return '';
-        const parts = rule.split('{');
-        if (parts.length !== 2) return rule + '}';
-
-        const selectors = parts[0].trim();
-        const styles = parts[1].trim();
-
-        // No modificar @media, @keyframes, etc.
-        if (selectors.startsWith('@')) return rule + '}';
-
-        // Prefijar cada selector
-        const scopedSelectors = selectors
-          .split(',')
-          .map(sel => `#${scopeId} ${sel.trim()}`)
-          .join(', ');
-
-        return `${scopedSelectors} { ${styles} }`;
-      })
-      .join('\n');
+    return css.replace(/(^|\}|\{)\s*([^@}{][^{]+)\{/g, (match, p1, selectors) => {
+      const trimmedSelectors = selectors.trim();
+      if (!trimmedSelectors) return match;
+      const scoped = trimmedSelectors.split(',').map(sel => {
+        const s = sel.trim();
+        if (!s) return '';
+        const cleanSel = s.toLowerCase();
+        // Si es raíz, mapear al contenedor
+        if (cleanSel === 'body' || cleanSel === 'html' || cleanSel === ':root' || cleanSel === '.wrapper') {
+          return `#${scopeId}`;
+        }
+        // SI YA EMPIEZA CON EL ID, NO VOLVER A PREFIJAR NI APLASTAR
+        if (s.startsWith(`#${scopeId}`)) {
+          return s;
+        }
+        return `#${scopeId} ${s}`;
+      }).join(', ');
+      return `${p1} ${scoped} {`;
+    });
   };
 
   useEffect(() => {
@@ -160,8 +156,25 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
         const isAnchor = href.startsWith('#');
         const isMailtoCall = /^(mailto|tel):/i.test(href);
 
-        // Si no es un href externo o especial, dejar que React Router se encargue
+        // Si es un enlace interno (SPA) o un botón GrapesJS
         if (!isExternal && !isAnchor && !isMailtoCall && action !== 'download') {
+          // Normalizar href para navegación interna
+          let targetPath = href || '/';
+          if (!targetPath.startsWith('/') && !targetPath.includes('://')) {
+            targetPath = '/' + targetPath;
+          }
+
+          console.log('🚀 [Layout] SPA Intercept:', { href, targetPath, isNewTab });
+
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          if (isNewTab) {
+            window.open(targetPath, '_blank');
+          } else {
+            navigate(targetPath);
+          }
           return;
         }
 
@@ -190,10 +203,10 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       {effectiveHeaderHtml ? (
         <>
           {effectiveHeaderCss && <style dangerouslySetInnerHTML={{ __html: effectiveHeaderCss }} />}
-          <div id="site-header" dangerouslySetInnerHTML={{ __html: effectiveHeaderHtml }} />
+          <div id="site-header" className="relative w-full z-50 shrink-0" dangerouslySetInnerHTML={{ __html: effectiveHeaderHtml }} />
         </>
       ) : (
-        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100 flex-none">
+        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100 flex-none z-50">
           <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex">
@@ -253,7 +266,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       )}
 
       {/* Main Content */}
-      <main className="flex-1 w-full">
+      <main className="flex-grow w-full relative z-10 flex flex-col">
         {children}
       </main>
 
@@ -261,7 +274,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerHtml, headerCss, footer
       {effectiveFooterHtml ? (
         <>
           {effectiveFooterCss && <style dangerouslySetInnerHTML={{ __html: effectiveFooterCss }} />}
-          <footer id="site-footer" className="flex-none mt-auto" dangerouslySetInnerHTML={{ __html: effectiveFooterHtml }} />
+          <footer id="site-footer" className="relative w-full z-40 flex-none mt-auto" dangerouslySetInnerHTML={{ __html: effectiveFooterHtml }} />
         </>
       ) : (
         <footer className="bg-gradient-to-r from-blue-900 to-green-900 text-white">

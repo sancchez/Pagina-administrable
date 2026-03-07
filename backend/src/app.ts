@@ -86,8 +86,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Middleware de parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Rate limiting global adaptativo por endpoint
 app.use(adaptiveLimiter);
@@ -172,9 +172,11 @@ app.use('/api/database', databaseRoutes);
 
 // Endpoint de subida de imágenes (legacy, mantener por compatibilidad o migrar a uploadRoutes)
 app.use('/api/upload', uploadRoutes); // Registra nuevas rutas de upload primero
-app.post('/api/upload', imageUpload.single('file'), (req: any, res: any) => {
+app.post('/api/upload', imageUpload.any(), (req: any, res: any) => {
   try {
-    const file = (req as any).file;
+    const files = (req as any).files;
+    const file = files && files.length > 0 ? files[0] : null;
+
     if (!file) {
       return res.status(400).json({ success: false, message: 'No se recibió archivo', error: 'NO_FILE' });
     }

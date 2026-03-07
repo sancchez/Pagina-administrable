@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './logger';
+import { config } from '../config/env';
 
 // Tipos permitidos de archivos
 export const ALLOWED_IMAGE_TYPES = [
@@ -28,9 +29,9 @@ export const ALL_ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TY
 
 // Configuración de tamaños máximos
 export const MAX_FILE_SIZE = {
-  IMAGE: 5 * 1024 * 1024, // 5MB
-  DOCUMENT: 10 * 1024 * 1024, // 10MB
-  DEFAULT: 2 * 1024 * 1024, // 2MB
+  IMAGE: (config.upload?.maxFileSize || 50) * 1024 * 1024, // Usar config o fallback 50MB
+  DOCUMENT: (config.upload?.maxFileSize || 50) * 1024 * 1024,
+  DEFAULT: 5 * 1024 * 1024,
 };
 
 // Crear directorio si no existe
@@ -49,7 +50,7 @@ export const generateUniqueFileName = (originalName: string): string => {
   const name = path.basename(originalName, ext);
   const timestamp = Date.now();
   const uuid = uuidv4().substring(0, 8);
-  
+
   return `${name}_${timestamp}_${uuid}${ext}`;
 };
 
@@ -109,7 +110,7 @@ export const imageUpload = multer({
   fileFilter: createFileFilter(ALLOWED_IMAGE_TYPES, MAX_FILE_SIZE.IMAGE),
   limits: {
     fileSize: MAX_FILE_SIZE.IMAGE,
-    files: 5 // máximo 5 archivos por request
+    files: 10 // aumentado a 10 archivos por request
   }
 });
 
@@ -149,7 +150,7 @@ export const getFileInfo = async (filePath: string) => {
     const stats = await fs.stat(filePath);
     const ext = path.extname(filePath);
     const name = path.basename(filePath);
-    
+
     return {
       name,
       size: stats.size,

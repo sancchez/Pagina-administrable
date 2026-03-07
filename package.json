@@ -16,7 +16,8 @@
     "pm2:stop": "pm2 stop ecosystem.config.cjs",
     "pm2:restart": "pm2 restart ecosystem.config.cjs",
     "pm2:logs": "pm2 logs pagina-admin-backend",
-    "pm2:status": "pm2 status"
+    "pm2:status": "pm2 status",
+    "kill:ports": "node scripts/kill-port.js 4000 && node scripts/kill-port.js 5174"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",

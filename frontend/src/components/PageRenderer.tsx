@@ -82,15 +82,22 @@ function stripDuplicateLayout(html: string, slug: string): string {
 function scopeCssToContent(css: string, containerSelector: string): string {
   if (!css) return css;
   try {
-    // Reemplazar inicio de bloques de selectores que no empiezan por '@'
-    // Ejemplo: h1, .class { ... }  =>  #page-content h1, #page-content .class { ... }
-    return css.replace(/(^|\})(\s*)([^@}{][^{]+)\{/g, (_m, p1, p2, selectors) => {
-      // Para cada selector separado por comas, prefijar el contenedor
-      const scoped = selectors
-        .split(',')
-        .map(s => `${containerSelector} ${s.trim()}`)
-        .join(', ');
-      return `${p1}${p2}${scoped}{`;
+    return css.replace(/(^|\}|\{)\s*([^@}{][^{]+)\{/g, (match, p1, selectors) => {
+      const trimmedSelectors = selectors.trim();
+      if (!trimmedSelectors) return match;
+      const scoped = trimmedSelectors.split(',').map((sel: string) => {
+        const s = sel.trim();
+        if (!s) return '';
+        const cleanSel = s.toLowerCase();
+        if (cleanSel === 'body' || cleanSel === 'html' || cleanSel === ':root' || cleanSel === '.wrapper') {
+          return containerSelector;
+        }
+        if (s.startsWith(containerSelector)) {
+          return s;
+        }
+        return `${containerSelector} ${s}`;
+      }).join(', ');
+      return `${p1} ${scoped} {`;
     });
   } catch {
     return css;

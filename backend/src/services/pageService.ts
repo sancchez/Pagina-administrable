@@ -481,8 +481,8 @@ export class PageService {
     htmlToPublish = htmlToPublish.replace(/<script[^>]*>\s*[\s\S]*?function\s+handleClick[\s\S]*?<\/script>/g, '');
 
     // Inyectar script de botones si la página contiene botones con data-action-type
-    if (htmlToPublish.includes('data-action-type')) {
-      const buttonScript = '<script src="/button-actions.js" defer></script>';
+    if (htmlToPublish.includes('data-action-type') || htmlToPublish.includes('data-url')) {
+      const buttonScript = `<script src="/button-actions.js?v=${Date.now()}" defer></script>`;
 
       // Buscar la etiqueta </body> o </html> para insertar el script
       if (htmlToPublish.includes('</body>')) {

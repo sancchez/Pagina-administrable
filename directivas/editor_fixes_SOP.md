@@ -112,3 +112,21 @@ El Footer aparecía a la mitad de la pantalla tapando contenido, y al hacer clic
 1) Se envolvió el renderizado del footer dinámico en \<footer id=\"site-footer\" className=\"flex-none mt-auto\">...</footer>\.
 2) Se filtró el manejador global de clics para abortar ejecución (dejar pasar natural) en enlaces internos de la app.
 
+---
+
+## Bug 6: Estilos de footer no detectados (Media Queries y Atributos de Imagen)
+
+### Síntoma
+En la página pública, el footer no respeta el tamaño de las imágenes ni los colores de texto editados. Media queries se rompen.
+
+### Causa Raíz
+1) `scopeCSS` usa `split('}')`, lo que rompe bloques anidados como `@media (max-width: ...) { .class { ... } }`.
+2) Atributos HTML `width`/`height` en imágenes tienen prioridad sobre el CSS generado por GrapesJS si no se limpian.
+
+### Solución
+1) Implementar un regex robusto para `scopeCSS` que ignore bloques `@media` o los procese recursivamente, y que prefije correctamente los selectores.
+2) Al guardar en `GrapesEditor.tsx`, detectar componentes de imagen y forzar el traslado de atributos `width/height` al style.
+
+### Restricciones conocidas
+- No prefijar selectores que ya empiezan con el ID del contenedor (ej. `#site-footer`).
+- Mantener compatibilidad con Tailwind (no limpiar clases, solo atributos de tamaño hardcoded).

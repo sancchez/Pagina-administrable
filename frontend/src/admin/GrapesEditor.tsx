@@ -296,6 +296,30 @@ const GrapesEditor: React.FC = () => {
         console.warn('No se pudo sincronizar el texto de botones antes de exportar:', e);
       }
 
+            // Normalizar imágenes: mover width/height de atributos a styles
+      try {
+        const wrapper = inst.getWrapper?.();
+        if (wrapper) {
+          const imgs = wrapper.find('img');
+          imgs.forEach((img: any) => {
+            const attrs = img.getAttributes();
+            const w = attrs.width;
+            const h = attrs.height;
+            if (w || h) {
+              const style: any = {};
+              if (w && !isNaN(Number(w))) style.width = w + 'px';
+              else if (w) style.width = w;
+              if (h && !isNaN(Number(h))) style.height = h + 'px';
+              else if (h) style.height = h;
+              img.addStyle(style);
+              img.removeAttributes(['width', 'height']);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Error normalizando imágenes:', e);
+      }
+
       const grapesData = inst.store ? inst.store() : inst.getProjectData?.();
       const html = inst.getHtml() || '';
       const css = inst.getCss() || '';
@@ -559,6 +583,20 @@ const GrapesEditor: React.FC = () => {
         avoidInlineStyle: true,
         protectedCss: '',
         storageManager: { type: 'local' },
+        assetManager: {
+          upload: '/api/upload/image',
+          uploadName: 'files',
+          multiUpload: true,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          // @ts-ignore
+          uploadResponse: (res: any) => {
+            // Transformar la respuesta al formato que espera GrapesJS
+            // Nuestra API devuelve { data: [{ src: '...', type: 'image' }] }
+            return { data: res.data };
+          }
+        },
         canvas: {
           styles: [
             getMainCssHref(), // CSS principal (dev o producción)
@@ -1042,6 +1080,32 @@ const GrapesEditor: React.FC = () => {
           }, 50);
         } catch (error) {
           console.error('❌ Error al seleccionar componente:', error);
+        }
+
+        // ================= FIX IMÁGENES =================
+        // Normalizar: remover atributos width/height y poner solo en style
+        try {
+          if (component.getTag?.() === 'img' || component.get('type') === 'image') {
+            const attrs = component.getAttributes();
+            if (attrs.width || attrs.height) {
+              console.log('📸 Normalizando dimensiones de imagen...', attrs.width, attrs.height);
+              const w = attrs.width ? attrs.width + (String(attrs.width).includes('%') ? '' : 'px') : '';
+              const h = attrs.height ? attrs.height + (String(attrs.height).includes('%') ? '' : 'px') : '';
+
+              const newAttrs = { ...attrs };
+              delete newAttrs.width;
+              delete newAttrs.height;
+              component.setAttributes(newAttrs);
+
+              if (w) component.addStyle({ width: w });
+              if (h) component.addStyle({ height: h });
+
+              setHasUnsavedChanges(true);
+              scheduleAutoSave();
+            }
+          }
+        } catch (err) {
+          console.warn('⚠️ No se pudieron normalizar dimensiones de imagen:', err);
         }
       });
 
