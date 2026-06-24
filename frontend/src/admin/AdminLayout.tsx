@@ -77,8 +77,8 @@ export default function AdminLayout() {
                 <Globe className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
-                  asomielrodas
+                <h1 className="text-2xl font-bold text-blue-700">
+                  Acueducto El Socorro
                 </h1>
                 <p className="text-sm text-gray-600">Panel de Administración Web</p>
               </div>

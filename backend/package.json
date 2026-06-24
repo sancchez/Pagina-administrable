@@ -25,6 +25,7 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
+    "import:pages": "ts-node src/scripts/importClientPages.ts",
     "seed:footer": "ts-node src/scripts/seedFooter.ts",
     "setup:admin": "ts-node src/scripts/setupAdmin.ts",
     "postinstall": "prisma generate"

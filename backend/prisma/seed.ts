@@ -2,10 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import { socorroPages, BRAND } from './socorroPages';
 
 const prisma = new PrismaClient();
 
-interface PageData {
+interface ConvertedPage {
   title: string;
   slug: string;
   gjsHtml: string;
@@ -14,353 +15,147 @@ interface PageData {
   gjsStyles: string;
 }
 
-async function seedPagesFromConvertedFiles() {
+/**
+ * Siembra las páginas del sitio.
+ *  - Si existe `temp/converted-pages/*.json` (generado por el script
+ *    `import:pages` a partir del HTML real del cliente), usa esos archivos.
+ *  - Si no, siembra el sitio base de "Acueducto El Socorro" (socorroPages.ts).
+ * Todas las páginas quedan publicadas y editables desde el editor.
+ */
+async function seedPages() {
   const convertedPagesPath = path.resolve(__dirname, '../temp/converted-pages');
-  
-  // Verificar si existe el directorio de páginas convertidas
-  if (!fs.existsSync(convertedPagesPath)) {
-    console.log('⚠️  No se encontraron páginas convertidas. Creando página de inicio por defecto...');
-    
-    // Crear página de inicio por defecto
-    const homePage = await prisma.page.upsert({
-      where: { slug: 'home' },
-      update: {},
-      create: {
-        slug: 'home',
-        title: 'Bienvenido al Acueducto Municipal',
-        gjsHtml: "<div class=\"container\"><h1>Bienvenido al Acueducto Municipal</h1><p>Brindamos servicios de agua potable de calidad para nuestra comunidad.</p></div>",
-        gjsCss: ".container { max-width: 1200px; margin: 0 auto; padding: 20px; } h1 { color: #2563eb; text-align: center; } p { font-size: 18px; text-align: center; color: #6b7280; }",
-        gjsComponents: "[]",
-        gjsStyles: "[]",
-      },
-    });
-    
-    console.log('✅ Página de inicio por defecto creada:', homePage.title);
+  const hasConverted =
+    fs.existsSync(convertedPagesPath) &&
+    fs.readdirSync(convertedPagesPath).some((f) => f.endsWith('.json'));
 
-    // Crear páginas especiales: _header y _footer
-    const headerPage = await prisma.page.upsert({
-      where: { slug: '_header' },
-      update: {},
-      create: {
-        slug: '_header',
-        title: 'Header del Sitio',
-        html: `<header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100">
-  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16">
-      <div class="flex">
-        <div class="flex-shrink-0 flex items-center">
-          <a href="/" class="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-            Acueducto Municipal
-          </a>
-        </div>
-        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-          <a href="/" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Inicio</a>
-          <a href="/quienes-somos" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Quiénes Somos</a>
-          <a href="/informacion-esal" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Información ESAL</a>
-          <a href="/operacion-gestion" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Operación y Gestión</a>
-          <a href="/portal-usuario" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Portal Usuario</a>
-          <a href="/normatividad" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Normatividad</a>
-          <a href="/contacto" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Contacto</a>
-        </div>
-      </div>
-    </div>
-  </nav>
-</header>`,
-        css: '',
-        publishedHtml: `<header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-blue-100">
-  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16">
-      <div class="flex">
-        <div class="flex-shrink-0 flex items-center">
-          <a href="/" class="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-            Acueducto Municipal
-          </a>
-        </div>
-        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-          <a href="/" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Inicio</a>
-          <a href="/quienes-somos" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Quiénes Somos</a>
-          <a href="/informacion-esal" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Información ESAL</a>
-          <a href="/operacion-gestion" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Operación y Gestión</a>
-          <a href="/portal-usuario" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Portal Usuario</a>
-          <a href="/normatividad" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Normatividad</a>
-          <a href="/contacto" class="border-transparent text-gray-600 hover:border-blue-300 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors">Contacto</a>
-        </div>
-      </div>
-    </div>
-  </nav>
-</header>`,
-        publishedCss: '',
-        isPublished: true,
+  if (hasConverted) {
+    const files = fs.readdirSync(convertedPagesPath).filter((f) => f.endsWith('.json'));
+    for (const file of files) {
+      try {
+        const data: ConvertedPage = JSON.parse(
+          fs.readFileSync(path.join(convertedPagesPath, file), 'utf-8')
+        );
+        await prisma.page.upsert({
+          where: { slug: data.slug },
+          update: {
+            title: data.title,
+            gjsHtml: data.gjsHtml,
+            gjsCss: data.gjsCss,
+            gjsComponents: data.gjsComponents,
+            gjsStyles: data.gjsStyles,
+            publishedHtml: data.gjsHtml,
+            isPublished: true,
+          },
+          create: {
+            slug: data.slug,
+            title: data.title,
+            gjsHtml: data.gjsHtml,
+            gjsCss: data.gjsCss,
+            gjsComponents: data.gjsComponents,
+            gjsStyles: data.gjsStyles,
+            publishedHtml: data.gjsHtml,
+            publishedCss: data.gjsCss,
+            isPublished: true,
+          },
+        });
+        console.log(`✅ Página importada: ${data.title} (${data.slug})`);
+      } catch (error) {
+        console.error(`❌ Error procesando ${file}:`, error);
       }
-    });
-    const footerPage = await prisma.page.upsert({
-      where: { slug: '_footer' },
-      update: {},
-      create: {
-        slug: '_footer',
-        title: 'Footer del Sitio',
-        html: `<footer class="bg-gradient-to-r from-blue-900 to-green-900 text-white">
-  <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-      <div class="col-span-1 md:col-span-2">
-        <h3 class="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-200 to-green-200 bg-clip-text text-transparent">
-          Acueducto Municipal
-        </h3>
-        <p class="text-blue-100">
-          Comprometidos con brindar servicios de agua potable de calidad para nuestra comunidad, 
-          garantizando el acceso continuo y confiable al recurso hídrico.
-        </p>
-      </div>
-      <div>
-        <h4 class="text-md font-semibold mb-4 text-green-200">Servicios</h4>
-        <ul class="space-y-2">
-          <li>
-            <a href="/portal-usuario" class="text-blue-100 hover:text-white transition-colors">Portal Usuario</a>
-          </li>
-          <li>
-            <a href="/quienes-somos" class="text-blue-100 hover:text-white transition-colors">Quiénes Somos</a>
-          </li>
-          <li>
-            <a href="/contacto" class="text-blue-100 hover:text-white transition-colors">Contacto</a>
-          </li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="text-md font-semibold mb-4 text-green-200">Información</h4>
-        <ul class="space-y-2">
-          <li>
-            <a href="/informacion-esal" class="text-blue-100 hover:text-white transition-colors">Información ESAL</a>
-          </li>
-          <li>
-            <a href="/operacion-gestion" class="text-blue-100 hover:text-white transition-colors">Operación y Gestión</a>
-          </li>
-          <li>
-            <a href="/normatividad" class="text-blue-100 hover:text-white transition-colors">Normatividad</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <div class="mt-8 pt-8 border-t border-blue-800">
-      <p class="text-center text-blue-200">
-        © 2024 Acueducto Municipal. Todos los derechos reservados.
-      </p>
-    </div>
-  </div>
-</footer>`,
-        css: '',
-        publishedHtml: `<footer class="bg-gradient-to-r from-blue-900 to-green-900 text-white">
-  <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-      <div class="col-span-1 md:col-span-2">
-        <h3 class="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-200 to-green-200 bg-clip-text text-transparent">
-          Acueducto Municipal
-        </h3>
-        <p class="text-blue-100">
-          Comprometidos con brindar servicios de agua potable de calidad para nuestra comunidad, 
-          garantizando el acceso continuo y confiable al recurso hídrico.
-        </p>
-      </div>
-      <div>
-        <h4 class="text-md font-semibold mb-4 text-green-200">Servicios</h4>
-        <ul class="space-y-2">
-          <li>
-            <a href="/portal-usuario" class="text-blue-100 hover:text-white transition-colors">Portal Usuario</a>
-          </li>
-          <li>
-            <a href="/quienes-somos" class="text-blue-100 hover:text-white transition-colors">Quiénes Somos</a>
-          </li>
-          <li>
-            <a href="/contacto" class="text-blue-100 hover:text-white transition-colors">Contacto</a>
-          </li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="text-md font-semibold mb-4 text-green-200">Información</h4>
-        <ul class="space-y-2">
-          <li>
-            <a href="/informacion-esal" class="text-blue-100 hover:text-white transition-colors">Información ESAL</a>
-          </li>
-          <li>
-            <a href="/operacion-gestion" class="text-blue-100 hover:text-white transition-colors">Operación y Gestión</a>
-          </li>
-          <li>
-            <a href="/normatividad" class="text-blue-100 hover:text-white transition-colors">Normatividad</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <div class="mt-8 pt-8 border-t border-blue-800">
-      <p class="text-center text-blue-200">
-        © 2024 Acueducto Municipal. Todos los derechos reservados.
-      </p>
-    </div>
-  </div>
-</footer>`,
-        publishedCss: '',
-        isPublished: true,
-      }
-    });
-    console.log('✅ Páginas especiales creadas:', headerPage.slug, footerPage.slug);
+    }
     return;
   }
 
-  // Leer archivos JSON de páginas convertidas
-  const files = fs.readdirSync(convertedPagesPath).filter(file => file.endsWith('.json'));
-  
-  for (const file of files) {
-    try {
-      const filePath = path.join(convertedPagesPath, file);
-      const pageData: PageData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      
-      const page = await prisma.page.upsert({
-        where: { slug: pageData.slug },
-        update: {
-          title: pageData.title,
-          gjsHtml: pageData.gjsHtml,
-          gjsCss: pageData.gjsCss,
-          gjsComponents: pageData.gjsComponents,
-          gjsStyles: pageData.gjsStyles,
-        },
+  // Sitio base de El Socorro
+  for (const page of socorroPages) {
+    if (page.kind === 'special') {
+      // _header / _footer: se guardan en html/publishedHtml (para el render
+      // público) y TAMBIÉN en gjsHtml, para que el editor los pueda abrir y
+      // editar (el editor carga gjsHtml; con solo `html` + css vacío no cargaba).
+      await prisma.page.upsert({
+        where: { slug: page.slug },
+        update: { title: page.title, html: page.html, gjsHtml: page.html, gjsComponents: '[]', publishedHtml: page.html, isPublished: true },
         create: {
-          slug: pageData.slug,
-          title: pageData.title,
-          gjsHtml: pageData.gjsHtml,
-          gjsCss: pageData.gjsCss,
-          gjsComponents: pageData.gjsComponents,
-          gjsStyles: pageData.gjsStyles,
+          slug: page.slug,
+          title: page.title,
+          html: page.html,
+          css: '',
+          gjsHtml: page.html,
+          gjsCss: '',
+          gjsComponents: '[]',
+          gjsStyles: '[]',
+          publishedHtml: page.html,
+          publishedCss: '',
+          isPublished: true,
         },
       });
-      
-      console.log(`✅ Página creada/actualizada: ${page.title} (${page.slug})`);
-    } catch (error) {
-      console.error(`❌ Error procesando ${file}:`, error);
+    } else {
+      // Páginas normales: gjsHtml editable + publishedHtml para el público
+      await prisma.page.upsert({
+        where: { slug: page.slug },
+        update: { title: page.title, gjsHtml: page.html, gjsComponents: '[]', gjsStyles: '[]', publishedHtml: page.html, isPublished: true },
+        create: {
+          slug: page.slug,
+          title: page.title,
+          gjsHtml: page.html,
+          gjsCss: '',
+          gjsComponents: '[]',
+          gjsStyles: '[]',
+          publishedHtml: page.html,
+          publishedCss: '',
+          isPublished: true,
+        },
+      });
     }
+    console.log(`✅ Página creada: ${page.title} (${page.slug})`);
   }
 }
 
 async function main() {
-  console.log('🌱 Iniciando seed de la base de datos...');
+  console.log(`🌱 Iniciando seed — ${BRAND}...`);
 
-  // Crear usuario administrador
-  const adminPassword = await bcrypt.hash('admin123', 12);
-  
+  // Usuario administrador (credenciales demo del cliente)
+  const adminPassword = await bcrypt.hash('socorro2026', 12);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@acueducto.com' },
-    update: {},
+    where: { email: 'admin@elsocorro.com' },
+    update: { password: adminPassword },
     create: {
-      email: 'admin@acueducto.com',
+      email: 'admin@elsocorro.com',
       password: adminPassword,
       firstName: 'Administrador',
-      lastName: 'Sistema',
-      role: "ADMIN",
-      phone: '+57 300 123 4567',
+      lastName: 'El Socorro',
+      role: 'ADMIN',
+      phone: '(607) 000 0000',
     },
   });
+  console.log('✅ Admin creado:', admin.email, '(contraseña: socorro2026)');
 
-  console.log('✅ Usuario administrador creado:', admin.email);
-
-  // Crear usuario manager de ejemplo
-  const managerPassword = await bcrypt.hash('manager123', 12);
-  
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@acueducto.com' },
-    update: {},
-    create: {
-      email: 'manager@acueducto.com',
-      password: managerPassword,
-      firstName: 'Gerente',
-      lastName: 'Operaciones',
-      role: "MANAGER",
-      phone: '+57 300 987 6543',
-    },
-  });
-
-  console.log('✅ Usuario manager creado:', manager.email);
-
-  // Crear algunos usuarios de ejemplo
+  // Un par de usuarios de ejemplo para el portal
   const userPassword = await bcrypt.hash('user123', 12);
-  
-  const users = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'juan.perez@email.com' },
-      update: {},
-      create: {
-        email: 'juan.perez@email.com',
-        password: userPassword,
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        role: "USER",
-        phone: '+57 300 111 2222',
-      },
-    }),
-    prisma.user.upsert({
-      where: { email: 'maria.garcia@email.com' },
-      update: {},
-      create: {
-        email: 'maria.garcia@email.com',
-        password: userPassword,
-        firstName: 'María',
-        lastName: 'García',
-        role: "USER",
-        phone: '+57 300 333 4444',
-      },
-    }),
-  ]);
-
-  console.log('✅ Usuarios de ejemplo creados:', users.length);
-
-  // Crear configuraciones del sistema
-  const settings = [
-    {
-      key: 'company_name',
-      value: 'Acueducto Municipal',
-      type: 'STRING' as const,
-      description: 'Nombre de la empresa',
-    },
-    {
-      key: 'company_address',
-      value: 'Calle Principal #123, Ciudad',
-      type: 'STRING' as const,
-      description: 'Dirección de la empresa',
-    },
-    {
-      key: 'company_phone',
-      value: '+57 1 234 5678',
-      type: 'STRING' as const,
-      description: 'Teléfono de la empresa',
-    },
-    {
-      key: 'company_email',
-      value: 'info@acueducto.com',
-      type: 'STRING' as const,
-      description: 'Email de contacto',
-    },
-    {
-      key: 'water_rate_basic',
-      value: '15000',
-      type: 'NUMBER' as const,
-      description: 'Tarifa básica del agua (COP)',
-    },
-    {
-      key: 'water_rate_per_m3',
-      value: '2500',
-      type: 'NUMBER' as const,
-      description: 'Tarifa por metro cúbico adicional (COP)',
-    },
-    {
-      key: 'maintenance_fee',
-      value: '5000',
-      type: 'NUMBER' as const,
-      description: 'Tarifa de mantenimiento mensual (COP)',
-    },
-    {
-      key: 'invoice_due_days',
-      value: '30',
-      type: 'NUMBER' as const,
-      description: 'Días para vencimiento de factura',
-    },
+  const sampleUsers = [
+    { email: 'juan.perez@email.com', firstName: 'Juan', lastName: 'Pérez', phone: '300 111 2222' },
+    { email: 'maria.garcia@email.com', firstName: 'María', lastName: 'García', phone: '300 333 4444' },
   ];
+  for (const u of sampleUsers) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: { ...u, password: userPassword, role: 'USER' },
+    });
+  }
+  console.log('✅ Usuarios de ejemplo creados:', sampleUsers.length);
 
+  // Configuración del sistema
+  const settings = [
+    { key: 'company_name', value: BRAND, type: 'STRING' as const, description: 'Nombre de la empresa' },
+    { key: 'company_address', value: 'Carrera 5 #10-20, El Socorro', type: 'STRING' as const, description: 'Dirección' },
+    { key: 'company_phone', value: '(607) 000 0000', type: 'STRING' as const, description: 'Teléfono' },
+    { key: 'company_email', value: 'info@elsocorro.com', type: 'STRING' as const, description: 'Email de contacto' },
+    { key: 'water_rate_basic', value: '15000', type: 'NUMBER' as const, description: 'Tarifa básica del agua (COP)' },
+    { key: 'water_rate_per_m3', value: '2500', type: 'NUMBER' as const, description: 'Tarifa por m³ adicional (COP)' },
+    { key: 'maintenance_fee', value: '5000', type: 'NUMBER' as const, description: 'Tarifa de mantenimiento mensual (COP)' },
+    { key: 'invoice_due_days', value: '30', type: 'NUMBER' as const, description: 'Días para vencimiento de factura' },
+  ];
   for (const setting of settings) {
     await prisma.setting.upsert({
       where: { key: setting.key },
@@ -368,14 +163,9 @@ async function main() {
       create: setting,
     });
   }
-
   console.log('✅ Configuraciones del sistema creadas:', settings.length);
 
-  // Crear página de inicio con GrapesJS
-  // Cargar páginas convertidas
-  await seedPagesFromConvertedFiles();
-
-  console.log('✅ Todas las páginas han sido creadas desde los archivos convertidos');
+  await seedPages();
 
   console.log('🎉 Seed completado exitosamente!');
 }

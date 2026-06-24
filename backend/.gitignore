@@ -102,3 +102,6 @@ uploads/
 
 # Prisma
 prisma/migrations/
+# Logs de servidor (nohup) - no versionar
+nohup.out
+*.log

@@ -35,6 +35,56 @@ interface PageData {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'auto-saving';
 
+// =================== FIX A: Editabilidad de HTML importado ===================
+// GrapesJS solo permite edición inline (doble clic) en componentes tipo 'text'.
+// Cuando se importa HTML crudo (seed/Tailwind), los textos quedan como tipo
+// 'default' y no se pueden editar. Esta función recorre el árbol y marca como
+// editable cualquier componente HOJA (sin hijos-elemento) que contenga texto,
+// sin tocar botones, imágenes ni componentes custom con comportamiento propio.
+// Se aplica en CADA carga (no depende de que el flag 'editable' se persista).
+const NON_EDITABLE_TYPES = new Set([
+  'button', 'action-button', 'dropdown-menu', 'svg', 'pdf-viewer',
+  'image', 'video', 'map', 'iframe', 'wrapper',
+]);
+
+const makeImportedContentEditable = (editor: Editor | null) => {
+  if (!editor) return;
+  let marked = 0;
+  const visit = (comp: any) => {
+    try {
+      const type = comp.get('type');
+      const children = comp.components?.();
+      const childArr: any[] = children?.models || [];
+      const hasElementChild = childArr.some((c: any) => c.get('type') !== 'textnode');
+
+      if (!NON_EDITABLE_TYPES.has(type) && !hasElementChild) {
+        const hasTextChild = childArr.some((c: any) => {
+          const content = c.get('content');
+          return c.get('type') === 'textnode' && typeof content === 'string' && content.trim().length > 0;
+        });
+        const ownContent = comp.get('content');
+        const hasOwnText = typeof ownContent === 'string' && ownContent.trim().length > 0;
+        if (hasTextChild || hasOwnText) {
+          if (comp.get('editable') !== true) {
+            comp.set('editable', true);
+            marked++;
+          }
+        }
+      }
+      childArr.forEach(visit);
+    } catch { /* nodo no procesable, continuar */ }
+  };
+  try {
+    const wrapper = editor.getWrapper?.();
+    if (wrapper) {
+      (wrapper.components?.().models || []).forEach(visit);
+      if (marked > 0) console.log(`✏️ FIX A: ${marked} contenedor(es) de texto importado marcados como editables`);
+    }
+  } catch (e) {
+    console.warn('FIX A: no se pudo procesar editabilidad de contenido importado', e);
+  }
+};
+
 const GrapesEditor: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -296,7 +346,7 @@ const GrapesEditor: React.FC = () => {
         console.warn('No se pudo sincronizar el texto de botones antes de exportar:', e);
       }
 
-            // Normalizar imágenes: mover width/height de atributos a styles
+      // Normalizar imágenes: mover width/height de atributos a styles
       try {
         const wrapper = inst.getWrapper?.();
         if (wrapper) {
@@ -1520,13 +1570,22 @@ const GrapesEditor: React.FC = () => {
             isComponent: (el: any) => {
               if (!el || !el.tagName) return false;
               const tagName = el.tagName.toLowerCase();
-              return tagName === 'button' ||
-                (tagName === 'a' && (
-                  el.style?.display?.includes('block') ||
-                  el.style?.padding ||
-                  el.className?.includes('btn') ||
-                  el.className?.includes('button')
-                ));
+              // <button> siempre es botón.
+              if (tagName === 'button') return true;
+              // FIX B: un <a> solo es "botón" cuando lo es de verdad:
+              // - tiene clase explícita btn/button, o
+              // - es un botón de acción del sistema (data-action-type / data-label).
+              // Antes se capturaba cualquier <a> con padding o display:block inline,
+              // lo que convertía enlaces de texto normales (Tailwind) en botones NO
+              // editables. Ahora esos enlaces quedan editables como texto (Fix A).
+              if (tagName === 'a') {
+                const cls = (el.className || '').toString();
+                if (/\b(btn|button)\b/.test(cls)) return true;
+                const getAttr = typeof el.getAttribute === 'function' ? (n: string) => el.getAttribute(n) : () => null;
+                if (getAttr('data-action-type') || getAttr('data-label')) return true;
+                return false;
+              }
+              return false;
             },
             extend: 'button',
             model: {
@@ -5363,6 +5422,7 @@ const GrapesEditor: React.FC = () => {
         if (compsLen > 0) {
           try {
             editorInstanceRef.current.loadProjectData({ components, styles });
+            try { makeImportedContentEditable(editorInstanceRef.current); } catch { }
             const htmlNow = editorInstanceRef.current.getHtml();
             latestHtmlRef.current = htmlNow || latestHtmlRef.current;
             try { latestCssRef.current = editorInstanceRef.current.getCss(); } catch { }
@@ -5415,6 +5475,9 @@ const GrapesEditor: React.FC = () => {
           // Espera de Tailwind desactivada temporalmente
           // Cargar HTML
           editorInstanceRef.current.setComponents(cleanHtml);
+          // FIX A: el HTML importado se parsea como componentes 'default' (no editables).
+          // Marcar como editables los contenedores de texto puro para permitir doble clic.
+          try { makeImportedContentEditable(editorInstanceRef.current); } catch { }
           console.log('✅ Componentes establecidos');
           // Cargar CSS si existe
           if (pageData.gjsCss) {
@@ -5499,6 +5562,7 @@ const GrapesEditor: React.FC = () => {
         const bodyContent = doc.body.innerHTML;
 
         editorInstanceRef.current.setComponents(bodyContent);
+        try { makeImportedContentEditable(editorInstanceRef.current); } catch { }
         editorInstanceRef.current.setStyle(pageData.css);
         latestCssRef.current = pageData.css;
         latestHtmlRef.current = bodyContent;
@@ -5537,6 +5601,7 @@ const GrapesEditor: React.FC = () => {
         console.log('📝 Creando contenido por defecto para página nueva');
 
         editorInstanceRef.current.setComponents(pageData.content);
+        try { makeImportedContentEditable(editorInstanceRef.current); } catch { }
         if (pageData.css) {
           editorInstanceRef.current.setStyle(pageData.css);
           latestCssRef.current = pageData.css;

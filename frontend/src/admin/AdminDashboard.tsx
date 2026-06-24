@@ -183,7 +183,7 @@ export default function AdminDashboard() {
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-4">
               <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse" />
-              <h1 className="text-4xl font-bold">¡Bienvenido a asomielrodas!</h1>
+              <h1 className="text-4xl font-bold">¡Bienvenido a Acueducto El Socorro!</h1>
             </div>
             <p className="text-white/90 text-lg font-medium mb-6">
               Gestión de páginas web profesional y moderna
