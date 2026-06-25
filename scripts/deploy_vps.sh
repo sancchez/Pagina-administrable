@@ -31,13 +31,16 @@ npx prisma generate
 
 # Base de datos: respetar la existente; si no hay, crear y sembrar contenido base
 if [ -f prisma/socorro.sqlite ]; then
-  echo "==> [backend] socorro.sqlite ya existe -> se respeta (no se re-siembra)"
+  echo "==> [backend] socorro.sqlite ya existe -> se respeta (no se toca)"
+elif [ -f prisma/socorro.seed.sqlite ]; then
+  # Base semilla ya sembrada (versionada en el repo): copia instantanea.
+  # Evita ejecutar ts-node en el servidor (que en VPS chicos se 'cuelga').
+  echo "==> [backend] copiando base semilla -> socorro.sqlite (instantaneo)"
+  cp prisma/socorro.seed.sqlite prisma/socorro.sqlite
 else
-  echo "==> [backend] creando socorro.sqlite (prisma db push)"
+  # Fallback: no hay semilla -> sembrar con prisma/ts-node
+  echo "==> [backend] sin semilla: creando y sembrando (prisma db push + seed)"
   DATABASE_URL="file:./socorro.sqlite" npx prisma db push --skip-generate
-  echo "==> [backend] sembrando contenido base (puede tardar ~1 min)..."
-  # --transpile-only: evita que ts-node type-checke todo el proyecto (eso lo
-  # hacia parecer 'colgado'). Solo transpila y ejecuta, mucho mas rapido.
   DATABASE_URL="file:./socorro.sqlite" npx ts-node --transpile-only prisma/seed.ts
 fi
 

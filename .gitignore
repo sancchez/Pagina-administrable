@@ -20,6 +20,8 @@ build/
 *.sqlite
 *.sqlite3
 backend/prisma/dev.db
+# Excepcion: base semilla versionada (contenido base para el deploy automatico)
+!backend/prisma/socorro.seed.sqlite
 
 # IDE
 .vscode/
