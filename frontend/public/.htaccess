@@ -1,0 +1,17 @@
+# SPA routing para Hostinger (Apache).
+# Redirige todas las rutas al index.html para que React Router funcione,
+# excepto /api (que en hosting estático no existe -> el frontend usa su
+# fallback estático de El Socorro).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # No reescribir llamadas a /api (deja que fallen -> activa el fallback)
+  RewriteCond %{REQUEST_URI} ^/api [OR]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Todo lo demás -> index.html (SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
