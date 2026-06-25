@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from './Layout';
+import { socorroFallback } from '../socorroFallback';
 
 // 🔧 Declaración de tipo para checkEditorContext en window
 declare global {
@@ -181,19 +182,15 @@ const PageRenderer: React.FC = () => {
         }
       } catch (err) {
         console.error('❌ [PageRenderer] Error al cargar página:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-        setDynamicPage(null);
-        // Intentar usar cache local si existe
-        if (!strictRender) {
-          try {
-            const raw = localStorage.getItem(`page_cache_${slug}`);
-            if (raw) {
-              const obj = JSON.parse(raw);
-              if (obj && typeof obj.html === 'string') {
-                setCachedDynamic({ html: obj.html, css: obj.css || '' });
-              }
-            }
-          } catch { }
+        // Backend caído: mostrar el fallback ESTÁTICO de El Socorro si existe
+        const fb = socorroFallback[(slug || 'home').toLowerCase()];
+        if (fb) {
+          console.log('🟡 [PageRenderer] Backend no disponible -> fallback estático de El Socorro');
+          setDynamicPage({ id: 0, title: slug, slug, publishedHtml: fb.html, publishedCss: fb.css });
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : 'Error desconocido');
+          setDynamicPage(null);
         }
       } finally {
         setIsLoading(false);
@@ -239,6 +236,8 @@ const PageRenderer: React.FC = () => {
           setHeaderHtml(hHtml);
           // Aislar CSS del header para que solo afecte #site-header
           setHeaderCss(scopeCssToContent(hCss, '#site-header'));
+        } else if (socorroFallback._header) {
+          setHeaderHtml(socorroFallback._header.html);
         }
         if (fRes.ok) {
           const fJson = await fRes.json();
@@ -252,9 +251,14 @@ const PageRenderer: React.FC = () => {
           setFooterHtml(fHtml);
           // Aislar CSS del footer para que solo afecte #site-footer
           setFooterCss(scopeCssToContent(fCss, '#site-footer'));
+        } else if (socorroFallback._footer) {
+          setFooterHtml(socorroFallback._footer.html);
         }
       } catch (e) {
         console.error('❌ [PageRenderer] Error al cargar header/footer:', e);
+        // Backend caído: header/footer estáticos de El Socorro
+        if (socorroFallback._header) setHeaderHtml(socorroFallback._header.html);
+        if (socorroFallback._footer) setFooterHtml(socorroFallback._footer.html);
       }
     };
     loadHeaderFooter();
