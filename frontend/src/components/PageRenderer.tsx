@@ -9,34 +9,12 @@ declare global {
   }
 }
 
-// Importar todas las páginas estáticas
-import HomePage from '../pages/HomePage';
-import Contacto from '../pages/Contacto';
-import QuienesSomos from '../pages/QuienesSomos';
-import InformacionESAL from '../pages/InformacionESAL';
-import Normatividad from '../pages/Normatividad';
-import OperacionGestion from '../pages/OperacionGestion';
-import PortalUsuario from '../pages/PortalUsuario';
-import InvoicePage from '../pages/InvoicePage';
-import InvoiceQuery from '../pages/InvoiceQuery';
-
-// Mapeo de slugs a componentes estáticos (fallback)
-const pageComponents: Record<string, React.ComponentType> = {
-  'home': HomePage,
-  'contacto': Contacto,
-  'quienes-somos': QuienesSomos,
-  'informacion-esal': InformacionESAL,
-  'normatividad': Normatividad,
-  'operacion-gestion': OperacionGestion,
-  'portal-usuario': PortalUsuario,
-  'invoice': InvoicePage,
-  'invoice-query': InvoiceQuery,
-  // Alias adicionales
-  'inicio': HomePage,
-  'nosotros': QuienesSomos,
-  'contactanos': Contacto,
-  'portal': PortalUsuario,
-};
+// Sitio 100% dinámico: TODO el contenido viene de la base de datos.
+// Se eliminó el fallback a páginas estáticas de React porque eran contenido
+// HARDCODEADO del cliente anterior y se mostraban cuando el backend no
+// respondía, exponiendo la web de otro cliente. Sin backend ahora se muestra
+// un estado de error limpio, nunca contenido ajeno.
+const pageComponents: Record<string, React.ComponentType> = {};
 
 interface DynamicPageData {
   id: number;
@@ -415,10 +393,6 @@ const PageRenderer: React.FC = () => {
         <p className="text-gray-600 mb-6">
           La página "{slug}" no existe o no está disponible.
         </p>
-        <div className="text-sm text-gray-500 bg-gray-100 p-3 rounded">
-          <strong>Páginas estáticas disponibles:</strong><br />
-          {Object.keys(pageComponents).join(', ')}
-        </div>
         <a
           href="/"
           className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

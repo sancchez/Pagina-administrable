@@ -74,18 +74,33 @@ npm install --no-audit --no-fund
 echo "==> [frontend] build (vite)"
 npm run build
 
-# ---------- PM2 ----------
+# ---------- ARRANQUE ----------
 cd "$ROOT/backend"
-echo "==> [pm2] (re)arrancando proceso 'socorro'"
-pm2 delete socorro >/dev/null 2>&1 || true
-pm2 start dist/index.js --name socorro --update-env
-pm2 save
-
-echo ""
-echo "==================================================================="
-echo " LISTO. Backend 'socorro' corriendo en el puerto ${PORT}."
-echo " Prueba dentro del VPS:   curl http://localhost:${PORT}/health"
-echo " Prueba desde el navegador: http://IP_DEL_VPS:${PORT}/"
-echo " Admin:                     http://IP_DEL_VPS:${PORT}/admin"
-echo "        (login: admin@elsocorro.com / socorro2026)"
-echo "==================================================================="
+if command -v pm2 >/dev/null 2>&1; then
+  # VPS: arrancar con PM2
+  echo "==> [pm2] (re)arrancando proceso 'socorro'"
+  pm2 delete socorro >/dev/null 2>&1 || true
+  pm2 start dist/index.js --name socorro --update-env
+  pm2 save
+  echo ""
+  echo "==================================================================="
+  echo " LISTO (PM2). Backend 'socorro' corriendo en el puerto ${PORT}."
+  echo " Dentro del servidor:   curl http://localhost:${PORT}/health"
+  echo " Navegador:             http://IP_DEL_SERVIDOR:${PORT}/  y  /admin"
+  echo " Login admin:           admin@elsocorro.com / socorro2026"
+  echo "==================================================================="
+else
+  # Hostinger u hosting con panel: no hay PM2, se arranca desde el hPanel
+  echo ""
+  echo "==================================================================="
+  echo " INSTALACION Y BUILD COMPLETOS."
+  echo " No hay PM2 -> arranca la app desde el PANEL Node.js del hosting:"
+  echo "   Application root : $ROOT/backend"
+  echo "   Startup file     : dist/index.js"
+  echo "   Node version     : 18 o 20"
+  echo "   Variables entorno: copia las de  backend/.env  (NODE_ENV, DATABASE_URL,"
+  echo "                      los 3 JWT, etc.)"
+  echo " Luego pulsa Start/Restart en el panel."
+  echo " Login admin: admin@elsocorro.com / socorro2026"
+  echo "==================================================================="
+fi
