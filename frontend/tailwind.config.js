@@ -1,6 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  // Safelist: las páginas dinámicas (seed/editor) viven en la base de datos, NO
+  // en el código fuente, por lo que Tailwind no las escanea y purgaría sus
+  // clases de color en la web pública. Este safelist garantiza que las clases
+  // de color de la paleta segura SIEMPRE se generen, para que el contenido
+  // dinámico se vea igual en el editor y en público.
+  safelist: [
+    {
+      pattern: /^(bg|text|border|from|via|to|ring|divide|placeholder)-(slate|gray|zinc|neutral|stone|blue|sky|cyan|indigo|teal|green|emerald|lime|red|rose|orange|amber|yellow|purple)-(50|100|200|300|400|500|600|700|800|900)$/,
+      variants: ['hover', 'focus', 'sm', 'md', 'lg'],
+    },
+    {
+      pattern: /^(bg|text|border)-(white|black|transparent)$/,
+      variants: ['hover', 'focus'],
+    },
+    {
+      pattern: /^(bg|text|border|from|via|to)-(primary|secondary|accent)-(50|100|200|300|400|500|600|700|800|900)$/,
+      variants: ['hover', 'focus'],
+    },
+  ],
   theme: {
     extend: {
       colors: {

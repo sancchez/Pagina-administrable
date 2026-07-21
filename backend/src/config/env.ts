@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import Joi from 'joi';
 
-dotenv.config();
+// override: true → el .env del proyecto tiene prioridad sobre variables de
+// entorno del sistema. Evita que un DATABASE_URL global de otro proyecto
+// (p.ej. postgres) pise la config de este proyecto.
+dotenv.config({ override: true });
 
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
