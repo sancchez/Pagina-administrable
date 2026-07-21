@@ -128,8 +128,11 @@ const PageRenderer: React.FC = () => {
   const [footerCss, setFooterCss] = useState<string>('');
   // Cache local de la última versión dinámica válida por slug
   const [cachedDynamic, setCachedDynamic] = useState<{ html: string; css: string } | null>(null);
-  // Modo estricto: nunca usar cache local como contenido de la página
-  const strictRender = (import.meta as any)?.env?.VITE_STRICT_RENDER === 'false' ? false : true;
+  // Si el backend falla, se usa por defecto la última versión dinámica cacheada
+  // (viene de la BD, es el diseño real del editor) en vez de saltar directo a
+  // las páginas estáticas antiguas. Se puede forzar el modo estricto (nunca usar
+  // cache) con VITE_STRICT_RENDER=true si algún día se necesita.
+  const strictRender = (import.meta as any)?.env?.VITE_STRICT_RENDER === 'true' ? true : false;
 
 
   // Priorizar contenido dinámico desde BD; usar estático solo como fallback
@@ -294,8 +297,8 @@ const PageRenderer: React.FC = () => {
     );
   }
 
-  // Si hay error y no hay página estática, mostrar error
-  if (error && !pageComponents[slug.toLowerCase()]) {
+  // Si hay error y no hay ni cache dinámico ni página estática de respaldo, mostrar error
+  if (error && !(!strictRender && cachedDynamic) && !pageComponents[slug.toLowerCase()]) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">

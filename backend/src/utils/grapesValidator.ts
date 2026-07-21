@@ -45,7 +45,12 @@ export class GrapesValidator {
     'img', 'a', 'button', 'input', 'textarea', 'select', 'option',
     'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody',
     'section', 'article', 'header', 'footer', 'nav', 'main', 'aside',
-    'form', 'label', 'br', 'hr', 'strong', 'em', 'small', 'code', 'pre'
+    'form', 'label', 'br', 'hr', 'strong', 'em', 'small', 'code', 'pre',
+    // Íconos/logos SVG: sin estos tags, cualquier <svg> se reescribía a
+    // <div> al guardar (gjsComponents), borrando el ícono en silencio.
+    'svg', 'path', 'circle', 'ellipse', 'g', 'rect', 'line',
+    'polygon', 'polyline', 'defs', 'use', 'linearGradient',
+    'radialGradient', 'stop', 'clipPath', 'mask', 'title'
   ];
 
   /**
