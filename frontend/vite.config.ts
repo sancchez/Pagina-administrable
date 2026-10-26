@@ -39,6 +39,11 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
+        // El worker de PDF.js (pdf.worker.min.mjs) se emite como .js: algunos
+        // nginx/Apache no conocen .mjs y lo sirven con un MIME que el navegador
+        // rechaza para módulos, y el visor de PDF dejaría de funcionar.
+        assetFileNames: (asset) =>
+          asset.name?.endsWith('.mjs') ? 'assets/[name]-[hash].js' : 'assets/[name]-[hash][extname]',
         manualChunks: {
           'grapesjs-vendor': ['grapesjs', 'grapesjs-preset-webpage'],
         },

@@ -8,6 +8,7 @@ import basicBlocks from 'grapesjs-blocks-basic';
 import pluginForms from 'grapesjs-plugin-forms';
 import { normalizeError, ErrorInfo } from '../utils/errorHandler';
 import HttpClient from '../utils/http';
+import { ensurePdfViewerStyles, mountPdfCard, normalizeCssSize, pdfDisplayName, resolvePdfUrl, escapeHtml as escapeAttr } from '../utils/pdfViewer';
 
 // Tipado básico para respuestas del API
 interface ApiResponse<T> {
@@ -2062,6 +2063,14 @@ const GrapesEditor: React.FC = () => {
           console.log('✅ Tipo SVG registrado como estilable para alineación');
 
           // =================== PDF VIEWER ===================
+          const pdfResizable = {
+            tl: false, tc: false, tr: false,
+            ml: true, mr: true,
+            bl: false, bc: false, br: false,
+            minWidth: 120,
+            currentUnit: 0,
+            unitWidth: 'px',
+          };
           dc.addType('pdf-viewer', {
             isComponent: (el: any) => {
               if (el && el.getAttribute && el.getAttribute('data-gjs-type') === 'pdf-viewer') return { type: 'pdf-viewer' };
@@ -2071,16 +2080,10 @@ const GrapesEditor: React.FC = () => {
             model: {
               defaults: {
                 tagName: 'div',
-                resizable: {
-                  tl: true, tc: true, tr: true,
-                  ml: true, mr: true,
-                  bl: true, bc: true, br: true,
-                  minWidth: 10,
-                  minHeight: 10,
-                  currentUnit: 1,
-                  unitWidth: 'px',
-                  unitHeight: 'px',
-                },
+                // Solo ancho: el alto lo da la proporción del documento. Antes el
+                // alto fijo y los anchos en % calculados por el resizer (p. ej.
+                // 234%) desbordaban la tarjeta en el sitio público.
+                resizable: { ...pdfResizable },
                 draggable: true,
                 selectable: true,
                 hoverable: true,
@@ -2089,14 +2092,12 @@ const GrapesEditor: React.FC = () => {
                   'data-gjs-type': 'pdf-viewer',
                   'class': 'pdf-viewer-component',
                   'data-src': '',
-                  'data-zoom': 'FitH',
+                  'data-title': '',
                 },
                 style: {
-                  'min-height': '10px',
                   'width': '100%',
-                  'height': '600px',
+                  'max-width': '100%',
                   'position': 'relative',
-                  'overflow': 'hidden',
                   'margin': '0',
                   'padding': '0',
                 },
@@ -2115,74 +2116,56 @@ const GrapesEditor: React.FC = () => {
                     placeholder: 'https://ejemplo.com/archivo.pdf',
                   },
                   {
-                    type: 'select',
-                    label: 'Vista/Zoom',
-                    name: 'data-zoom',
-                    options: [
-                      { value: 'FitH', name: 'Ajustar al ancho' },
-                      { value: 'FitV', name: 'Ajustar al alto' },
-                      { value: '100', name: '100%' },
-                      { value: '150', name: '150%' },
-                      { value: '200', name: '200%' },
-                    ]
+                    type: 'text',
+                    label: 'Título (opcional)',
+                    name: 'data-title',
+                    placeholder: 'Por defecto, el nombre del archivo',
                   },
                   {
                     type: 'text',
                     label: 'Ancho',
                     name: 'width',
-                    placeholder: '100% o 600px',
-                    changeProp: true,
-                  },
-                  {
-                    type: 'text',
-                    label: 'Alto',
-                    name: 'height',
-                    placeholder: '600px',
+                    placeholder: '100% o 300px',
                     changeProp: true,
                   }
                 ],
               },
               init() {
+                // Los visores guardados antes traen el resizable viejo (8 direcciones);
+                // se reemplaza por el de solo ancho definido en defaults.
+                this.set('resizable', { ...pdfResizable }, { silent: true });
                 this.on('change:data-src', () => {
                   this.addAttributes({ 'data-src': this.get('data-src') });
                 });
-                this.on('change:data-zoom', () => {
-                  this.addAttributes({ 'data-zoom': this.get('data-zoom') });
-                });
                 this.on('change:width', () => {
-                  this.addStyle({ width: this.get('width') });
-                });
-                this.on('change:height', () => {
-                  this.addStyle({ height: this.get('height') });
+                  this.addStyle({ width: normalizeCssSize(this.get('width')) });
                 });
                 // Sincronizar cambios del redimensionador (canvas) con los Traits
                 this.on('change:style', () => {
                   const style = this.getStyle();
                   if (style.width) this.set('width', style.width, { silent: true });
-                  if (style.height) this.set('height', style.height, { silent: true });
                 });
               },
 
-              // OVERRIDE: Garantizar que el HTML exportado incluya el iframe
-              // Esto soluciona la visibilidad en el público sin depender de scripts
+              // El HTML publicado lleva un enlace de respaldo; PageRenderer lo
+              // reemplaza por la tarjeta con miniatura (utils/pdfViewer.ts).
+              // Alto/zoom de versiones anteriores no se exportan: el alto sale
+              // de la proporción del documento.
               toHTML() {
                 const attrs = { ...this.getAttributes() };
-                const src = attrs['data-src'] || this.get('data-src');
-                const zoom = attrs['data-zoom'] || 'FitH';
-                const style = this.getStyle();
-
-                // Construir string de estilos para el div
+                const src = String(attrs['data-src'] || this.get('data-src') || '');
+                const title = String(attrs['data-title'] || '');
+                const style: Record<string, string> = { ...this.getStyle() };
+                delete style.height;
+                delete style['min-height'];
+                delete style.overflow;
                 const styleStr = Object.keys(style).map(k => `${k}:${style[k]}`).join(';');
 
-                let content = '';
-                if (src) {
-                  // Codificar URL para manejar espacios y caracteres especiales como 'N°'
-                  const encodedSrc = src.split('/').map(part => encodeURIComponent(part)).join('/').replace(/%3A/g, ':');
-                  const pdfUrl = encodedSrc.indexOf('#') !== -1 ? encodedSrc : encodedSrc + '#view=' + zoom + '&toolbar=1';
-                  content = `<iframe src="${pdfUrl}" frameborder="0" style="width:100% !important; height:100% !important; border:none !important; display:block !important; pointer-events:auto !important;"></iframe>`;
-                }
+                const content = src
+                  ? `<a href="${escapeAttr(resolvePdfUrl(src).replace(window.location.origin, ''))}" target="_blank" rel="noopener">📄 ${escapeAttr(pdfDisplayName(src, title))}</a>`
+                  : '';
 
-                return `<div data-gjs-type="pdf-viewer" class="pdf-viewer-component" data-src="${src}" data-zoom="${zoom}" style="${styleStr}">${content}</div>`;
+                return `<div data-gjs-type="pdf-viewer" class="pdf-viewer-component" data-src="${escapeAttr(src)}" data-title="${escapeAttr(title)}" style="${styleStr}">${content}</div>`;
               }
             },
             view: {
@@ -2194,7 +2177,7 @@ const GrapesEditor: React.FC = () => {
               init() {
                 // 🎯 ESCUCHAR CAMBIOS PARA REDIBUJAR
                 this.listenTo(this.model, 'change:attributes:data-src', this.render);
-                this.listenTo(this.model, 'change:attributes:data-zoom', this.render);
+                this.listenTo(this.model, 'change:attributes:data-title', this.render);
                 this.listenTo(this.model, 'change:data-src', this.render);
               },
 
@@ -2228,7 +2211,6 @@ const GrapesEditor: React.FC = () => {
                 const el = this.el;
                 const attrs = this.model.getAttributes();
                 const src = attrs['data-src'] || this.model.get('data-src');
-                const zoom = attrs['data-zoom'] || 'FitH';
 
                 el.innerHTML = '';
                 el.style.backgroundColor = src ? 'transparent' : '#f3f4f6';
@@ -2238,17 +2220,15 @@ const GrapesEditor: React.FC = () => {
                 el.style.pointerEvents = 'auto'; // Asegurar que el contenedor reciba clics
 
                 if (src) {
-                  const iframe = document.createElement('iframe');
-                  // Agregar parámetros de zoom/vista si no están presentes
-                  const pdfUrl = src.includes('#') ? src : `${src}#view=${zoom}&toolbar=1`;
-
-                  iframe.src = pdfUrl;
-                  iframe.style.width = '100%';
-                  iframe.style.height = '100%';
-                  iframe.style.border = 'none';
-                  iframe.style.display = 'block';
-                  iframe.style.pointerEvents = 'none'; // Evita capturar clics para permitir selección en el editor
-                  el.appendChild(iframe);
+                  // Misma tarjeta que en el sitio público, sin interacción en el canvas
+                  el.style.border = '';
+                  el.style.removeProperty('min-height');
+                  // El view se crea fuera del iframe y luego se mueve al canvas:
+                  // los estilos van al documento del canvas, no a el.ownerDocument.
+                  ensurePdfViewerStyles(gEditor.Canvas.getDocument() || el.ownerDocument);
+                  const cardHost = el.ownerDocument.createElement('div');
+                  el.appendChild(cardHost);
+                  mountPdfCard(cardHost, src, attrs['data-title'] || '', { interactive: false });
 
                   const shield = document.createElement('div');
                   shield.style.position = 'absolute';
@@ -2261,6 +2241,8 @@ const GrapesEditor: React.FC = () => {
                   el.appendChild(shield);
                 } else {
                   el.style.border = '2px dashed #9ca3af';
+                  // El mensaje va en absoluto: sin alto mínimo el bloque vacío mediría 0
+                  el.style.setProperty('min-height', '160px', 'important');
                   const msg = document.createElement('div');
                   msg.style.position = 'absolute';
                   msg.style.top = '50%';

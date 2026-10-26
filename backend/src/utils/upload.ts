@@ -46,8 +46,20 @@ export const ensureDirectoryExists = async (dirPath: string): Promise<void> => {
 
 // Generar nombre único para archivo
 export const generateUniqueFileName = (originalName: string): string => {
-  const ext = path.extname(originalName);
-  const name = path.basename(originalName, ext);
+  // multer entrega originalname en latin1: "N°" llegaba como "NÂ°" y así quedaba
+  // en disco y en la URL. Se recupera el UTF-8 y se deja un nombre seguro para URL
+  // (sin tildes, espacios ni símbolos): "PERIODICO N° 15.pdf" -> "PERIODICO_No_15.pdf".
+  const decoded = Buffer.from(originalName, 'latin1').toString('utf8');
+  const fixedName = decoded.includes('�') ? originalName : decoded;
+  const rawExt = path.extname(fixedName);
+  const ext = rawExt.toLowerCase().replace(/[^a-z0-9.]/g, '');
+  const name = path.basename(fixedName, rawExt)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[°º]/g, 'o')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[_.-]+|[_.-]+$/g, '')
+    .slice(0, 80) || 'archivo';
   const timestamp = Date.now();
   const uuid = uuidv4().substring(0, 8);
 

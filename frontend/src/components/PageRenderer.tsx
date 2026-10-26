@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from './Layout';
+import { hydratePdfViewers } from '../utils/pdfViewer';
 
 // 🔧 Declaración de tipo para checkEditorContext en window
 declare global {
@@ -370,6 +371,9 @@ const PageRenderer: React.FC = () => {
             });
 
             console.log('🎯 Scripts ejecutados en página publicada:', scripts.length);
+
+            // 📄 Visores de PDF: miniatura + "Ver" (pantalla completa) + "Descargar"
+            hydratePdfViewers(contentRef.current);
 
             // ✅ Los scripts de action-button manejan la navegación, no forzar nada aquí
           }
