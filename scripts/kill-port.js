@@ -4,41 +4,55 @@ const port = process.argv[2] || 4000;
 
 console.log(`🔍 Buscando proceso en el puerto ${port}...`);
 
-try {
-    let command = '';
-    if (process.platform === 'win32') {
-        command = `netstat -ano | findstr :${port}`;
-    } else {
-        command = `lsof -i tcp:${port} | grep LISTEN`;
+// Solo procesos ESCUCHANDO en ese puerto local. Antes se tomaba cualquier
+// línea de netstat que contuviera ":4000" (conexiones TIME_WAIT con PID 0,
+// clientes conectados al puerto, etc.). process.kill(0) en Node mata al propio
+// proceso, así que el script se suicidaba y `&& nodemon` nunca arrancaba.
+function findListeningPids() {
+    const pids = new Set();
+    let output = '';
+    try {
+        output = process.platform === 'win32'
+            ? execSync('netstat -ano -p tcp').toString()
+            : execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN -t`).toString();
+    } catch {
+        return pids; // lsof sale con código 1 si no hay nada
     }
 
-    const output = execSync(command).toString().trim();
-    const lines = output.split('\n');
-
-    lines.forEach(line => {
-        const parts = line.split(/\s+/);
-        const pid = process.platform === 'win32' ? parts[parts.length - 1] : parts[1];
-
-        if (pid && !isNaN(pid)) {
-            console.log(`🛑 Matando proceso PID ${pid} en puerto ${port}...`);
-            try {
-                process.kill(pid, 'SIGKILL');
-                console.log(`✅ Proceso ${pid} eliminado.`);
-            } catch (e) {
-                // En Windows, a veces process.kill falla si no es admin, intentamos con taskkill
-                if (process.platform === 'win32') {
-                    execSync(`taskkill /F /PID ${pid}`);
-                    console.log(`✅ Proceso ${pid} eliminado con taskkill.`);
-                } else {
-                    throw e;
-                }
-            }
+    for (const raw of output.split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line) continue;
+        if (process.platform === 'win32') {
+            const parts = line.split(/\s+/);
+            // Proto  Local  Remota  Estado  PID
+            if (parts.length < 5 || parts[3] !== 'LISTENING') continue;
+            if (!parts[1].endsWith(`:${port}`)) continue;
+            pids.add(Number(parts[4]));
+        } else {
+            pids.add(Number(line));
         }
-    });
-} catch (error) {
-    if (error.status === 1) {
-        console.log(`ℹ️ No se encontró ningún proceso escuchando en el puerto ${port}.`);
-    } else {
-        console.error(`❌ Error al intentar liberar el puerto ${port}:`, error.message);
+    }
+    pids.delete(0);
+    pids.delete(process.pid);
+    for (const pid of pids) if (!Number.isInteger(pid) || pid <= 0) pids.delete(pid);
+    return pids;
+}
+
+const pids = findListeningPids();
+if (pids.size === 0) {
+    console.log(`ℹ️ No se encontró ningún proceso escuchando en el puerto ${port}.`);
+}
+
+for (const pid of pids) {
+    console.log(`🛑 Matando proceso PID ${pid} en puerto ${port}...`);
+    try {
+        if (process.platform === 'win32') {
+            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+        } else {
+            process.kill(pid, 'SIGKILL');
+        }
+        console.log(`✅ Proceso ${pid} eliminado.`);
+    } catch (e) {
+        console.error(`❌ No se pudo terminar el proceso ${pid}:`, e.message);
     }
 }

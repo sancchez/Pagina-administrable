@@ -27,6 +27,7 @@
     "db:reset": "prisma migrate reset --force",
     "seed:footer": "ts-node src/scripts/seedFooter.ts",
     "setup:admin": "ts-node src/scripts/setupAdmin.ts",
+    "create:demo-admin": "ts-node src/scripts/createDemoAdmin.ts",
     "postinstall": "prisma generate"
   },
   "keywords": [
