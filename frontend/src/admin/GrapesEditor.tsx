@@ -632,7 +632,11 @@ const GrapesEditor: React.FC = () => {
         // Configuración para coherencia con Tailwind y evitar estilos inline
         avoidInlineStyle: true,
         protectedCss: '',
-        storageManager: { type: 'local' },
+        // autoload:false — con autoload el editor arrancaba con el último proyecto
+        // guardado en localStorage (otra página) y, si la página abierta no tenía
+        // datos de GrapesJS, se quedaba mostrando y guardando ese contenido ajeno.
+        // El contenido siempre viene de la API (loadContentIntoEditor).
+        storageManager: { type: 'local', autoload: false },
         assetManager: {
           upload: '/api/upload/image',
           uploadName: 'files',
@@ -5596,8 +5600,10 @@ const GrapesEditor: React.FC = () => {
         }
       }
 
-      // PRIORIDAD 4: Si es una página nueva (sin ID), crear contenido por defecto
-      if (!pageData.id && pageData.content) {
+      // PRIORIDAD 4: Solo `content` (página nueva o legado sin datos de GrapesJS).
+      // Antes exigía !pageData.id, y las páginas guardadas con solo `content`
+      // no cargaban nada.
+      if (pageData.content) {
         console.log('📝 Creando contenido por defecto para página nueva');
 
         editorInstanceRef.current.setComponents(pageData.content);
@@ -5614,7 +5620,14 @@ const GrapesEditor: React.FC = () => {
         return;
       }
 
-      console.warn('⚠️ No se encontró contenido válido para cargar');
+      console.warn('⚠️ No se encontró contenido válido para cargar; se deja el lienzo vacío');
+      // Nunca dejar en el lienzo el contenido de la página anterior: al guardar
+      // se escribiría en esta página.
+      editorInstanceRef.current.setComponents('');
+      editorInstanceRef.current.setStyle('');
+      latestHtmlRef.current = '';
+      latestCssRef.current = '';
+      setContentLoaded(true);
 
     } catch (error) {
       console.error('❌ Error al cargar contenido:', error);
